@@ -1,0 +1,41 @@
+# SERS/.gitignore
+
+# --- ملفات عامة للنظام (Windows/Mac) ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- ملفات برامج الكود (VS Code / JetBrains) ---
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# --- ملفات الاعتماديات (خط أحمر لا ترفع) ---
+node_modules/
+vendor/
+
+# --- ملفات الإعدادات السرية (أهم شيء) ---
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env.local
+
+# --- ملفات Firebase السرية ---
+**/firebase-service-account.json
+**/service-account.json
+storage/app/firebase/
+
+# --- ملفات البناء (Builds) ---
+.next/
+build/
+dist/
+public/build
+public/hot
+
+# --- سجلات الأخطاء ---
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
