@@ -34,5 +34,23 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    
+    'firebase' => [
+        'credentials' => env('FIREBASE_CREDENTIALS'), // مسار ملف المفاتيح
+        'project_id' => env('FIREBASE_PROJECT_ID'),   // معرف المشروع
+    ],
+
+    // Stripe Payment Gateway
+    'stripe' => [
+        'key' => env('STRIPE_KEY'),
+        'secret' => env('STRIPE_SECRET'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+    ],
+
+    // OpenAI for AI Suggestions
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'model' => env('OPENAI_MODEL', 'gpt-3.5-turbo'),
+    ],
 
 ];
