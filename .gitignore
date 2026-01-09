@@ -7,7 +7,6 @@ desktop.ini
 
 # --- ملفات برامج الكود (VS Code / JetBrains) ---
 .idea/
-.vscode/
 *.swp
 *.swo
 
