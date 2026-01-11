@@ -19,8 +19,12 @@ return [
 
     'allowed_methods' => ['*'],
 
-    // هذا هو السطر الأهم: السماح للفرونت-إند بالدخول
-    'allowed_origins' => ['http://localhost:3000'],
+    // Allow Frontend URL (from .env) and localhost variants
+    'allowed_origins' => [
+        env('FRONTEND_URL', 'http://localhost:3000'),
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+    ],
 
     'allowed_origins_patterns' => [],
 
@@ -30,7 +34,7 @@ return [
 
     'max_age' => 0,
 
-    // ضروري جداً لتسجيل الدخول وحفظ الكوكيز
+    // Required for authentication cookies
     'supports_credentials' => true,
 
 ];

@@ -36,43 +36,59 @@ class AuthController extends Controller
      */
     public function register(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8|confirmed',
-            'phone' => 'nullable|string|max:20',
-        ], [
-            'name.required' => 'الاسم مطلوب',
-            'email.required' => 'البريد الإلكتروني مطلوب',
-            'email.email' => 'البريد الإلكتروني غير صالح',
-            'email.unique' => 'البريد الإلكتروني مسجل مسبقاً',
-            'password.required' => 'كلمة المرور مطلوبة',
-            'password.min' => 'كلمة المرور يجب أن تكون 8 أحرف على الأقل',
-            'password.confirmed' => 'تأكيد كلمة المرور غير متطابق',
-        ]);
+        Log::info('Register request received', ['email' => $request->email]);
 
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'phone' => $validated['phone'] ?? null,
-            'role' => 'user',
-            'is_active' => true,
-            'wallet_balance' => 0,
-        ]);
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|string|email|max:255|unique:users',
+                'password' => 'required|string|min:8|confirmed',
+                'phone' => 'nullable|string|max:20',
+            ], [
+                'name.required' => 'الاسم مطلوب',
+                'email.required' => 'البريد الإلكتروني مطلوب',
+                'email.email' => 'البريد الإلكتروني غير صالح',
+                'email.unique' => 'البريد الإلكتروني مسجل مسبقاً',
+                'password.required' => 'كلمة المرور مطلوبة',
+                'password.min' => 'كلمة المرور يجب أن تكون 8 أحرف على الأقل',
+                'password.confirmed' => 'تأكيد كلمة المرور غير متطابق',
+            ]);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'password' => Hash::make($validated['password']),
+                'phone' => $validated['phone'] ?? null,
+                'role' => 'user',
+                'is_active' => true,
+                'wallet_balance' => 0,
+            ]);
 
-        Log::info("User registered", ['user_id' => $user->id, 'email' => $user->email]);
+            $token = $user->createToken('auth_token')->plainTextToken;
 
-        return response()->json([
-            'success' => true,
-            'message' => 'تم إنشاء الحساب بنجاح',
-            'data' => [
-                'user' => $user,
-                'token' => $token,
-            ],
-        ], 201);
+            Log::info("User registered", ['user_id' => $user->id, 'email' => $user->email]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'تم إنشاء الحساب بنجاح',
+                'data' => [
+                    'user' => $user,
+                    'token' => $token,
+                ],
+            ], 201);
+        } catch (\Illuminate\Database\QueryException $e) {
+            Log::error("Database Error: " . $e->getMessage());
+            return response()->json([
+                'message' => 'Database Error',
+                'error_details' => $e->getMessage(),
+            ], 500);
+        } catch (\Exception $e) {
+            Log::error("Registration Error: " . $e->getMessage());
+            return response()->json([
+                'message' => 'General Error',
+                'error_details' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
@@ -85,41 +101,56 @@ class AuthController extends Controller
      */
     public function login(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'email' => 'required|string|email',
-            'password' => 'required|string',
-        ], [
-            'email.required' => 'البريد الإلكتروني مطلوب',
-            'email.email' => 'البريد الإلكتروني غير صالح',
-            'password.required' => 'كلمة المرور مطلوبة',
-        ]);
+        Log::info('Login request received', ['email' => $request->email]);
 
-        $user = User::where('email', $validated['email'])->first();
-
-        if (!$user || !Hash::check($validated['password'], $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['بيانات الدخول غير صحيحة'],
+        try {
+            $validated = $request->validate([
+                'email' => 'required|string|email',
+                'password' => 'required|string',
+            ], [
+                'email.required' => 'البريد الإلكتروني مطلوب',
+                'email.email' => 'البريد الإلكتروني غير صالح',
+                'password.required' => 'كلمة المرور مطلوبة',
             ]);
-        }
 
-        if (!$user->is_active) {
-            throw ValidationException::withMessages([
-                'email' => ['هذا الحساب معطّل، يرجى التواصل مع الدعم'],
+            $user = User::where('email', $validated['email'])->first();
+
+            if (!$user || !Hash::check($validated['password'], $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'بيانات الدخول غير صحيحة',
+                    'error' => 'invalid_credentials',
+                ], 401);
+            }
+
+            if (!$user->is_active) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'هذا الحساب معطّل، يرجى التواصل مع الدعم',
+                    'error' => 'account_disabled',
+                ], 403);
+            }
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            Log::info("User logged in", ['user_id' => $user->id]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'تم تسجيل الدخول بنجاح',
+                'data' => [
+                    'user' => $user,
+                    'token' => $token,
+                ],
             ]);
+        } catch (\Throwable $e) {
+            Log::error("Login Error: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء تسجيل الدخول',
+                'error' => $e->getMessage(),
+            ], 500);
         }
-
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        Log::info("User logged in", ['user_id' => $user->id]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'تم تسجيل الدخول بنجاح',
-            'data' => [
-                'user' => $user,
-                'token' => $token,
-            ],
-        ]);
     }
 
     /**
@@ -135,6 +166,8 @@ class AuthController extends Controller
      */
     public function socialLogin(Request $request): JsonResponse
     {
+        Log::info('Social login request received');
+
         $validated = $request->validate([
             'firebase_token' => 'required|string',
         ], [
@@ -142,22 +175,23 @@ class AuthController extends Controller
         ]);
 
         try {
-            // Initialize Firebase Auth
-            $credentialsPath = storage_path('app/firebase/service-account.json');
-            
-            if (!file_exists($credentialsPath)) {
-                Log::error("Firebase service account file not found", [
-                    'path' => $credentialsPath,
-                ]);
+            // DEBUGGING PATH
+            $path = storage_path('app/firebase/service-account.json');
+
+            if (!file_exists($path)) {
+                // Fallback: try looking in base path just in case
+                $path = base_path('storage/app/firebase/service-account.json');
+            }
+
+            if (!file_exists($path)) {
                 return response()->json([
-                    'success' => false,
-                    'message' => 'خطأ في إعداد Firebase',
-                    'error' => 'firebase_config_error',
+                    'message' => 'Critical Config Error: Firebase file not found.',
+                    'searched_at' => $path
                 ], 500);
             }
 
             $factory = (new Factory)
-                ->withServiceAccount($credentialsPath)
+                ->withServiceAccount($path)
                 ->withProjectId(config('services.firebase.project_id'));
 
             $auth = $factory->createAuth();
@@ -229,8 +263,8 @@ class AuthController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'حدث خطأ أثناء تسجيل الدخول',
-                'error' => 'login_error',
+                'message' => 'Social Login Error: ' . $e->getMessage(),
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -245,15 +279,23 @@ class AuthController extends Controller
      */
     public function logout(Request $request): JsonResponse
     {
-        // Revoke the current access token
-        $request->user()->currentAccessToken()->delete();
+        try {
+            // Revoke the current access token
+            $request->user()->currentAccessToken()->delete();
 
-        Log::info("User logged out", ['user_id' => $request->user()->id]);
+            Log::info("User logged out", ['user_id' => $request->user()->id]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'تم تسجيل الخروج بنجاح',
-        ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'تم تسجيل الخروج بنجاح',
+            ]);
+        } catch (\Throwable $e) {
+            Log::error("Logout Error: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء تسجيل الخروج',
+            ], 500);
+        }
     }
 
     /**
@@ -266,16 +308,31 @@ class AuthController extends Controller
      */
     public function me(Request $request): JsonResponse
     {
-        $user = $request->user();
-        
-        // Load user's order count and library count
-        $user->loadCount(['orders', 'library']);
+        try {
+            $user = $request->user();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'المستخدم غير موجود',
+                ], 401);
+            }
+            
+            // Load user's order count and library count
+            $user->loadCount(['orders', 'library']);
 
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'user' => $user,
-            ],
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'user' => $user,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error("Get user error: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ في جلب بيانات المستخدم',
+            ], 500);
+        }
     }
 }

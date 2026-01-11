@@ -1,7 +1,8 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+// src/lib/firebase.ts
+
+import { initializeApp, getApps } from 'firebase/app';
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getAuth, connectAuthEmulator } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -12,9 +13,16 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
+// تهيئة Firebase (مرة واحدة فقط)
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-export { app, auth, db, storage };
+export const db = getFirestore(app);
+export const auth = getAuth(app);
+
+// الاتصال بالمحاكيات في بيئة التطوير
+if (process.env.NODE_ENV === 'development') {
+  // connectFirestoreEmulator(db, 'localhost', 8081);
+  // connectAuthEmulator(auth, 'http://localhost:9099'   );
+}
+
+export default app;

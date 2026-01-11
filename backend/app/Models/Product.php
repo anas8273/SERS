@@ -97,6 +97,18 @@ class Product extends Model
     ];
 
     /**
+     * Default attribute values.
+     * Ensures new products are active and visible by default.
+     */
+    protected $attributes = [
+        'is_active' => true,
+        'is_featured' => false,
+        'downloads_count' => 0,
+        'average_rating' => 0,
+        'reviews_count' => 0,
+    ];
+
+    /**
      * The attributes that should be hidden from arrays.
      * Security: Never expose internal file paths.
      */

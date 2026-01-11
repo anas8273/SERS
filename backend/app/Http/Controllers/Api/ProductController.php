@@ -39,7 +39,25 @@ class ProductController extends Controller
             ->where('is_active', true)
             ->with('category');
 
-        // Filter by category
+        // Search by name/description
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name_ar', 'LIKE', "%{$search}%")
+                  ->orWhere('name_en', 'LIKE', "%{$search}%")
+                  ->orWhere('description_ar', 'LIKE', "%{$search}%");
+            });
+        }
+
+        // Filter by category (slug or ID)
+        if ($request->filled('category')) {
+            $category = $request->input('category');
+            $query->whereHas('category', function ($q) use ($category) {
+                $q->where('slug', $category)->orWhere('id', $category);
+            });
+        }
+
+        // Filter by category_id (direct)
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
         }
@@ -70,9 +88,16 @@ class ProductController extends Controller
 
         $products = $query->paginate($request->get('per_page', 12));
 
+        // Return items directly for easier frontend consumption
         return response()->json([
             'success' => true,
-            'data' => new ProductCollection($products),
+            'data' => $products->items(),
+            'meta' => [
+                'current_page' => $products->currentPage(),
+                'last_page' => $products->lastPage(),
+                'per_page' => $products->perPage(),
+                'total' => $products->total(),
+            ],
         ]);
     }
 
@@ -446,11 +471,52 @@ class ProductController extends Controller
             $query->where('is_active', $request->boolean('is_active'));
         }
 
+        // Search by name (for GlobalSearch)
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name_ar', 'like', "%{$search}%")
+                  ->orWhere('name_en', 'like', "%{$search}%");
+            });
+        }
+
         $products = $query->latest()->paginate($request->get('per_page', 20));
 
         return response()->json([
             'success' => true,
-            'data' => new ProductCollection($products),
+            'data' => $products->items(),
+            'meta' => [
+                'current_page' => $products->currentPage(),
+                'last_page' => $products->lastPage(),
+                'per_page' => $products->perPage(),
+                'total' => $products->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Get a single product for admin (by ID).
+     * 
+     * GET /api/admin/products/{id}
+     * 
+     * @param string $id Product UUID
+     * @return JsonResponse
+     */
+    public function adminShow(string $id): JsonResponse
+    {
+        $product = Product::withTrashed()->with('category')->find($id);
+
+        if (!$product) {
+            return response()->json([
+                'success' => false,
+                'message' => 'المنتج غير موجود',
+                'error' => 'not_found',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => new ProductResource($product),
         ]);
     }
 }

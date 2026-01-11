@@ -133,4 +133,56 @@ class OrderController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Simulate payment for an order (For testing/demo purposes).
+     * 
+     * POST /api/orders/{id}/pay
+     * 
+     * @param Request $request
+     * @param string $id
+     * @return JsonResponse
+     */
+    public function pay(Request $request, string $id): JsonResponse
+    {
+        $order = $request->user()->orders()->findOrFail($id);
+
+        if ($order->status === 'completed') {
+            return response()->json([
+                'success' => true,
+                'message' => 'الطلب مدفوع مسبقاً',
+                'data' => new OrderResource($order),
+            ]);
+        }
+
+        try {
+            // Simulate a payment ID
+            $paymentId = 'PAY-' . strtoupper(uniqid());
+            
+            $this->purchaseService->completePayment(
+                $order,
+                $paymentId,
+                'credit_card', // Default to credit card for demo
+                ['simulated' => true]
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'تم الدفع بنجاح',
+                'data' => new OrderResource($order->fresh('items.product')),
+            ]);
+
+        } catch (\Throwable $e) {
+            Log::error("Failed to pay order", [
+                'order_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'فشلت عملية الدفع',
+                'error' => 'payment_error',
+            ], 500);
+        }
+    }
 }

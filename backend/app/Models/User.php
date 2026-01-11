@@ -47,6 +47,8 @@ class User extends Authenticatable
         'firebase_uid',
         'wallet_balance',
         'is_active',
+        'avatar_url',
+        'email_verified_at',
     ];
 
     /**
@@ -115,6 +117,24 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Product::class, 'user_libraries')
                     ->withPivot('order_id', 'purchased_at')
+                    ->withTimestamps();
+    }
+
+    /**
+     * Get user's wishlist items.
+     * FK: wishlists.user_id -> users.id (CASCADE on delete)
+     */
+    public function wishlists()
+    {
+        return $this->hasMany(Wishlist::class);
+    }
+
+    /**
+     * Get wishlisted products.
+     */
+    public function wishlistedProducts()
+    {
+        return $this->belongsToMany(Product::class, 'wishlists')
                     ->withTimestamps();
     }
 

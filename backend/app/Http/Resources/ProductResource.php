@@ -36,8 +36,8 @@ class ProductResource extends JsonResource
             'tags' => $this->tags,
             'downloads_count' => $this->downloads_count,
             'average_rating' => (float) $this->average_rating,
-            'reviews_count' => $this->reviews_count,
-            'is_featured' => $this->is_featured,
+            'reviews_count' => (int) $this->reviews_count,
+            'is_featured' => (bool) $this->is_featured,
             'created_at' => $this->created_at->toISOString(),
         ];
     }

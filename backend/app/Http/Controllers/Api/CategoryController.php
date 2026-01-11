@@ -95,4 +95,122 @@ class CategoryController extends Controller
             ],
         ]);
     }
+
+    /**
+     * List all categories for admin (including inactive).
+     * 
+     * GET /api/admin/categories
+     * 
+     * @return JsonResponse
+     */
+    public function adminIndex(): JsonResponse
+    {
+        $categories = Category::query()
+            ->withCount('products')
+            ->sorted()
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $categories,
+        ]);
+    }
+
+    /**
+     * Create a new category.
+     * 
+     * POST /api/admin/categories
+     * 
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name_ar' => 'required|string|max:255',
+            'name_en' => 'required|string|max:255',
+            'slug' => 'nullable|string|max:255|unique:categories,slug',
+            'description_ar' => 'nullable|string',
+            'description_en' => 'nullable|string',
+            'icon' => 'nullable|string|max:100',
+            'parent_id' => 'nullable|uuid|exists:categories,id',
+            'sort_order' => 'nullable|integer|min:0',
+            'is_active' => 'boolean',
+        ]);
+
+        // Generate slug if not provided
+        if (empty($validated['slug'])) {
+            $validated['slug'] = \Str::slug($validated['name_en']);
+        }
+
+        $category = Category::create($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم إنشاء التصنيف بنجاح',
+            'data' => $category,
+        ], 201);
+    }
+
+    /**
+     * Update a category.
+     * 
+     * PUT /api/admin/categories/{id}
+     * 
+     * @param Request $request
+     * @param string $id
+     * @return JsonResponse
+     */
+    public function update(Request $request, string $id): JsonResponse
+    {
+        $category = Category::findOrFail($id);
+
+        $validated = $request->validate([
+            'name_ar' => 'sometimes|string|max:255',
+            'name_en' => 'sometimes|string|max:255',
+            'slug' => 'sometimes|string|max:255|unique:categories,slug,' . $id,
+            'description_ar' => 'nullable|string',
+            'description_en' => 'nullable|string',
+            'icon' => 'nullable|string|max:100',
+            'parent_id' => 'nullable|uuid|exists:categories,id',
+            'sort_order' => 'nullable|integer|min:0',
+            'is_active' => 'boolean',
+        ]);
+
+        $category->update($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم تحديث التصنيف بنجاح',
+            'data' => $category->fresh(),
+        ]);
+    }
+
+    /**
+     * Delete a category.
+     * 
+     * DELETE /api/admin/categories/{id}
+     * 
+     * @param string $id
+     * @return JsonResponse
+     */
+    public function destroy(string $id): JsonResponse
+    {
+        $category = Category::withCount('products')->findOrFail($id);
+
+        // Check if category has products
+        if ($category->products_count > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'لا يمكن حذف التصنيف لأنه يحتوي على منتجات. قم بنقل المنتجات أولاً.',
+            ], 422);
+        }
+
+        $category->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم حذف التصنيف بنجاح',
+        ]);
+    }
 }

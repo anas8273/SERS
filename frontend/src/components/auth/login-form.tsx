@@ -3,6 +3,8 @@
 import * as z from "zod";
 import { useForm } from "react-hook-form";
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LoginSchema } from "@/lib/schemas";
 import { Input } from "@/components/ui/input";
@@ -16,10 +18,13 @@ import {
 } from "@/components/ui/form";
 import { CardWrapper } from "@/components/auth/card-wrapper";
 import { Button } from "@/components/ui/button";
-import { login } from "@/actions/login";
+import { useAuthStore } from "@/stores/authStore";
 import { motion } from "framer-motion";
+import { toast } from "react-hot-toast";
 
 export const LoginForm = () => {
+  const router = useRouter();
+  const { login } = useAuthStore();
   const [error, setError] = useState<string | undefined>("");
   const [success, setSuccess] = useState<string | undefined>("");
   const [isPending, startTransition] = useTransition();
@@ -36,14 +41,24 @@ export const LoginForm = () => {
     setError("");
     setSuccess("");
 
-    startTransition(() => {
-      login(values).then((data) => {
-        if (data?.error) {
-          // Check if error is an object (for some NextAuth versions) or string
-          setError(typeof data.error === 'string' ? data.error : "Something went wrong!");
-        }
-        // Success handled by redirect in server action
-      });
+    startTransition(async () => {
+      try {
+        await login(values.email, values.password);
+        setSuccess("تم تسجيل الدخول بنجاح!");
+        toast.success("تم تسجيل الدخول بنجاح!");
+        // Redirect will happen, usually logic is in the page or strict redirect here
+        // For better UX we redirect here
+        router.push("/dashboard");
+      } catch (err: any) {
+        console.error("Login failed", err);
+        // Extract error message from API response
+        const errorMessage =
+          err?.message ||
+          err?.errors?.email?.[0] ||
+          (typeof err === "string" ? err : "بيانات الدخول غير صحيحة");
+        setError(errorMessage);
+        toast.error(errorMessage);
+      }
     });
   };
 
@@ -64,8 +79,8 @@ export const LoginForm = () => {
 
   return (
     <CardWrapper
-      headerLabel="Welcome back"
-      backButtonLabel="Don't have an account?"
+      headerLabel="تسجيل الدخول"
+      backButtonLabel="ليس لديك حساب؟ تسجيل جديد"
       backButtonHref="/register"
       showSocial
     >
@@ -83,17 +98,18 @@ export const LoginForm = () => {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>البريد الإلكتروني</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
                         disabled={isPending}
-                        placeholder="john.doe@example.com"
+                        placeholder="name@example.com"
                         type="email"
-                        className="bg-background/50 border-primary/20 focus:border-primary transition-all"
+                        className="bg-background/50 border-primary/20 focus:border-primary transition-all text-right"
+                        dir="ltr"
                       />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-right" />
                   </FormItem>
                 )}
               />
@@ -104,17 +120,21 @@ export const LoginForm = () => {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel>كلمة المرور</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
                         disabled={isPending}
                         placeholder="******"
                         type="password"
-                        className="bg-background/50 border-primary/20 focus:border-primary transition-all"
+                        className="bg-background/50 border-primary/20 focus:border-primary transition-all text-right"
+                        dir="ltr"
                       />
                     </FormControl>
-                    <FormMessage />
+                    <Button size="sm" variant="link" asChild className="px-0 font-normal">
+                      <Link href="/forgot-password">نسيت كلمة المرور؟</Link>
+                    </Button>
+                    <FormMessage className="text-right" />
                   </FormItem>
                 )}
               />
@@ -131,8 +151,19 @@ export const LoginForm = () => {
             </motion.div>
           )}
 
-          <Button disabled={isPending} type="submit" className="w-full h-11 text-base shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all">
-            {isPending ? "Logging in..." : "Login"}
+          {success && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              className="bg-emerald-500/15 p-3 rounded-md flex items-center gap-x-2 text-sm text-emerald-500"
+            >
+              ✅ {success}
+            </motion.div>
+          )}
+
+          <Button disabled={isPending} type="submit" className="w-full h-11 text-base shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all flex items-center justify-center gap-2">
+            {isPending && <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-current" />}
+            {isPending ? "جاري الدخول..." : "دخول"}
           </Button>
         </form>
       </Form>
