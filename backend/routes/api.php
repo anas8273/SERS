@@ -15,6 +15,15 @@ use App\Http\Controllers\Api\WishlistController;
 use App\Http\Controllers\Api\AIController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AdminOrderController;
+use App\Http\Controllers\Api\InteractiveTemplateController;
+use App\Http\Controllers\Api\UserTemplateDataController;
+use App\Http\Controllers\Api\ExportController;
+use App\Http\Controllers\Api\QRCodeController;
+use App\Http\Controllers\Api\CustomRequestController;
+use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\EvidenceController;
+use App\Http\Controllers\Api\ContentLibraryController;
+use App\Http\Controllers\Api\ResourceController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -383,4 +392,294 @@ Route::middleware('auth:sanctum')->prefix('downloads')->group(function () {
 // WEBHOOKS (بدون مصادقة - تستخدم توقيعات خاصة)
 // ===========================================================================
 Route::post('webhooks/stripe', [PaymentController::class, 'handleStripeWebhook']);
+
+// ===========================================================================
+// INTERACTIVE TEMPLATES ROUTES (القوالب التفاعلية)
+// ===========================================================================
+
+// ---------------------------
+// القوالب التفاعلية - عامة
+// ---------------------------
+Route::prefix('templates')->group(function () {
+    // قائمة القوالب
+    Route::get('/', [InteractiveTemplateController::class, 'index']);
+    
+    // القوالب الشائعة
+    Route::get('popular', [InteractiveTemplateController::class, 'popular']);
+    
+    // القوالب المجانية
+    Route::get('free', [InteractiveTemplateController::class, 'free']);
+    
+    // القوالب حسب التصنيف
+    Route::get('category/{categoryId}', [InteractiveTemplateController::class, 'byCategory']);
+    
+    // عرض قالب واحد
+    Route::get('{interactiveTemplate}', [InteractiveTemplateController::class, 'show']);
+});
+
+// ---------------------------
+// مكتبة الموارد - عامة
+// ---------------------------
+Route::prefix('resources')->group(function () {
+    // قائمة الموارد
+    Route::get('/', [ResourceController::class, 'index']);
+    
+    // الموارد الشائعة
+    Route::get('popular', [ResourceController::class, 'popular']);
+    
+    // الموارد حسب النوع
+    Route::get('type/{type}', [ResourceController::class, 'byType']);
+    
+    // عرض مورد واحد
+    Route::get('{resource}', [ResourceController::class, 'show']);
+    
+    // تحميل مورد
+    Route::get('{resource}/download', [ResourceController::class, 'download']);
+});
+
+// ---------------------------
+// الطلبات الخاصة - عامة (للعرض فقط)
+// ---------------------------
+Route::prefix('custom-requests')->group(function () {
+    // قائمة الطلبات الخاصة
+    Route::get('/', [CustomRequestController::class, 'index']);
+    
+    // عرض طلب واحد
+    Route::get('{customRequest}', [CustomRequestController::class, 'show']);
+});
+
+// ===========================================================================
+// PROTECTED INTERACTIVE TEMPLATES ROUTES (تتطلب مصادقة)
+// ===========================================================================
+Route::middleware('auth:sanctum')->group(function () {
+
+    // ---------------------------
+    // القوالب التفاعلية - محمية
+    // ---------------------------
+    Route::prefix('templates')->group(function () {
+        // إضافة/إزالة من المفضلة
+        Route::post('{interactiveTemplate}/favorite', [InteractiveTemplateController::class, 'toggleFavorite']);
+        
+        // قائمة المفضلة
+        Route::get('user/favorites', [InteractiveTemplateController::class, 'favorites']);
+    });
+
+    // ---------------------------
+    // بيانات المستخدم للقوالب
+    // ---------------------------
+    Route::prefix('user-templates')->group(function () {
+        // قائمة بيانات المستخدم
+        Route::get('/', [UserTemplateDataController::class, 'index']);
+        
+        // إنشاء بيانات جديدة
+        Route::post('/', [UserTemplateDataController::class, 'store']);
+        
+        // عرض بيانات واحدة
+        Route::get('{userTemplateData}', [UserTemplateDataController::class, 'show']);
+        
+        // تحديث البيانات
+        Route::put('{userTemplateData}', [UserTemplateDataController::class, 'update']);
+        
+        // حذف البيانات
+        Route::delete('{userTemplateData}', [UserTemplateDataController::class, 'destroy']);
+        
+        // سجل التغييرات
+        Route::get('{userTemplateData}/versions', [UserTemplateDataController::class, 'versions']);
+        
+        // استعادة نسخة سابقة
+        Route::post('{userTemplateData}/restore/{versionNumber}', [UserTemplateDataController::class, 'restoreVersion']);
+    });
+
+    // ---------------------------
+    // التصدير
+    // ---------------------------
+    Route::prefix('export')->group(function () {
+        // معاينة
+        Route::get('{userTemplateData}/preview', [ExportController::class, 'preview']);
+        
+        // تصدير كصورة
+        Route::post('{userTemplateData}/image', [ExportController::class, 'exportImage']);
+        
+        // تصدير كـ PDF
+        Route::post('{userTemplateData}/pdf', [ExportController::class, 'exportPdf']);
+    });
+
+    // ---------------------------
+    // توليد الباركود
+    // ---------------------------
+    Route::prefix('qrcode')->group(function () {
+        // توليد من رابط
+        Route::post('url', [QRCodeController::class, 'generateFromUrl']);
+        
+        // توليد من ملف
+        Route::post('file', [QRCodeController::class, 'generateFromFile']);
+        
+        // توليد من نص
+        Route::post('text', [QRCodeController::class, 'generateFromText']);
+    });
+
+    // ---------------------------
+    // الطلبات الخاصة - محمية
+    // ---------------------------
+    Route::prefix('custom-requests')->group(function () {
+        // إنشاء طلب جديد
+        Route::post('/', [CustomRequestController::class, 'store']);
+        
+        // طلباتي
+        Route::get('my', [CustomRequestController::class, 'myRequests']);
+        
+        // التصويت
+        Route::post('{customRequest}/vote', [CustomRequestController::class, 'vote']);
+        
+        // إلغاء طلب
+        Route::delete('{customRequest}', [CustomRequestController::class, 'cancel']);
+    });
+
+    // ---------------------------
+    // الإشعارات
+    // ---------------------------
+    Route::prefix('notifications')->group(function () {
+        // قائمة الإشعارات
+        Route::get('/', [NotificationController::class, 'index']);
+        
+        // عدد غير المقروءة
+        Route::get('unread-count', [NotificationController::class, 'unreadCount']);
+        
+        // تحديد كمقروء
+        Route::post('{notification}/read', [NotificationController::class, 'markAsRead']);
+        
+        // تحديد الكل كمقروء
+        Route::post('read-all', [NotificationController::class, 'markAllAsRead']);
+        
+        // حذف إشعار
+        Route::delete('{notification}', [NotificationController::class, 'destroy']);
+        
+        // حذف المقروءة
+        Route::delete('read', [NotificationController::class, 'deleteAllRead']);
+    });
+
+    // ---------------------------
+    // الشواهد
+    // ---------------------------
+    Route::prefix('evidences')->group(function () {
+        // قائمة الشواهد
+        Route::get('/', [EvidenceController::class, 'index']);
+        
+        // إنشاء شاهد
+        Route::post('/', [EvidenceController::class, 'store']);
+        
+        // عرض شاهد
+        Route::get('{evidence}', [EvidenceController::class, 'show']);
+        
+        // تحديث شاهد
+        Route::put('{evidence}', [EvidenceController::class, 'update']);
+        
+        // حذف شاهد
+        Route::delete('{evidence}', [EvidenceController::class, 'destroy']);
+    });
+
+    // ---------------------------
+    // مكتبة المحتوى
+    // ---------------------------
+    Route::prefix('content-library')->group(function () {
+        // قائمة المحتوى
+        Route::get('/', [ContentLibraryController::class, 'index']);
+        
+        // إنشاء محتوى
+        Route::post('/', [ContentLibraryController::class, 'store']);
+        
+        // عرض محتوى
+        Route::get('{contentLibrary}', [ContentLibraryController::class, 'show']);
+        
+        // تحديث محتوى
+        Route::put('{contentLibrary}', [ContentLibraryController::class, 'update']);
+        
+        // حذف محتوى
+        Route::delete('{contentLibrary}', [ContentLibraryController::class, 'destroy']);
+        
+        // إضافة/إزالة من المفضلة
+        Route::post('{contentLibrary}/favorite', [ContentLibraryController::class, 'toggleFavorite']);
+        
+        // تسجيل استخدام
+        Route::post('{contentLibrary}/use', [ContentLibraryController::class, 'use']);
+    });
+});
+
+// ===========================================================================
+// ADMIN INTERACTIVE TEMPLATES ROUTES (تتطلب صلاحيات مدير)
+// ===========================================================================
+Route::middleware(['auth:sanctum', 'is_admin'])->prefix('admin')->group(function () {
+
+    // ---------------------------
+    // إدارة القوالب التفاعلية
+    // ---------------------------
+    Route::prefix('templates')->group(function () {
+        // قائمة كل القوالب
+        Route::get('/', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'index']);
+        
+        // إنشاء قالب
+        Route::post('/', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'store']);
+        
+        // عرض قالب
+        Route::get('{id}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'show']);
+        
+        // تحديث قالب
+        Route::put('{id}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'update']);
+        
+        // حذف قالب
+        Route::delete('{id}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'destroy']);
+        
+        // إدارة الأشكال
+        Route::post('{id}/variants', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'addVariant']);
+        Route::put('{id}/variants/{variantId}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'updateVariant']);
+        Route::delete('{id}/variants/{variantId}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'deleteVariant']);
+        
+        // إدارة الحقول
+        Route::post('{id}/fields', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'addField']);
+        Route::put('{id}/fields/{fieldId}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'updateField']);
+        Route::delete('{id}/fields/{fieldId}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'deleteField']);
+    });
+
+    // ---------------------------
+    // إدارة الطلبات الخاصة
+    // ---------------------------
+    Route::prefix('custom-requests')->group(function () {
+        // قائمة كل الطلبات
+        Route::get('/', [\App\Http\Controllers\Api\Admin\CustomRequestController::class, 'index']);
+        
+        // تحديث حالة الطلب
+        Route::patch('{id}/status', [\App\Http\Controllers\Api\Admin\CustomRequestController::class, 'updateStatus']);
+        
+        // ربط قالب بالطلب
+        Route::post('{id}/assign-template', [\App\Http\Controllers\Api\Admin\CustomRequestController::class, 'assignTemplate']);
+    });
+
+    // ---------------------------
+    // إدارة الموارد
+    // ---------------------------
+    Route::prefix('resources')->group(function () {
+        // قائمة كل الموارد
+        Route::get('/', [\App\Http\Controllers\Api\Admin\ResourceController::class, 'index']);
+        
+        // إنشاء مورد
+        Route::post('/', [\App\Http\Controllers\Api\Admin\ResourceController::class, 'store']);
+        
+        // تحديث مورد
+        Route::put('{id}', [\App\Http\Controllers\Api\Admin\ResourceController::class, 'update']);
+        
+        // حذف مورد
+        Route::delete('{id}', [\App\Http\Controllers\Api\Admin\ResourceController::class, 'destroy']);
+    });
+
+    // ---------------------------
+    // إرسال الإشعارات
+    // ---------------------------
+    Route::prefix('notifications')->group(function () {
+        // إرسال إشعار لمستخدم
+        Route::post('send', [\App\Http\Controllers\Api\Admin\NotificationController::class, 'send']);
+        
+        // إرسال إشعار للجميع
+        Route::post('broadcast', [\App\Http\Controllers\Api\Admin\NotificationController::class, 'broadcast']);
+    });
+});
 
