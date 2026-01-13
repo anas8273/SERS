@@ -66,6 +66,22 @@ class Category extends Model
     }
 
     /**
+     * Get the section that owns the category.
+     */
+    public function section()
+    {
+        return $this->belongsTo(Section::class);
+    }
+
+    /**
+     * Get the templates for the category.
+     */
+    public function templates()
+    {
+        return $this->hasMany(Template::class);
+    }
+
+    /**
      * Get the parent category.
      * Self-referencing FK: categories.parent_id -> categories.id (SET NULL on delete)
      */

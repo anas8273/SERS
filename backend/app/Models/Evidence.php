@@ -13,17 +13,12 @@ class Evidence extends Model
     protected $fillable = [
         'user_id',
         'user_template_data_id',
-        'title',
+        'name',
         'description',
         'type',
         'file_path',
-        'external_url',
-        'qr_code_path',
-        'metadata',
-    ];
-
-    protected $casts = [
-        'metadata' => 'array',
+        'link',
+        'qr_code',
     ];
 
     /**
@@ -35,7 +30,7 @@ class Evidence extends Model
     }
 
     /**
-     * Get the user template data.
+     * Get the user template data that owns the evidence.
      */
     public function userTemplateData(): BelongsTo
     {
@@ -47,7 +42,9 @@ class Evidence extends Model
      */
     public function getFileUrlAttribute(): ?string
     {
-        return $this->file_path ? asset('storage/' . $this->file_path) : null;
+        return $this->file_path 
+            ? asset('storage/' . $this->file_path) 
+            : null;
     }
 
     /**
@@ -55,15 +52,41 @@ class Evidence extends Model
      */
     public function getQrCodeUrlAttribute(): ?string
     {
-        return $this->qr_code_path ? asset('storage/' . $this->qr_code_path) : null;
+        return $this->qr_code 
+            ? asset('storage/' . $this->qr_code) 
+            : null;
     }
 
     /**
-     * Check if this evidence has a QR code.
+     * Check if evidence is an image.
+     */
+    public function isImage(): bool
+    {
+        return $this->type === 'image';
+    }
+
+    /**
+     * Check if evidence is a file.
+     */
+    public function isFile(): bool
+    {
+        return $this->type === 'file';
+    }
+
+    /**
+     * Check if evidence is a link.
+     */
+    public function isLink(): bool
+    {
+        return $this->type === 'link';
+    }
+
+    /**
+     * Check if evidence has a QR code.
      */
     public function hasQrCode(): bool
     {
-        return !empty($this->qr_code_path);
+        return !empty($this->qr_code);
     }
 
     /**

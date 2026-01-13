@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TemplateVariant extends Model
 {
@@ -14,18 +15,13 @@ class TemplateVariant extends Model
         'template_id',
         'name_ar',
         'name_en',
-        'background_image_path',
-        'thumbnail_path',
-        'width',
-        'height',
+        'design_image',
+        'background_image',
         'is_default',
-        'sort_order',
     ];
 
     protected $casts = [
         'is_default' => 'boolean',
-        'width' => 'integer',
-        'height' => 'integer',
     ];
 
     /**
@@ -33,7 +29,25 @@ class TemplateVariant extends Model
      */
     public function template(): BelongsTo
     {
-        return $this->belongsTo(InteractiveTemplate::class, 'template_id');
+        return $this->belongsTo(Template::class);
+    }
+
+    /**
+     * Get the user data using this variant.
+     */
+    public function userData(): HasMany
+    {
+        return $this->hasMany(UserTemplateData::class, 'variant_id');
+    }
+
+    /**
+     * Get the full URL for the design image.
+     */
+    public function getDesignImageUrlAttribute(): string
+    {
+        return $this->design_image 
+            ? asset('storage/' . $this->design_image) 
+            : '';
     }
 
     /**
@@ -41,18 +55,8 @@ class TemplateVariant extends Model
      */
     public function getBackgroundImageUrlAttribute(): string
     {
-        return $this->background_image_path 
-            ? asset('storage/' . $this->background_image_path) 
+        return $this->background_image 
+            ? asset('storage/' . $this->background_image) 
             : '';
-    }
-
-    /**
-     * Get the full URL for the thumbnail.
-     */
-    public function getThumbnailUrlAttribute(): string
-    {
-        return $this->thumbnail_path 
-            ? asset('storage/' . $this->thumbnail_path) 
-            : $this->background_image_url;
     }
 }

@@ -17,15 +17,15 @@ class UserTemplateData extends Model
         'user_id',
         'template_id',
         'variant_id',
-        'instance_name',
-        'field_values',
+        'title',
+        'data',
         'status',
         'is_paid',
-        'exported_file_path',
+        'exported_file',
     ];
 
     protected $casts = [
-        'field_values' => 'array',
+        'data' => 'array',
         'is_paid' => 'boolean',
     ];
 
@@ -42,7 +42,7 @@ class UserTemplateData extends Model
      */
     public function template(): BelongsTo
     {
-        return $this->belongsTo(InteractiveTemplate::class, 'template_id');
+        return $this->belongsTo(Template::class);
     }
 
     /**
@@ -59,7 +59,7 @@ class UserTemplateData extends Model
     public function versions(): HasMany
     {
         return $this->hasMany(TemplateDataVersion::class, 'user_template_data_id')
-            ->orderBy('version_number', 'desc');
+            ->orderBy('created_at', 'desc');
     }
 
     /**
@@ -71,32 +71,39 @@ class UserTemplateData extends Model
     }
 
     /**
+     * Check if data is completed.
+     */
+    public function isCompleted(): bool
+    {
+        return $this->status === 'completed';
+    }
+
+    /**
+     * Check if data is draft.
+     */
+    public function isDraft(): bool
+    {
+        return $this->status === 'draft';
+    }
+
+    /**
      * Create a new version.
      */
-    public function createVersion(string $changeSummary = null): TemplateDataVersion
+    public function saveVersion(?string $note = null): TemplateDataVersion
     {
-        $latestVersion = $this->versions()->max('version_number') ?? 0;
-
         return $this->versions()->create([
-            'version_number' => $latestVersion + 1,
-            'field_values' => $this->field_values,
-            'change_summary' => $changeSummary,
+            'data' => $this->data,
+            'note' => $note,
         ]);
     }
 
     /**
      * Restore from a specific version.
      */
-    public function restoreVersion(int $versionNumber): bool
+    public function restoreFromVersion(TemplateDataVersion $version): bool
     {
-        $version = $this->versions()->where('version_number', $versionNumber)->first();
-
-        if (!$version) {
-            return false;
-        }
-
-        $this->update(['field_values' => $version->field_values]);
-        return true;
+        $this->data = $version->data;
+        return $this->save();
     }
 
     /**

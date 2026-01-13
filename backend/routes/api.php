@@ -24,6 +24,8 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\EvidenceController;
 use App\Http\Controllers\Api\ContentLibraryController;
 use App\Http\Controllers\Api\ResourceController;
+use App\Http\Controllers\Api\TemplateController;
+use App\Http\Controllers\Api\SectionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -111,6 +113,46 @@ Route::prefix('categories')->group(function () {
 Route::prefix('coupons')->group(function () {
     // التحقق من صلاحية كود الخصم
     Route::post('validate', [CouponController::class, 'validate']);
+});
+
+// ---------------------------
+// الأقسام (Sections) - عامة
+// ---------------------------
+Route::prefix('sections')->group(function () {
+    // قائمة الأقسام
+    Route::get('/', [SectionController::class, 'index']);
+    
+    // عرض قسم واحد
+    Route::get('{section}', [SectionController::class, 'show']);
+    
+    // عرض قسم بالـ slug
+    Route::get('slug/{slug}', [SectionController::class, 'bySlug']);
+});
+
+// ---------------------------
+// القوالب (Templates) - عامة
+// ---------------------------
+Route::prefix('templates')->group(function () {
+    // قائمة الأقسام مع الفئات
+    Route::get('sections', [TemplateController::class, 'sections']);
+    
+    // قائمة القوالب
+    Route::get('/', [TemplateController::class, 'index']);
+    
+    // القوالب المميزة
+    Route::get('featured', [TemplateController::class, 'featured']);
+    
+    // القوالب حسب القسم
+    Route::get('section/{slug}', [TemplateController::class, 'bySection']);
+    
+    // القوالب حسب الفئة
+    Route::get('category/{slug}', [TemplateController::class, 'byCategory']);
+    
+    // عرض قالب واحد
+    Route::get('{template}', [TemplateController::class, 'show']);
+    
+    // تحميل قالب جاهز
+    Route::get('{template}/download', [TemplateController::class, 'download']);
 });
 
 // ===========================================================================

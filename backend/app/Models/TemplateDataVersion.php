@@ -10,16 +10,18 @@ class TemplateDataVersion extends Model
 {
     use HasFactory;
 
+    public $timestamps = false;
+
     protected $fillable = [
         'user_template_data_id',
-        'version_number',
-        'field_values',
-        'change_summary',
+        'data',
+        'note',
+        'created_at',
     ];
 
     protected $casts = [
-        'field_values' => 'array',
-        'version_number' => 'integer',
+        'data' => 'array',
+        'created_at' => 'datetime',
     ];
 
     /**
@@ -28,5 +30,17 @@ class TemplateDataVersion extends Model
     public function userTemplateData(): BelongsTo
     {
         return $this->belongsTo(UserTemplateData::class, 'user_template_data_id');
+    }
+
+    /**
+     * Boot the model.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            $model->created_at = $model->freshTimestamp();
+        });
     }
 }

@@ -16,29 +16,30 @@ class TemplateField extends Model
         'label_ar',
         'label_en',
         'type',
-        'default_value',
-        'placeholder_ar',
-        'placeholder_en',
-        'is_required',
-        'pos_x',
-        'pos_y',
+        'options',
+        'position_x',
+        'position_y',
         'width',
         'height',
         'font_size',
-        'font_color',
         'font_family',
+        'color',
         'text_align',
+        'is_required',
+        'default_value',
         'ai_prompt',
-        'sort_order',
+        'order',
     ];
 
     protected $casts = [
+        'options' => 'array',
         'is_required' => 'boolean',
-        'pos_x' => 'integer',
-        'pos_y' => 'integer',
+        'position_x' => 'integer',
+        'position_y' => 'integer',
         'width' => 'integer',
         'height' => 'integer',
         'font_size' => 'integer',
+        'order' => 'integer',
     ];
 
     /**
@@ -46,7 +47,15 @@ class TemplateField extends Model
      */
     public function template(): BelongsTo
     {
-        return $this->belongsTo(InteractiveTemplate::class, 'template_id');
+        return $this->belongsTo(Template::class);
+    }
+
+    /**
+     * Get the localized label based on app locale.
+     */
+    public function getLabelAttribute(): string
+    {
+        return app()->getLocale() === 'ar' ? $this->label_ar : $this->label_en;
     }
 
     /**
@@ -58,18 +67,42 @@ class TemplateField extends Model
     }
 
     /**
+     * Check if field is a text type.
+     */
+    public function isTextType(): bool
+    {
+        return in_array($this->type, ['text', 'textarea']);
+    }
+
+    /**
+     * Check if field is an image type.
+     */
+    public function isImageType(): bool
+    {
+        return in_array($this->type, ['image', 'signature']);
+    }
+
+    /**
+     * Check if field is a QR code type.
+     */
+    public function isQRCodeType(): bool
+    {
+        return $this->type === 'qrcode';
+    }
+
+    /**
      * Get the CSS style for this field.
      */
     public function getCssStyleAttribute(): array
     {
         return [
             'position' => 'absolute',
-            'left' => $this->pos_x . 'px',
-            'top' => $this->pos_y . 'px',
+            'left' => $this->position_x . 'px',
+            'top' => $this->position_y . 'px',
             'width' => $this->width . 'px',
             'height' => $this->height . 'px',
             'fontSize' => $this->font_size . 'px',
-            'color' => $this->font_color,
+            'color' => $this->color,
             'fontFamily' => $this->font_family,
             'textAlign' => $this->text_align,
         ];
