@@ -21,11 +21,31 @@ export interface User {
 
 /**
  * =========================
+ * Section Types
+ * =========================
+ */
+export interface Section {
+    id: string;
+    name_ar: string;
+    name_en: string;
+    slug: string;
+    description_ar?: string;
+    description_en?: string;
+    icon?: string;
+    sort_order: number;
+    is_active: boolean;
+    categories?: Category[];
+}
+
+/**
+ * =========================
  * Category Types
  * =========================
  */
 export interface Category {
     id: string;
+    section_id?: string;
+    section?: Section;
     name_ar: string;
     name_en: string;
     slug: string;
@@ -38,10 +58,10 @@ export interface Category {
 
 /**
  * =========================
- * Product Types
+ * Template Types (Unified - replaces Product)
  * =========================
  */
-export interface Product {
+export interface Template {
     id: string;
     name_ar: string;
     name_en: string;
@@ -50,37 +70,84 @@ export interface Product {
     description_en: string;
     price: number;
     discount_price: number | null;
-    effective_price: number;
-    type: 'downloadable' | 'interactive';
+    type: 'ready' | 'interactive';
     category?: Category;
     category_id?: string;
     thumbnail_url: string | null;
     preview_images?: string[];
+    ready_file?: string;
     educational_stage?: string;
     subject?: string;
     tags?: string[];
-    downloads_count: number;
-    average_rating: number;
-    reviews_count: number;
     is_featured: boolean;
     is_active: boolean;
     created_at: string;
+    variants?: TemplateVariant[];
+    fields?: TemplateField[];
 }
 
-export interface ProductFormData {
+// Alias for backward compatibility
+export type Product = Template;
+
+export interface TemplateVariant {
+    id: string;
+    template_id: string;
+    name_ar: string;
+    name_en: string;
+    color_code?: string;
+    preview_image?: string;
+    is_default: boolean;
+    sort_order: number;
+}
+
+export interface TemplateFormData {
     name_ar: string;
     name_en: string;
     description_ar: string;
     description_en: string;
     price: string;
     discount_price?: string;
-    type: 'downloadable' | 'interactive';
+    type: 'ready' | 'interactive';
     category_id: string;
     educational_stage?: string;
     subject?: string;
     tags?: string[];
     is_featured?: boolean;
     is_active?: boolean;
+}
+
+// Alias for backward compatibility
+export type ProductFormData = TemplateFormData;
+
+/**
+ * =========================
+ * Template Field Types
+ * =========================
+ */
+export interface TemplateField {
+    id?: string;
+    name: string;
+    type: 'text' | 'textarea' | 'date' | 'select' | 'list' | 'image' | 'signature' | 'qrcode' | 'barcode' | 'number' | 'checkbox';
+    label_ar: string;
+    label_en: string;
+    placeholder_ar?: string;
+    placeholder_en?: string;
+    options?: string[];
+    is_required?: boolean;
+    min_length?: number;
+    max_length?: number;
+    ai_fillable?: boolean;
+    ai_prompt_hint?: string;
+    sort_order?: number;
+    // Styling
+    position_x?: number;
+    position_y?: number;
+    width?: number;
+    height?: number;
+    font_size?: number;
+    font_family?: string;
+    color?: string;
+    text_align?: string;
 }
 
 /**
@@ -90,11 +157,11 @@ export interface ProductFormData {
  */
 export interface OrderItem {
     id: string;
-    product_id: string;
-    product?: Product;
+    template_id: string;
+    template?: Template;
+    template_name: string;
+    template_type: 'ready' | 'interactive';
     price: number;
-    name_ar: string;
-    name_en: string;
 }
 
 export interface Order {
@@ -109,6 +176,7 @@ export interface Order {
     payment_id?: string;
     paid_at?: string;
     items: OrderItem[];
+    items_count?: number;
     created_at: string;
 }
 
@@ -118,11 +186,11 @@ export interface Order {
  * =========================
  */
 export interface CartItem {
-    productId: string;
+    templateId: string;
     name: string;
     price: number;
     thumbnail: string | null;
-    type: 'downloadable' | 'interactive';
+    type: 'ready' | 'interactive';
 }
 
 /**
@@ -157,32 +225,66 @@ export interface PaginatedResponse<T> {
 
 /**
  * =========================
- * Template Types (Interactive)
+ * User Template Data Types
  * =========================
  */
-export interface TemplateField {
-    name: string;
-    type: 'text' | 'textarea' | 'date' | 'select' | 'list';
-    label_ar: string;
-    label_en: string;
-    options?: string[];
-    required?: boolean;
+export interface UserTemplateData {
+    id: string;
+    user_id: string;
+    template_id: string;
+    variant_id?: string;
+    title: string;
+    data: Record<string, unknown>;
+    status: 'draft' | 'completed' | 'exported';
+    exported_file?: string;
+    exported_at?: string;
+    created_at: string;
+    updated_at: string;
+    template?: Template;
+    variant?: TemplateVariant;
 }
 
-export interface TemplateStructure {
-    fields: TemplateField[];
-    ai_enabled_fields?: string[];
+export interface TemplateDataVersion {
+    id: string;
+    user_template_data_id: string;
+    version_number: number;
+    data: Record<string, unknown>;
+    note?: string;
+    change_type: 'manual' | 'auto_save' | 'ai_fill';
+    created_at: string;
 }
 
+// Legacy alias
 export interface UserRecord {
     id: string;
     user_id: string;
-    product_id: string;
-    template_structure: TemplateStructure;
+    template_id: string;
     user_data: Record<string, unknown>;
     status: 'active' | 'archived';
     created_at: string;
     updated_at: string;
+}
+
+/**
+ * =========================
+ * Evidence Types
+ * =========================
+ */
+export interface Evidence {
+    id: string;
+    user_id: string;
+    user_template_data_id: string;
+    name: string;
+    description?: string;
+    type: 'image' | 'file' | 'link' | 'qrcode' | 'barcode';
+    file_path?: string;
+    file_url?: string;
+    link?: string;
+    qr_code?: string;
+    barcode?: string;
+    sort_order: number;
+    is_active: boolean;
+    created_at: string;
 }
 
 /**
@@ -192,8 +294,8 @@ export interface UserRecord {
  */
 export interface WishlistItem {
     id: string;
-    product_id: string;
-    product: Product;
+    template_id: string;
+    template: Template;
     added_at: string;
 }
 
@@ -230,7 +332,7 @@ export interface CouponValidationResult {
 export interface Review {
     id: string;
     user_id: string;
-    product_id: string;
+    template_id: string;
     order_id: string;
     rating: number;
     comment?: string;
@@ -253,4 +355,3 @@ export interface ReviewFormData {
     rating: number;
     comment?: string;
 }
-

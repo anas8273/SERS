@@ -269,29 +269,49 @@ class ApiClient {
 
     /**
      * =========================
-     * Products
+     * Templates (formerly Products)
      * =========================
      */
+    async getTemplates(params?: Record<string, any>) {
+        const { data } = await this.client.get('/templates', { params });
+        return data;
+    }
+
+    // Alias for backward compatibility
     async getProducts(params?: Record<string, any>) {
-        const { data } = await this.client.get('/products', { params });
+        return this.getTemplates(params);
+    }
+
+    async getTemplate(slug: string) {
+        const { data } = await this.client.get(`/templates/${slug}`);
         return data;
     }
 
+    // Alias for backward compatibility
     async getProduct(slug: string) {
-        const { data } = await this.client.get(`/products/${slug}`);
-        return data;
+        return this.getTemplate(slug);
     }
 
-    async searchProducts(query: string) {
-        const { data } = await this.client.get('/products/search', {
+    async searchTemplates(query: string) {
+        const { data } = await this.client.get('/templates/search', {
             params: { q: query },
         });
         return data;
     }
 
-    async getFeaturedProducts() {
-        const { data } = await this.client.get('/products/featured');
+    // Alias for backward compatibility
+    async searchProducts(query: string) {
+        return this.searchTemplates(query);
+    }
+
+    async getFeaturedTemplates() {
+        const { data } = await this.client.get('/templates/featured');
         return data;
+    }
+
+    // Alias for backward compatibility
+    async getFeaturedProducts() {
+        return this.getFeaturedTemplates();
     }
 
     /**
@@ -309,7 +329,7 @@ class ApiClient {
      * Orders
      * =========================
      */
-    async createOrder(items: { product_id: string }[]) {
+    async createOrder(items: { template_id: string }[]) {
         const { data } = await this.client.post('/orders', { items });
         return data;
     }
@@ -403,54 +423,79 @@ class ApiClient {
 
     /**
      * =========================
-     * Admin - Products
+     * Admin - Templates
      * =========================
      */
 
     /**
-     * قائمة جميع المنتجات (بما فيها غير النشطة)
+     * قائمة جميع القوالب (بما فيها غير النشطة)
      */
-    async getAdminProducts(params?: Record<string, any>) {
-        const { data } = await this.client.get('/admin/products', { params });
+    async getAdminTemplates(params?: Record<string, any>) {
+        const { data } = await this.client.get('/admin/templates', { params });
         return data;
     }
 
+    // Alias for backward compatibility
+    async getAdminProducts(params?: Record<string, any>) {
+        return this.getAdminTemplates(params);
+    }
+
     /**
-     * إضافة منتج جديد (مع رفع صور / ملفات)
+     * إضافة قالب جديد (مع رفع صور / ملفات)
      */
-    async createProduct(formData: FormData) {
-        const { data } = await this.client.post('/admin/products', formData, {
+    async createTemplate(formData: FormData) {
+        const { data } = await this.client.post('/admin/templates', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
         });
         return data;
     }
 
-    /**
-     * عرض منتج واحد (Admin)
-     */
-    async getAdminProduct(id: string) {
-        const { data } = await this.client.get(`/admin/products/${id}`);
-        return data;
+    // Alias for backward compatibility
+    async createProduct(formData: FormData) {
+        return this.createTemplate(formData);
     }
 
     /**
-     * تحديث منتج
+     * عرض قالب واحد (Admin)
      */
-    async updateProduct(id: string, formData: FormData) {
+    async getAdminTemplate(id: string) {
+        const { data } = await this.client.get(`/admin/templates/${id}`);
+        return data;
+    }
+
+    // Alias for backward compatibility
+    async getAdminProduct(id: string) {
+        return this.getAdminTemplate(id);
+    }
+
+    /**
+     * تحديث قالب
+     */
+    async updateTemplate(id: string, formData: FormData) {
         // Laravel requires POST with _method=PUT for FormData
         formData.append('_method', 'PUT');
-        const { data } = await this.client.post(`/admin/products/${id}`, formData, {
+        const { data } = await this.client.post(`/admin/templates/${id}`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
         });
         return data;
     }
 
+    // Alias for backward compatibility
+    async updateProduct(id: string, formData: FormData) {
+        return this.updateTemplate(id, formData);
+    }
+
     /**
-     * حذف منتج
+     * حذف قالب
      */
-    async deleteProduct(id: string) {
-        const { data } = await this.client.delete(`/admin/products/${id}`);
+    async deleteTemplate(id: string) {
+        const { data } = await this.client.delete(`/admin/templates/${id}`);
         return data;
+    }
+
+    // Alias for backward compatibility
+    async deleteProduct(id: string) {
+        return this.deleteTemplate(id);
     }
 
     /**
@@ -786,28 +831,28 @@ class ApiClient {
     }
 
     /**
-     * إضافة/إزالة منتج من المفضلة
+     * إضافة/إزالة قالب من المفضلة
      */
-    async toggleWishlist(productId: string) {
+    async toggleWishlist(templateId: string) {
         const { data } = await this.client.post('/wishlists/toggle', {
-            product_id: productId,
+            template_id: templateId,
         });
         return data;
     }
 
     /**
-     * التحقق من وجود منتج في المفضلة
+     * التحقق من وجود قالب في المفضلة
      */
-    async checkWishlist(productId: string) {
-        const { data } = await this.client.get(`/wishlists/check/${productId}`);
+    async checkWishlist(templateId: string) {
+        const { data } = await this.client.get(`/wishlists/check/${templateId}`);
         return data;
     }
 
     /**
-     * إزالة منتج من المفضلة
+     * إزالة قالب من المفضلة
      */
-    async removeFromWishlist(productId: string) {
-        const { data } = await this.client.delete(`/wishlists/${productId}`);
+    async removeFromWishlist(templateId: string) {
+        const { data } = await this.client.delete(`/wishlists/${templateId}`);
         return data;
     }
 
@@ -835,36 +880,46 @@ class ApiClient {
      */
 
     /**
-     * الحصول على تقييمات منتج
+     * الحصول على تقييمات قالب
      */
-    async getProductReviews(slug: string, page = 1) {
-        const { data } = await this.client.get(`/products/${slug}/reviews`, {
+    async getTemplateReviews(slug: string, page = 1) {
+        const { data } = await this.client.get(`/templates/${slug}/reviews`, {
             params: { page },
         });
         return data;
     }
 
-    /**
-     * التحقق من إمكانية تقييم منتج
-     */
-    async canReviewProduct(slug: string) {
-        const { data } = await this.client.get(`/products/${slug}/can-review`);
-        return data;
+    // Alias for backward compatibility
+    async getProductReviews(slug: string, page = 1) {
+        return this.getTemplateReviews(slug, page);
     }
 
     /**
-     * الحصول على تقييم المستخدم لمنتج
+     * التحقق من إمكانية تقييم قالب
+     */
+    async canReviewTemplate(slug: string) {
+        const { data } = await this.client.get(`/templates/${slug}/can-review`);
+        return data;
+    }
+
+    // Alias for backward compatibility
+    async canReviewProduct(slug: string) {
+        return this.canReviewTemplate(slug);
+    }
+
+    /**
+     * الحصول على تقييم المستخدم لقالب
      */
     async getMyReview(slug: string) {
-        const { data } = await this.client.get(`/products/${slug}/my-review`);
+        const { data } = await this.client.get(`/templates/${slug}/my-review`);
         return data;
     }
 
     /**
-     * إضافة تقييم لمنتج
+     * إضافة تقييم لقالب
      */
     async createReview(slug: string, payload: { rating: number; comment?: string }) {
-        const { data } = await this.client.post(`/products/${slug}/reviews`, payload);
+        const { data } = await this.client.post(`/templates/${slug}/reviews`, payload);
         return data;
     }
 

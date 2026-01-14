@@ -8,14 +8,15 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Wishlists Migration
  * 
- * Creates the wishlists table for storing user product favorites.
- * Each user can add products to their wishlist for later purchase.
+ * Creates the wishlists table for storing user template favorites.
+ * Each user can add templates to their wishlist for later purchase.
+ * Updated to use templates instead of products.
  * 
  * Relationships:
  *   - wishlists.user_id -> users.id (CASCADE on delete)
- *   - wishlists.product_id -> products.id (CASCADE on delete)
+ *   - wishlists.template_id -> templates.id (CASCADE on delete)
  * 
- * Unique constraint: user can only wishlist a product once
+ * Unique constraint: user can only wishlist a template once
  */
 return new class extends Migration
 {
@@ -29,25 +30,35 @@ return new class extends Migration
             $table->uuid('id')->primary();
 
             // ==================== FOREIGN KEYS ====================
-            // User who added the product to wishlist
-            $table->foreignUuid('user_id')
-                  ->constrained('users')
-                  ->cascadeOnDelete();
+            // User who added the template to wishlist
+            $table->uuid('user_id')->comment('FK to users table');
             
-            // Product added to wishlist
-            $table->foreignUuid('product_id')
-                  ->constrained('products')
-                  ->cascadeOnDelete();
+            // Template added to wishlist
+            $table->uuid('template_id')->comment('FK to templates table');
 
             // ==================== TIMESTAMPS ====================
             $table->timestamps();
 
+            // ==================== FOREIGN KEY CONSTRAINTS ====================
+            $table->foreign('user_id')
+                  ->references('id')
+                  ->on('users')
+                  ->cascadeOnDelete();
+
+            $table->foreign('template_id')
+                  ->references('id')
+                  ->on('templates')
+                  ->cascadeOnDelete();
+
             // ==================== INDEXES ====================
-            // Ensure user can only wishlist a product once
-            $table->unique(['user_id', 'product_id'], 'wishlist_user_product_unique');
+            // Ensure user can only wishlist a template once
+            $table->unique(['user_id', 'template_id'], 'wishlist_user_template_unique');
             
             // Index for quick lookup by user
             $table->index('user_id', 'wishlist_user_index');
+            
+            // Index for template popularity
+            $table->index('template_id', 'wishlist_template_index');
         });
     }
 

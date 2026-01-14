@@ -10,9 +10,9 @@ return new class extends Migration
     /**
      * Run the migrations.
      * 
-     * Creates the reviews table for product ratings and feedback.
-     * Links reviews to users, products, and orders for purchase verification.
-     * Optimized with indexes for product listings, analytics, and moderation.
+     * Creates the reviews table for template ratings and feedback.
+     * Links reviews to users, templates, and orders for purchase verification.
+     * Updated to use templates instead of products.
      */
     public function up(): void
     {
@@ -22,7 +22,7 @@ return new class extends Migration
 
             // Relationships
             $table->uuid('user_id')->comment('FK to users (reviewer)');
-            $table->uuid('product_id')->comment('FK to products (reviewed product)');
+            $table->uuid('template_id')->comment('FK to templates (reviewed template)');
             $table->uuid('order_id')->comment('FK to orders (purchase verification)');
 
             // Review Data
@@ -41,34 +41,33 @@ return new class extends Migration
                   ->restrictOnDelete() // Preserve reviews even if user is deleted
                   ->cascadeOnUpdate();
 
-            $table->foreign('product_id')
+            $table->foreign('template_id')
                   ->references('id')
-                  ->on('products')
-                  ->restrictOnDelete() // Preserve reviews even if product is deleted
+                  ->on('templates')
+                  ->restrictOnDelete() // Preserve reviews even if template is deleted
                   ->cascadeOnUpdate();
 
-            // NEW: Added missing foreign key for order_id
             $table->foreign('order_id')
                   ->references('id')
                   ->on('orders')
                   ->restrictOnDelete() // Preserve reviews even if order is deleted
                   ->cascadeOnUpdate();
 
-            // Unique Constraint - One review per product per order
-            $table->unique(['user_id', 'product_id', 'order_id'], 'reviews_unique_per_order');
+            // Unique Constraint - One review per template per order
+            $table->unique(['user_id', 'template_id', 'order_id'], 'reviews_unique_per_order');
 
             // Performance Indexes
-            // Product reviews listing (most common query)
-            $table->index('product_id', 'reviews_product_index');
-            $table->index(['product_id', 'is_approved'], 'reviews_product_approved_index');
-            $table->index(['product_id', 'is_approved', 'created_at'], 'reviews_product_list_index');
+            // Template reviews listing (most common query)
+            $table->index('template_id', 'reviews_template_index');
+            $table->index(['template_id', 'is_approved'], 'reviews_template_approved_index');
+            $table->index(['template_id', 'is_approved', 'created_at'], 'reviews_template_list_index');
             
             // User reviews history
             $table->index('user_id', 'reviews_user_index');
             
             // Rating analytics (average calculations, distribution charts)
             $table->index('rating', 'reviews_rating_index');
-            $table->index(['product_id', 'rating'], 'reviews_product_rating_index');
+            $table->index(['template_id', 'rating'], 'reviews_template_rating_index');
             
             // Moderation workflow
             $table->index('is_approved', 'reviews_approved_index');

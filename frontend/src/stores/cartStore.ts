@@ -5,11 +5,11 @@ import { persist } from 'zustand/middleware';
 import type { Coupon } from '@/types';
 
 interface CartItem {
-    productId: string;
+    templateId: string;
     name: string;
     price: number;
     thumbnail: string;
-    type: 'downloadable' | 'interactive';
+    type: 'ready' | 'interactive';
 }
 
 interface CartState {
@@ -19,7 +19,7 @@ interface CartState {
 
     // Item actions
     addItem: (item: CartItem) => void;
-    removeItem: (productId: string) => void;
+    removeItem: (templateId: string) => void;
     clearCart: () => void;
 
     // Coupon actions
@@ -42,15 +42,15 @@ export const useCartStore = create<CartState>()(
             // Add item to cart
             addItem: (item) => {
                 const items = get().items;
-                const exists = items.find((i) => i.productId === item.productId);
+                const exists = items.find((i) => i.templateId === item.templateId);
                 if (!exists) {
                     set({ items: [...items, item] });
                 }
             },
 
             // Remove item from cart
-            removeItem: (productId) => {
-                const newItems = get().items.filter((i) => i.productId !== productId);
+            removeItem: (templateId) => {
+                const newItems = get().items.filter((i) => i.templateId !== templateId);
                 set({ items: newItems });
 
                 // If cart becomes empty, remove coupon

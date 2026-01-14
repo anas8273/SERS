@@ -14,15 +14,16 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 /**
  * DownloadController
  * 
- * Handles secure file downloads for purchased products.
+ * Handles secure file downloads for purchased templates.
  * Verifies ownership before allowing download.
+ * Updated to use templates instead of products.
  * 
  * @package App\Http\Controllers\Api
  */
 class DownloadController extends Controller
 {
     /**
-     * Download a purchased product file.
+     * Download a purchased template file.
      * 
      * GET /api/downloads/{orderItemId}
      * 
@@ -30,7 +31,7 @@ class DownloadController extends Controller
      * - User must be authenticated
      * - Order must be completed
      * - User must own the order
-     * - Product must have a file
+     * - Template must have a file
      * 
      * @param Request $request
      * @param string $orderItemId
@@ -40,8 +41,8 @@ class DownloadController extends Controller
     {
         $user = $request->user();
 
-        // Find the order item with product
-        $orderItem = OrderItem::with(['order', 'product'])->find($orderItemId);
+        // Find the order item with template
+        $orderItem = OrderItem::with(['order', 'template'])->find($orderItemId);
 
         if (!$orderItem) {
             return response()->json([
@@ -74,11 +75,11 @@ class DownloadController extends Controller
             ], 400);
         }
 
-        // Get the product
-        $product = $orderItem->product;
+        // Get the template
+        $template = $orderItem->template;
 
-        // Verify product has a file
-        if (!$product->file_path) {
+        // Verify template has a file (ready_file for ready templates)
+        if (!$template->ready_file) {
             return response()->json([
                 'success' => false,
                 'message' => 'لا يوجد ملف للتحميل',
@@ -87,10 +88,10 @@ class DownloadController extends Controller
         }
 
         // Verify file exists
-        if (!Storage::disk('local')->exists($product->file_path)) {
-            Log::error("Product file not found", [
-                'product_id' => $product->id,
-                'file_path' => $product->file_path,
+        if (!Storage::disk('local')->exists($template->ready_file)) {
+            Log::error("Template file not found", [
+                'template_id' => $template->id,
+                'file_path' => $template->ready_file,
             ]);
 
             return response()->json([
@@ -100,20 +101,17 @@ class DownloadController extends Controller
             ], 404);
         }
 
-        // Increment download count
-        $product->increment('downloads_count');
-
         Log::info("File downloaded", [
             'user_id' => $user->id,
-            'product_id' => $product->id,
+            'template_id' => $template->id,
             'order_item_id' => $orderItemId,
         ]);
 
         // Stream the file download
-        $fileName = $product->file_name ?? 'download';
+        $fileName = $template->name_ar . '.' . pathinfo($template->ready_file, PATHINFO_EXTENSION);
         
         return Storage::disk('local')->download(
-            $product->file_path,
+            $template->ready_file,
             $fileName,
             [
                 'Content-Type' => 'application/octet-stream',
@@ -135,7 +133,7 @@ class DownloadController extends Controller
     {
         $user = $request->user();
 
-        $orderItem = OrderItem::with(['order', 'product'])->find($orderItemId);
+        $orderItem = OrderItem::with(['order', 'template'])->find($orderItemId);
 
         if (!$orderItem || $orderItem->order->user_id !== $user->id) {
             return response()->json([
@@ -144,21 +142,25 @@ class DownloadController extends Controller
             ], 404);
         }
 
-        $product = $orderItem->product;
-        $canDownload = $orderItem->order->status === 'completed' 
-            && $product->file_path 
-            && Storage::disk('local')->exists($product->file_path);
+        $template = $orderItem->template;
+        $fileExists = $template->ready_file && Storage::disk('local')->exists($template->ready_file);
+        $canDownload = $orderItem->order->status === 'completed' && $fileExists;
+
+        $fileSize = null;
+        if ($fileExists) {
+            $fileSize = Storage::disk('local')->size($template->ready_file);
+        }
 
         return response()->json([
             'success' => true,
             'data' => [
                 'order_item_id' => $orderItemId,
-                'product_name' => $product->name_ar,
-                'file_name' => $product->file_name,
-                'file_size' => $product->file_size,
-                'file_size_formatted' => $this->formatBytes($product->file_size),
+                'template_name' => $template->name_ar,
+                'template_type' => $template->type,
+                'file_name' => $template->ready_file ? basename($template->ready_file) : null,
+                'file_size' => $fileSize,
+                'file_size_formatted' => $this->formatBytes($fileSize),
                 'can_download' => $canDownload,
-                'downloads_count' => $product->downloads_count,
             ],
         ]);
     }

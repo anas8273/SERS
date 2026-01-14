@@ -11,12 +11,13 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * Review Model
  * 
- * Represents a product review submitted by a user after purchase.
- * Links to user, product, and order for purchase verification.
+ * Represents a template review submitted by a user after purchase.
+ * Links to user, template, and order for purchase verification.
+ * Updated to use templates instead of products.
  * 
  * @property string $id UUID primary key
  * @property string $user_id FK to users (reviewer)
- * @property string $product_id FK to products (reviewed product)
+ * @property string $template_id FK to templates (reviewed template)
  * @property string $order_id FK to orders (purchase verification)
  * @property int $rating Rating 1-5 stars
  * @property string|null $comment User review text
@@ -34,7 +35,7 @@ class Review extends Model
      */
     protected $fillable = [
         'user_id',
-        'product_id',
+        'template_id',
         'order_id',
         'rating',
         'comment',
@@ -61,18 +62,18 @@ class Review extends Model
     }
 
     /**
-     * Get the product being reviewed.
-     * FK: reviews.product_id -> products.id (RESTRICT on delete)
+     * Get the template being reviewed.
+     * FK: reviews.template_id -> templates.id (RESTRICT on delete)
      */
-    public function product()
+    public function template()
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Template::class);
     }
 
     /**
      * Get the order associated with this review.
      * FK: reviews.order_id -> orders.id (RESTRICT on delete)
-     * This verifies the user actually purchased the product.
+     * This verifies the user actually purchased the template.
      */
     public function order()
     {
@@ -116,9 +117,17 @@ class Review extends Model
     /**
      * Scope to order by most recent.
      */
-    public function scopeLatest($query)
+    public function scopeRecent($query)
     {
         return $query->orderBy('created_at', 'desc');
+    }
+
+    /**
+     * Scope to filter by template.
+     */
+    public function scopeForTemplate($query, $templateId)
+    {
+        return $query->where('template_id', $templateId);
     }
 
     // ==================== METHODS ====================
@@ -129,9 +138,6 @@ class Review extends Model
     public function approve(): void
     {
         $this->update(['is_approved' => true]);
-        
-        // Recalculate product rating after approval
-        $this->product->recalculateRating();
     }
 
     /**
@@ -140,29 +146,5 @@ class Review extends Model
     public function reject(): void
     {
         $this->update(['is_approved' => false]);
-        
-        // Recalculate product rating after rejection
-        $this->product->recalculateRating();
-    }
-
-    // ==================== BOOT ====================
-
-    /**
-     * Bootstrap the model.
-     * Recalculate product rating on create/update/delete.
-     */
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::saved(function ($review) {
-            if ($review->is_approved) {
-                $review->product->recalculateRating();
-            }
-        });
-
-        static::deleted(function ($review) {
-            $review->product->recalculateRating();
-        });
     }
 }

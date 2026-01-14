@@ -18,7 +18,7 @@ class TemplateController extends Controller
     {
         $sections = Section::with(['categories' => function ($query) {
             $query->where('is_active', true)->orderBy('sort_order');
-        }])->orderBy('order')->get();
+        }])->orderBy('sort_order')->get();
 
         return response()->json([
             'success' => true,

@@ -10,10 +10,12 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * Category Model
  * 
- * Represents product categories with multilingual support and hierarchical structure.
- * Categories can have parent/child relationships for nested navigation.
+ * Represents template categories with multilingual support and hierarchical structure.
+ * Categories belong to sections and can have parent/child relationships for nested navigation.
+ * Uses UUID as primary key for consistency across the system.
  * 
  * @property string $id UUID primary key
+ * @property string $section_id FK to sections table
  * @property string $name_ar Arabic name
  * @property string $name_en English name
  * @property string $slug URL-friendly unique identifier
@@ -32,9 +34,9 @@ class Category extends Model
 
     /**
      * The attributes that are mass assignable.
-     * All columns from migration except id and timestamps.
      */
     protected $fillable = [
+        'section_id',
         'name_ar',
         'name_en',
         'slug',
@@ -57,15 +59,6 @@ class Category extends Model
     // ==================== RELATIONSHIPS ====================
 
     /**
-     * Get all products in this category.
-     * FK: products.category_id -> categories.id (CASCADE on delete)
-     */
-    public function products()
-    {
-        return $this->hasMany(Product::class);
-    }
-
-    /**
      * Get the section that owns the category.
      */
     public function section()
@@ -78,7 +71,17 @@ class Category extends Model
      */
     public function templates()
     {
-        return $this->hasMany(Template::class);
+        return $this->hasMany(Template::class)->orderBy('sort_order');
+    }
+
+    /**
+     * Get active templates for the category.
+     */
+    public function activeTemplates()
+    {
+        return $this->hasMany(Template::class)
+                    ->where('is_active', true)
+                    ->orderBy('sort_order');
     }
 
     /**
@@ -96,7 +99,7 @@ class Category extends Model
      */
     public function children()
     {
-        return $this->hasMany(Category::class, 'parent_id');
+        return $this->hasMany(Category::class, 'parent_id')->orderBy('sort_order');
     }
 
     /**
@@ -136,9 +139,28 @@ class Category extends Model
     /**
      * Scope to order by sort_order.
      */
-    public function scopeSorted($query)
+    public function scopeOrdered($query)
     {
         return $query->orderBy('sort_order');
+    }
+
+    /**
+     * Scope to filter by section.
+     */
+    public function scopeInSection($query, $sectionId)
+    {
+        return $query->where('section_id', $sectionId);
+    }
+
+    /**
+     * Scope to search by name.
+     */
+    public function scopeSearch($query, $term)
+    {
+        return $query->where(function ($q) use ($term) {
+            $q->where('name_ar', 'like', "%{$term}%")
+              ->orWhere('name_en', 'like', "%{$term}%");
+        });
     }
 
     // ==================== ACCESSORS ====================
@@ -157,6 +179,14 @@ class Category extends Model
     public function getDescriptionAttribute(): ?string
     {
         return app()->getLocale() === 'ar' ? $this->description_ar : $this->description_en;
+    }
+
+    /**
+     * Get templates count.
+     */
+    public function getTemplatesCountAttribute(): int
+    {
+        return $this->templates()->count();
     }
 
     // ==================== HELPER METHODS ====================
@@ -178,6 +208,14 @@ class Category extends Model
     }
 
     /**
+     * Check if this category has templates.
+     */
+    public function hasTemplates(): bool
+    {
+        return $this->templates()->exists();
+    }
+
+    /**
      * Get the full path of category names.
      */
     public function getPath(): array
@@ -191,5 +229,33 @@ class Category extends Model
         }
 
         return $path;
+    }
+
+    /**
+     * Get breadcrumb path including section.
+     */
+    public function getBreadcrumb(): array
+    {
+        $breadcrumb = [];
+        
+        // Add section
+        if ($this->section) {
+            $breadcrumb[] = [
+                'id' => $this->section->id,
+                'name' => $this->section->name_ar,
+                'type' => 'section',
+            ];
+        }
+        
+        // Add category path
+        $path = $this->getPath();
+        foreach ($path as $name) {
+            $breadcrumb[] = [
+                'name' => $name,
+                'type' => 'category',
+            ];
+        }
+        
+        return $breadcrumb;
     }
 }

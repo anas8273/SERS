@@ -4,7 +4,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Product;
+use App\Models\Template;
 use App\Models\Wishlist;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
  * 
  * Manages user wishlist operations (favorites).
  * All endpoints require authentication.
+ * Updated to use templates instead of products.
  * 
  * @package App\Http\Controllers\Api
  */
@@ -31,27 +32,26 @@ class WishlistController extends Controller
     {
         $user = $request->user();
 
-        $wishlists = Wishlist::with(['product' => function ($query) {
+        $wishlists = Wishlist::with(['template' => function ($query) {
                 $query->select([
                     'id', 'name_ar', 'name_en', 'slug', 'price', 
-                    'discount_price', 'thumbnail_url', 'type',
-                    'average_rating', 'reviews_count', 'is_active'
+                    'discount_price', 'thumbnail_url', 'type', 'is_active'
                 ]);
             }])
             ->where('user_id', $user->id)
-            ->latest()
+            ->orderBy('created_at', 'desc')
             ->get();
 
-        // Filter out inactive products
-        $wishlists = $wishlists->filter(fn($w) => $w->product && $w->product->is_active);
+        // Filter out inactive templates
+        $wishlists = $wishlists->filter(fn($w) => $w->template && $w->template->is_active);
 
         return response()->json([
             'success' => true,
             'data' => $wishlists->map(function ($wishlist) {
                 return [
                     'id' => $wishlist->id,
-                    'product_id' => $wishlist->product_id,
-                    'product' => $wishlist->product,
+                    'template_id' => $wishlist->template_id,
+                    'template' => $wishlist->template,
                     'added_at' => $wishlist->created_at->toISOString(),
                 ];
             })->values(),
@@ -59,7 +59,7 @@ class WishlistController extends Controller
     }
 
     /**
-     * Get wishlist product IDs for quick lookup.
+     * Get wishlist template IDs for quick lookup.
      * 
      * GET /api/wishlists/ids
      * 
@@ -70,17 +70,17 @@ class WishlistController extends Controller
     {
         $user = $request->user();
 
-        $productIds = Wishlist::where('user_id', $user->id)
-            ->pluck('product_id');
+        $templateIds = Wishlist::where('user_id', $user->id)
+            ->pluck('template_id');
 
         return response()->json([
             'success' => true,
-            'data' => $productIds,
+            'data' => $templateIds,
         ]);
     }
 
     /**
-     * Toggle product in wishlist (add if not exists, remove if exists).
+     * Toggle template in wishlist (add if not exists, remove if exists).
      * 
      * POST /api/wishlists/toggle
      * 
@@ -90,24 +90,24 @@ class WishlistController extends Controller
     public function toggle(Request $request): JsonResponse
     {
         $request->validate([
-            'product_id' => 'required|uuid|exists:products,id',
+            'template_id' => 'required|uuid|exists:templates,id',
         ]);
 
         $user = $request->user();
-        $productId = $request->product_id;
+        $templateId = $request->template_id;
 
-        // Check if product is active
-        $product = Product::where('id', $productId)->where('is_active', true)->first();
-        if (!$product) {
+        // Check if template is active
+        $template = Template::where('id', $templateId)->where('is_active', true)->first();
+        if (!$template) {
             return response()->json([
                 'success' => false,
-                'message' => 'المنتج غير متاح',
+                'message' => 'القالب غير متاح',
             ], 404);
         }
 
         // Check if already in wishlist
         $existing = Wishlist::where('user_id', $user->id)
-            ->where('product_id', $productId)
+            ->where('template_id', $templateId)
             ->first();
 
         if ($existing) {
@@ -116,10 +116,10 @@ class WishlistController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'تمت إزالة المنتج من المفضلة',
+                'message' => 'تمت إزالة القالب من المفضلة',
                 'data' => [
                     'action' => 'removed',
-                    'product_id' => $productId,
+                    'template_id' => $templateId,
                     'is_wishlisted' => false,
                 ],
             ]);
@@ -128,42 +128,42 @@ class WishlistController extends Controller
         // Add to wishlist
         $wishlist = Wishlist::create([
             'user_id' => $user->id,
-            'product_id' => $productId,
+            'template_id' => $templateId,
         ]);
 
         return response()->json([
             'success' => true,
-            'message' => 'تمت إضافة المنتج للمفضلة',
+            'message' => 'تمت إضافة القالب للمفضلة',
             'data' => [
                 'action' => 'added',
                 'wishlist_id' => $wishlist->id,
-                'product_id' => $productId,
+                'template_id' => $templateId,
                 'is_wishlisted' => true,
             ],
         ], 201);
     }
 
     /**
-     * Remove product from wishlist.
+     * Remove template from wishlist.
      * 
-     * DELETE /api/wishlists/{productId}
+     * DELETE /api/wishlists/{templateId}
      * 
      * @param Request $request
-     * @param string $productId
+     * @param string $templateId
      * @return JsonResponse
      */
-    public function destroy(Request $request, string $productId): JsonResponse
+    public function destroy(Request $request, string $templateId): JsonResponse
     {
         $user = $request->user();
 
         $wishlist = Wishlist::where('user_id', $user->id)
-            ->where('product_id', $productId)
+            ->where('template_id', $templateId)
             ->first();
 
         if (!$wishlist) {
             return response()->json([
                 'success' => false,
-                'message' => 'المنتج غير موجود في المفضلة',
+                'message' => 'القالب غير موجود في المفضلة',
             ], 404);
         }
 
@@ -171,31 +171,31 @@ class WishlistController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'تمت إزالة المنتج من المفضلة',
+            'message' => 'تمت إزالة القالب من المفضلة',
         ]);
     }
 
     /**
-     * Check if product is in user's wishlist.
+     * Check if template is in user's wishlist.
      * 
-     * GET /api/wishlists/check/{productId}
+     * GET /api/wishlists/check/{templateId}
      * 
      * @param Request $request
-     * @param string $productId
+     * @param string $templateId
      * @return JsonResponse
      */
-    public function check(Request $request, string $productId): JsonResponse
+    public function check(Request $request, string $templateId): JsonResponse
     {
         $user = $request->user();
 
         $isWishlisted = Wishlist::where('user_id', $user->id)
-            ->where('product_id', $productId)
+            ->where('template_id', $templateId)
             ->exists();
 
         return response()->json([
             'success' => true,
             'data' => [
-                'product_id' => $productId,
+                'template_id' => $templateId,
                 'is_wishlisted' => $isWishlisted,
             ],
         ]);
@@ -217,7 +217,7 @@ class WishlistController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => "تم حذف {$count} منتج من المفضلة",
+            'message' => "تم حذف {$count} قالب من المفضلة",
             'data' => [
                 'deleted_count' => $count,
             ],

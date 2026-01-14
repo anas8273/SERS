@@ -10,12 +10,13 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * Wishlist Model
  * 
- * Represents a user's wishlist item (product they want to purchase later).
- * Acts as a pivot between users and products but with its own UUID.
+ * Represents a user's wishlist item (template they want to purchase later).
+ * Acts as a pivot between users and templates but with its own UUID.
+ * Updated to use templates instead of products.
  * 
  * @property string $id UUID primary key
  * @property string $user_id FK to users
- * @property string $product_id FK to products
+ * @property string $template_id FK to templates
  * @property \DateTime $created_at
  * @property \DateTime $updated_at
  */
@@ -28,7 +29,7 @@ class Wishlist extends Model
      */
     protected $fillable = [
         'user_id',
-        'product_id',
+        'template_id',
     ];
 
     // ==================== RELATIONSHIPS ====================
@@ -43,12 +44,12 @@ class Wishlist extends Model
     }
 
     /**
-     * Get the product in this wishlist item.
-     * FK: wishlists.product_id -> products.id (CASCADE on delete)
+     * Get the template in this wishlist item.
+     * FK: wishlists.template_id -> templates.id (CASCADE on delete)
      */
-    public function product()
+    public function template()
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Template::class);
     }
 
     // ==================== SCOPES ====================
@@ -62,10 +63,43 @@ class Wishlist extends Model
     }
 
     /**
-     * Scope to filter by product.
+     * Scope to filter by template.
      */
-    public function scopeForProduct($query, string $productId)
+    public function scopeForTemplate($query, string $templateId)
     {
-        return $query->where('product_id', $productId);
+        return $query->where('template_id', $templateId);
+    }
+
+    // ==================== STATIC METHODS ====================
+
+    /**
+     * Add a template to user's wishlist.
+     */
+    public static function addTemplate(string $userId, string $templateId): self
+    {
+        return self::firstOrCreate([
+            'user_id' => $userId,
+            'template_id' => $templateId,
+        ]);
+    }
+
+    /**
+     * Remove a template from user's wishlist.
+     */
+    public static function removeTemplate(string $userId, string $templateId): bool
+    {
+        return self::where('user_id', $userId)
+                   ->where('template_id', $templateId)
+                   ->delete() > 0;
+    }
+
+    /**
+     * Check if user has template in wishlist.
+     */
+    public static function hasTemplate(string $userId, string $templateId): bool
+    {
+        return self::where('user_id', $userId)
+                   ->where('template_id', $templateId)
+                   ->exists();
     }
 }

@@ -123,7 +123,7 @@ export default function CartPage() {
                             <div className="lg:col-span-2 space-y-4 mb-8 lg:mb-0">
                                 {items.map((item) => (
                                     <div
-                                        key={item.productId}
+                                        key={item.templateId}
                                         className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex gap-4"
                                     >
                                         {/* Thumbnail */}
@@ -162,8 +162,8 @@ export default function CartPage() {
                                             </div>
                                             <button
                                                 onClick={() => {
-                                                    removeItem(item.productId);
-                                                    toast.success('تم إزالة المنتج');
+                                                    removeItem(item.templateId);
+                                                    toast.success('تم إزالة القالب');
                                                 }}
                                                 className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 text-sm"
                                             >

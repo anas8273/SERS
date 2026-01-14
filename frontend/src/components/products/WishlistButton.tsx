@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 interface WishlistButtonProps {
-    productId: string;
+    templateId: string;
     className?: string;
     size?: 'sm' | 'md' | 'lg';
     variant?: 'icon' | 'button';
@@ -16,12 +16,12 @@ interface WishlistButtonProps {
 /**
  * WishlistButton
  * 
- * Heart icon button for adding/removing products from wishlist.
- * Shows filled heart when product is in wishlist.
+ * Heart icon button for adding/removing templates from wishlist.
+ * Shows filled heart when template is in wishlist.
  * Requires authentication - redirects to login if not authenticated.
  */
 export function WishlistButton({
-    productId,
+    templateId,
     className,
     size = 'md',
     variant = 'icon',
@@ -31,7 +31,7 @@ export function WishlistButton({
     const { isWishlisted, toggleWishlist } = useWishlistStore();
     const [isLoading, setIsLoading] = useState(false);
 
-    const wishlisted = isWishlisted(productId);
+    const wishlisted = isWishlisted(templateId);
 
     const sizeClasses = {
         sm: 'w-8 h-8 text-lg',
@@ -49,7 +49,7 @@ export function WishlistButton({
         }
 
         setIsLoading(true);
-        await toggleWishlist(productId);
+        await toggleWishlist(templateId);
         setIsLoading(false);
     };
 

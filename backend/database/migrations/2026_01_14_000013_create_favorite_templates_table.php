@@ -4,6 +4,12 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Favorite Templates Migration
+ * 
+ * Creates the favorite_templates table for storing user's favorite templates.
+ * Updated to use UUID and reference the unified templates table.
+ */
 return new class extends Migration
 {
     /**
@@ -12,12 +18,33 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('favorite_templates', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->foreignId('template_id')->constrained('interactive_templates')->onDelete('cascade');
+            // Primary Key - UUID for consistency
+            $table->uuid('id')->primary()->comment('UUID primary key');
+
+            // Relationships
+            $table->uuid('user_id')->comment('FK to users table');
+            $table->uuid('template_id')->comment('FK to templates table');
+
+            // Timestamps
             $table->timestamps();
-            
-            $table->unique(['user_id', 'template_id']);
+
+            // Foreign Keys
+            $table->foreign('user_id')
+                  ->references('id')
+                  ->on('users')
+                  ->cascadeOnDelete();
+
+            $table->foreign('template_id')
+                  ->references('id')
+                  ->on('templates')
+                  ->cascadeOnDelete();
+
+            // Unique Constraint - User can only favorite a template once
+            $table->unique(['user_id', 'template_id'], 'favorite_templates_unique');
+
+            // Performance Indexes
+            $table->index('user_id', 'favorite_templates_user_index');
+            $table->index('template_id', 'favorite_templates_template_index');
         });
     }
 

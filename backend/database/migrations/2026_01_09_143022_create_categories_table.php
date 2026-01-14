@@ -9,15 +9,20 @@ return new class extends Migration
     /**
      * Run the migrations.
      * 
-     * Creates the categories table with self-referencing hierarchy support.
-     * Includes multilingual name/description fields (Arabic/English).
-     * Optimized with full-text search and composite sorting indexes.
+     * Creates the categories table with:
+     * - Section relationship (categories belong to sections)
+     * - Self-referencing hierarchy support (parent_id for subcategories)
+     * - Multilingual name/description fields (Arabic/English)
+     * - Optimized with full-text search and composite sorting indexes
      */
     public function up(): void
     {
         Schema::create('categories', function (Blueprint $table) {
             // Primary Key - UUID for consistency
             $table->uuid('id')->primary()->comment('UUID primary key');
+
+            // Section Relationship - Categories belong to Sections
+            $table->uuid('section_id')->comment('FK to sections table');
 
             // Multilingual Names
             $table->string('name_ar')->comment('Category name in Arabic');
@@ -43,6 +48,13 @@ return new class extends Migration
             // System Timestamps
             $table->timestamps();
 
+            // Foreign Key - Section relationship
+            $table->foreign('section_id')
+                  ->references('id')
+                  ->on('sections')
+                  ->onDelete('cascade')
+                  ->onUpdate('cascade');
+
             // Foreign Key - Self-referencing with cascade null on delete
             $table->foreign('parent_id')
                   ->references('id')
@@ -51,10 +63,12 @@ return new class extends Migration
                   ->onUpdate('cascade');
 
             // Performance Indexes
+            $table->index('section_id', 'categories_section_index');
             $table->index('parent_id', 'categories_parent_index');
             $table->index('is_active', 'categories_active_index');
             
             // Composite index for sorted listings (hierarchy navigation)
+            $table->index(['section_id', 'sort_order'], 'categories_section_sort_index');
             $table->index(['parent_id', 'sort_order'], 'categories_hierarchy_sort_index');
             $table->index(['is_active', 'sort_order'], 'categories_active_sort_index');
 

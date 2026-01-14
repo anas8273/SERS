@@ -9,9 +9,9 @@ return new class extends Migration
     /**
      * Run the migrations.
      * 
-     * Creates the user_libraries table for tracking purchased products.
+     * Creates the user_libraries table for tracking purchased templates.
      * Represents a user's digital library of owned content.
-     * Optimized with indexes for library listing, ownership checks, and purchase history.
+     * Updated to use templates instead of products.
      */
     public function up(): void
     {
@@ -21,7 +21,7 @@ return new class extends Migration
 
             // Relationships
             $table->uuid('user_id')->comment('FK to users (library owner)');
-            $table->uuid('product_id')->comment('FK to products (owned product)');
+            $table->uuid('template_id')->comment('FK to templates (owned template)');
             $table->uuid('order_id')->comment('FK to orders (purchase record)');
 
             // Purchase Information
@@ -37,21 +37,20 @@ return new class extends Migration
                   ->restrictOnDelete() // Preserve library records for deleted users
                   ->cascadeOnUpdate();
 
-            $table->foreign('product_id')
+            $table->foreign('template_id')
                   ->references('id')
-                  ->on('products')
-                  ->restrictOnDelete() // Prevent deletion of purchased products
+                  ->on('templates')
+                  ->restrictOnDelete() // Prevent deletion of purchased templates
                   ->cascadeOnUpdate();
 
-            // NEW: Added missing foreign key for order_id
             $table->foreign('order_id')
                   ->references('id')
                   ->on('orders')
                   ->restrictOnDelete() // Preserve library records even if order is deleted
                   ->cascadeOnUpdate();
 
-            // Unique Constraint - User can only own a product once
-            $table->unique(['user_id', 'product_id'], 'user_libraries_unique_ownership');
+            // Unique Constraint - User can only own a template once
+            $table->unique(['user_id', 'template_id'], 'user_libraries_unique_ownership');
 
             // Performance Indexes
             // User library listing (most common query - "My Library" page)
@@ -59,8 +58,8 @@ return new class extends Migration
             $table->index(['user_id', 'purchased_at'], 'user_libraries_user_time_index');
             $table->index(['user_id', 'created_at'], 'user_libraries_user_created_index');
             
-            // Product ownership check (verify if user owns a product)
-            $table->index('product_id', 'user_libraries_product_index');
+            // Template ownership check (verify if user owns a template)
+            $table->index('template_id', 'user_libraries_template_index');
             
             // Order-based lookups (find library items created by a specific order)
             $table->index('order_id', 'user_libraries_order_index');

@@ -49,7 +49,7 @@ export default function CheckoutPage() {
         try {
             // Create order
             const orderPayload = items.map((item) => ({
-                product_id: item.productId,
+                template_id: item.templateId,
             }));
 
             const orderResponse = await api.createOrder(orderPayload);
@@ -109,7 +109,7 @@ export default function CheckoutPage() {
 
                             <div className="space-y-4 mb-6">
                                 {items.map((item) => (
-                                    <div key={item.productId} className="flex gap-4">
+                                    <div key={item.templateId} className="flex gap-4">
                                         <div className="relative w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
                                             {item.thumbnail ? (
                                                 <Image

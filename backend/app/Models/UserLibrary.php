@@ -10,12 +10,13 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * UserLibrary Model
  * 
- * Represents a user's digital library of purchased products.
- * Links users to their owned products with purchase tracking.
+ * Represents a user's digital library of purchased templates.
+ * Links users to their owned templates with purchase tracking.
+ * Updated to use templates instead of products.
  * 
  * @property string $id UUID primary key
  * @property string $user_id FK to users (library owner)
- * @property string $product_id FK to products (owned product)
+ * @property string $template_id FK to templates (owned template)
  * @property string $order_id FK to orders (purchase record)
  * @property \DateTime $purchased_at When the purchase was confirmed
  * @property \DateTime $created_at
@@ -30,7 +31,7 @@ class UserLibrary extends Model
      */
     protected $fillable = [
         'user_id',
-        'product_id',
+        'template_id',
         'order_id',
         'purchased_at',
     ];
@@ -54,12 +55,12 @@ class UserLibrary extends Model
     }
 
     /**
-     * Get the product in this library entry.
-     * FK: user_libraries.product_id -> products.id (RESTRICT on delete)
+     * Get the template in this library entry.
+     * FK: user_libraries.template_id -> templates.id (RESTRICT on delete)
      */
-    public function product()
+    public function template()
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Template::class);
     }
 
     /**
@@ -82,37 +83,37 @@ class UserLibrary extends Model
     }
 
     /**
-     * Scope to filter by product.
+     * Scope to filter by template.
      */
-    public function scopeForProduct($query, string $productId)
+    public function scopeForTemplate($query, string $templateId)
     {
-        return $query->where('product_id', $productId);
+        return $query->where('template_id', $templateId);
     }
 
     /**
      * Scope to order by most recently purchased.
      */
-    public function scopeLatest($query)
+    public function scopeRecent($query)
     {
         return $query->orderBy('purchased_at', 'desc');
     }
 
     /**
-     * Scope to filter downloadable products.
+     * Scope to filter ready (downloadable) templates.
      */
-    public function scopeDownloadable($query)
+    public function scopeReady($query)
     {
-        return $query->whereHas('product', function ($q) {
-            $q->where('type', 'downloadable');
+        return $query->whereHas('template', function ($q) {
+            $q->where('type', 'ready');
         });
     }
 
     /**
-     * Scope to filter interactive products.
+     * Scope to filter interactive templates.
      */
     public function scopeInteractive($query)
     {
-        return $query->whereHas('product', function ($q) {
+        return $query->whereHas('template', function ($q) {
             $q->where('type', 'interactive');
         });
     }
@@ -128,14 +129,14 @@ class UserLibrary extends Model
     // ==================== STATIC METHODS ====================
 
     /**
-     * Add a product to a user's library from an order.
+     * Add a template to a user's library from an order.
      */
-    public static function addProduct(string $userId, string $productId, string $orderId): self
+    public static function addTemplate(string $userId, string $templateId, string $orderId): self
     {
         return self::firstOrCreate(
             [
                 'user_id' => $userId,
-                'product_id' => $productId,
+                'template_id' => $templateId,
             ],
             [
                 'order_id' => $orderId,
@@ -145,12 +146,12 @@ class UserLibrary extends Model
     }
 
     /**
-     * Check if user owns a product.
+     * Check if user owns a template.
      */
-    public static function userOwnsProduct(string $userId, string $productId): bool
+    public static function userOwnsTemplate(string $userId, string $templateId): bool
     {
         return self::where('user_id', $userId)
-                   ->where('product_id', $productId)
+                   ->where('template_id', $templateId)
                    ->exists();
     }
 }

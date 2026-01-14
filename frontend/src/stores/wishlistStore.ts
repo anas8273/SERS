@@ -6,20 +6,20 @@ import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 interface WishlistState {
-    productIds: string[];
+    templateIds: string[];
     isLoading: boolean;
 
     // Actions
     fetchWishlistIds: () => Promise<void>;
-    toggleWishlist: (productId: string) => Promise<boolean>;
-    isWishlisted: (productId: string) => boolean;
+    toggleWishlist: (templateId: string) => Promise<boolean>;
+    isWishlisted: (templateId: string) => boolean;
     clearWishlist: () => void;
 }
 
 export const useWishlistStore = create<WishlistState>()(
     persist(
         (set, get) => ({
-            productIds: [],
+            templateIds: [],
             isLoading: false,
 
             // Fetch wishlist IDs from server
@@ -28,7 +28,7 @@ export const useWishlistStore = create<WishlistState>()(
                     set({ isLoading: true });
                     const response = await api.getWishlistIds();
                     if (response.success) {
-                        set({ productIds: response.data });
+                        set({ templateIds: response.data });
                     }
                 } catch (error) {
                     console.error('Failed to fetch wishlist:', error);
@@ -37,20 +37,20 @@ export const useWishlistStore = create<WishlistState>()(
                 }
             },
 
-            // Toggle product in wishlist
-            toggleWishlist: async (productId: string) => {
-                const currentIds = get().productIds;
-                const isCurrentlyWishlisted = currentIds.includes(productId);
+            // Toggle template in wishlist
+            toggleWishlist: async (templateId: string) => {
+                const currentIds = get().templateIds;
+                const isCurrentlyWishlisted = currentIds.includes(templateId);
 
                 // Optimistic update
                 if (isCurrentlyWishlisted) {
-                    set({ productIds: currentIds.filter((id) => id !== productId) });
+                    set({ templateIds: currentIds.filter((id) => id !== templateId) });
                 } else {
-                    set({ productIds: [...currentIds, productId] });
+                    set({ templateIds: [...currentIds, templateId] });
                 }
 
                 try {
-                    const response = await api.toggleWishlist(productId);
+                    const response = await api.toggleWishlist(templateId);
 
                     if (response.success) {
                         if (response.data.action === 'added') {
@@ -62,30 +62,30 @@ export const useWishlistStore = create<WishlistState>()(
                     }
 
                     // Revert on failure
-                    set({ productIds: currentIds });
+                    set({ templateIds: currentIds });
                     return isCurrentlyWishlisted;
                 } catch (error) {
                     // Revert on error
-                    set({ productIds: currentIds });
+                    set({ templateIds: currentIds });
                     toast.error('حدث خطأ، حاول مرة أخرى');
                     return isCurrentlyWishlisted;
                 }
             },
 
-            // Check if product is wishlisted
-            isWishlisted: (productId: string) => {
-                return get().productIds.includes(productId);
+            // Check if template is wishlisted
+            isWishlisted: (templateId: string) => {
+                return get().templateIds.includes(templateId);
             },
 
             // Clear wishlist (local only)
             clearWishlist: () => {
-                set({ productIds: [] });
+                set({ templateIds: [] });
             },
         }),
         {
             name: 'wishlist-storage',
             partialize: (state) => ({
-                productIds: state.productIds,
+                templateIds: state.templateIds,
             }),
         }
     )

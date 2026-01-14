@@ -1,15 +1,20 @@
 <?php
-// app/Http/Controllers/Api/OrderController.php
+// app/Http/Controllers/OrderController.php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Http\Resources\OrderResource;
 use App\Models\Order;
 use App\Services\PurchaseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * OrderController
+ * 
+ * Handles order operations.
+ * Updated to use templates instead of products.
+ */
 class OrderController extends Controller
 {
     public function __construct(
@@ -23,7 +28,7 @@ class OrderController extends Controller
     {
         $orders = $request->user()
             ->orders()
-            ->with('items.product')
+            ->with('items.template')
             ->orderBy('created_at', 'desc')
             ->paginate(10);
 
@@ -40,7 +45,7 @@ class OrderController extends Controller
     {
         $order = $request->user()
             ->orders()
-            ->with('items.product')
+            ->with('items.template')
             ->findOrFail($id);
 
         return response()->json([
@@ -56,7 +61,7 @@ class OrderController extends Controller
     {
         $validated = $request->validate([
             'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|uuid|exists:products,id',
+            'items.*.template_id' => 'required|uuid|exists:templates,id',
         ]);
 
         $order = $this->purchaseService->createOrder(
@@ -67,7 +72,7 @@ class OrderController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'تم إنشاء الطلب بنجاح',
-            'data' => new OrderResource($order->load('items.product')),
+            'data' => new OrderResource($order->load('items.template')),
         ], 201);
     }
 }

@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Log;
  * 
  * Handles order listing, creation, and retrieval.
  * Integrates with PurchaseService for order processing.
+ * Updated to use templates instead of products.
  * 
  * @package App\Http\Controllers\Api
  */
@@ -37,7 +38,7 @@ class OrderController extends Controller
     {
         $orders = $request->user()
             ->orders()
-            ->with('items.product:id,name_ar,name_en,thumbnail_url,type')
+            ->with('items.template:id,name_ar,name_en,thumbnail_url,type')
             ->orderBy('created_at', 'desc')
             ->paginate($request->get('per_page', 10));
 
@@ -66,7 +67,7 @@ class OrderController extends Controller
     {
         $order = $request->user()
             ->orders()
-            ->with('items.product')
+            ->with('items.template')
             ->find($id);
 
         if (!$order) {
@@ -95,12 +96,12 @@ class OrderController extends Controller
     {
         $validated = $request->validate([
             'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|uuid|exists:products,id',
+            'items.*.template_id' => 'required|uuid|exists:templates,id',
         ], [
-            'items.required' => 'يجب إضافة منتج واحد على الأقل',
-            'items.min' => 'يجب إضافة منتج واحد على الأقل',
-            'items.*.product_id.required' => 'معرف المنتج مطلوب',
-            'items.*.product_id.exists' => 'المنتج غير موجود',
+            'items.required' => 'يجب إضافة قالب واحد على الأقل',
+            'items.min' => 'يجب إضافة قالب واحد على الأقل',
+            'items.*.template_id.required' => 'معرف القالب مطلوب',
+            'items.*.template_id.exists' => 'القالب غير موجود',
         ]);
 
         try {
@@ -117,7 +118,7 @@ class OrderController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'تم إنشاء الطلب بنجاح',
-                'data' => new OrderResource($order->load('items.product')),
+                'data' => new OrderResource($order->load('items.template')),
             ], 201);
 
         } catch (\Throwable $e) {
@@ -169,7 +170,7 @@ class OrderController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'تم الدفع بنجاح',
-                'data' => new OrderResource($order->fresh('items.product')),
+                'data' => new OrderResource($order->fresh('items.template')),
             ]);
 
         } catch (\Throwable $e) {

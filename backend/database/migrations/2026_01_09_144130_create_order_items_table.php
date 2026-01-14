@@ -10,8 +10,8 @@ return new class extends Migration
      * Run the migrations.
      * 
      * Creates the order_items table for individual items within an order.
-     * Includes product snapshot (price/name at purchase time) and Firestore sync tracking.
-     * Optimized with indexes for sync queue management and order lookups.
+     * Includes template snapshot (price/name at purchase time) and Firestore sync tracking.
+     * Updated to use templates instead of products.
      */
     public function up(): void
     {
@@ -21,14 +21,14 @@ return new class extends Migration
 
             // Relationships
             $table->uuid('order_id')->comment('FK to orders table');
-            $table->uuid('product_id')->comment('FK to products table');
+            $table->uuid('template_id')->comment('FK to templates table');
 
-            // Snapshot of Product at Purchase Time (Immutable - preserves historical data)
+            // Snapshot of Template at Purchase Time (Immutable - preserves historical data)
             $table->decimal('price', 10, 2)->unsigned()->comment('Price paid at time of purchase');
-            $table->string('product_name')->comment('Product name at time of purchase');
-            $table->enum('product_type', ['downloadable', 'interactive'])->comment('Product type at purchase');
+            $table->string('template_name')->comment('Template name at time of purchase');
+            $table->enum('template_type', ['ready', 'interactive'])->comment('Template type at purchase');
 
-            // Firestore Sync (Interactive Products)
+            // Firestore Sync (Interactive Templates)
             $table->string('firestore_record_id', 255)->nullable()->comment('Firestore document ID after sync');
             $table->enum('sync_status', ['pending', 'synced', 'failed'])->default('pending')->comment('Firestore sync status');
             $table->unsignedTinyInteger('sync_attempts')->default(0)->comment('Number of sync attempts (max 255)');
@@ -44,18 +44,18 @@ return new class extends Migration
                   ->cascadeOnDelete()
                   ->cascadeOnUpdate();
 
-            $table->foreign('product_id')
+            $table->foreign('template_id')
                   ->references('id')
-                  ->on('products')
-                  ->restrictOnDelete() // Prevent deletion of products that have been purchased
+                  ->on('templates')
+                  ->restrictOnDelete() // Prevent deletion of templates that have been purchased
                   ->cascadeOnUpdate();
 
-            // Unique Constraint - Prevent duplicate product in same order
-            $table->unique(['order_id', 'product_id'], 'order_items_unique_product');
+            // Unique Constraint - Prevent duplicate template in same order
+            $table->unique(['order_id', 'template_id'], 'order_items_unique_template');
 
             // Performance Indexes
             $table->index('order_id', 'order_items_order_index');
-            $table->index('product_id', 'order_items_product_index');
+            $table->index('template_id', 'order_items_template_index');
             
             // Sync management indexes (for background job processing)
             $table->index('sync_status', 'order_items_sync_status_index');
@@ -65,8 +65,8 @@ return new class extends Migration
             // Time-based sync processing queue
             $table->index(['sync_status', 'created_at'], 'order_items_sync_queue_index');
             
-            // Product type for batch processing (e.g., process all interactive items)
-            $table->index('product_type', 'order_items_type_index');
+            // Template type for batch processing (e.g., process all interactive items)
+            $table->index('template_type', 'order_items_type_index');
         });
     }
 

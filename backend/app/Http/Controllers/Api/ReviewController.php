@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
-use App\Models\Product;
+use App\Models\Template;
 use App\Models\Review;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,33 +13,34 @@ use Illuminate\Http\Request;
 /**
  * ReviewController
  * 
- * Handles product reviews with purchase verification.
- * Only users who purchased a product can leave a review.
+ * Handles template reviews with purchase verification.
+ * Only users who purchased a template can leave a review.
+ * Updated to use templates instead of products.
  * 
  * @package App\Http\Controllers\Api
  */
 class ReviewController extends Controller
 {
     /**
-     * Get reviews for a product.
+     * Get reviews for a template.
      * 
-     * GET /api/products/{slug}/reviews
+     * GET /api/templates/{slug}/reviews
      * 
      * @param string $slug
      * @return JsonResponse
      */
     public function index(string $slug): JsonResponse
     {
-        $product = Product::where('slug', $slug)->firstOrFail();
+        $template = Template::where('slug', $slug)->firstOrFail();
 
         $reviews = Review::with(['user:id,name'])
-            ->where('product_id', $product->id)
+            ->where('template_id', $template->id)
             ->where('is_approved', true)
-            ->latest()
+            ->orderBy('created_at', 'desc')
             ->paginate(10);
 
         // Calculate rating distribution
-        $ratingDistribution = Review::where('product_id', $product->id)
+        $ratingDistribution = Review::where('template_id', $template->id)
             ->where('is_approved', true)
             ->selectRaw('rating, COUNT(*) as count')
             ->groupBy('rating')
@@ -52,13 +53,22 @@ class ReviewController extends Controller
             $distribution[$i] = $ratingDistribution[$i] ?? 0;
         }
 
+        // Calculate average rating
+        $averageRating = Review::where('template_id', $template->id)
+            ->where('is_approved', true)
+            ->avg('rating') ?? 0;
+
+        $reviewsCount = Review::where('template_id', $template->id)
+            ->where('is_approved', true)
+            ->count();
+
         return response()->json([
             'success' => true,
             'data' => [
                 'reviews' => $reviews->items(),
                 'summary' => [
-                    'average_rating' => (float) $product->average_rating,
-                    'reviews_count' => $product->reviews_count,
+                    'average_rating' => round($averageRating, 1),
+                    'reviews_count' => $reviewsCount,
                     'distribution' => $distribution,
                 ],
                 'pagination' => [
@@ -72,9 +82,9 @@ class ReviewController extends Controller
     }
 
     /**
-     * Create a review for a product.
+     * Create a review for a template.
      * 
-     * POST /api/products/{slug}/reviews
+     * POST /api/templates/{slug}/reviews
      * 
      * Requires authentication and purchase verification.
      * 
@@ -85,32 +95,32 @@ class ReviewController extends Controller
     public function store(Request $request, string $slug): JsonResponse
     {
         $user = $request->user();
-        $product = Product::where('slug', $slug)->firstOrFail();
+        $template = Template::where('slug', $slug)->firstOrFail();
 
-        // Check if user already reviewed this product
+        // Check if user already reviewed this template
         $existingReview = Review::where('user_id', $user->id)
-            ->where('product_id', $product->id)
+            ->where('template_id', $template->id)
             ->first();
 
         if ($existingReview) {
             return response()->json([
                 'success' => false,
-                'message' => 'لقد قمت بتقييم هذا المنتج مسبقاً',
+                'message' => 'لقد قمت بتقييم هذا القالب مسبقاً',
             ], 400);
         }
 
-        // Verify purchase - user must have completed order containing this product
+        // Verify purchase - user must have completed order containing this template
         $purchaseOrder = Order::where('user_id', $user->id)
             ->where('status', 'completed')
-            ->whereHas('items', function ($query) use ($product) {
-                $query->where('product_id', $product->id);
+            ->whereHas('items', function ($query) use ($template) {
+                $query->where('template_id', $template->id);
             })
             ->first();
 
         if (!$purchaseOrder) {
             return response()->json([
                 'success' => false,
-                'message' => 'يجب شراء المنتج قبل تقييمه',
+                'message' => 'يجب شراء القالب قبل تقييمه',
             ], 403);
         }
 
@@ -123,23 +133,29 @@ class ReviewController extends Controller
         // Create review
         $review = Review::create([
             'user_id' => $user->id,
-            'product_id' => $product->id,
+            'template_id' => $template->id,
             'order_id' => $purchaseOrder->id,
             'rating' => $validated['rating'],
             'comment' => $validated['comment'] ?? null,
             'is_approved' => true, // Auto-approve for now
         ]);
 
-        // Recalculate product rating
-        $product->recalculateRating();
+        // Calculate new average
+        $newAverage = Review::where('template_id', $template->id)
+            ->where('is_approved', true)
+            ->avg('rating') ?? 0;
+
+        $newCount = Review::where('template_id', $template->id)
+            ->where('is_approved', true)
+            ->count();
 
         return response()->json([
             'success' => true,
             'message' => 'تم إضافة التقييم بنجاح',
             'data' => [
                 'review' => $review->load('user:id,name'),
-                'new_average' => $product->fresh()->average_rating,
-                'new_count' => $product->fresh()->reviews_count,
+                'new_average' => round($newAverage, 1),
+                'new_count' => $newCount,
             ],
         ], 201);
     }
@@ -168,9 +184,6 @@ class ReviewController extends Controller
 
         $review->update($validated);
 
-        // Recalculate product rating
-        $review->product->recalculateRating();
-
         return response()->json([
             'success' => true,
             'message' => 'تم تحديث التقييم بنجاح',
@@ -195,11 +208,7 @@ class ReviewController extends Controller
             ->where('user_id', $user->id)
             ->firstOrFail();
 
-        $product = $review->product;
         $review->delete();
-
-        // Recalculate product rating
-        $product->recalculateRating();
 
         return response()->json([
             'success' => true,
@@ -208,9 +217,9 @@ class ReviewController extends Controller
     }
 
     /**
-     * Check if user can review a product.
+     * Check if user can review a template.
      * 
-     * GET /api/products/{slug}/can-review
+     * GET /api/templates/{slug}/can-review
      * 
      * @param Request $request
      * @param string $slug
@@ -219,11 +228,11 @@ class ReviewController extends Controller
     public function canReview(Request $request, string $slug): JsonResponse
     {
         $user = $request->user();
-        $product = Product::where('slug', $slug)->firstOrFail();
+        $template = Template::where('slug', $slug)->firstOrFail();
 
         // Check if already reviewed
         $hasReviewed = Review::where('user_id', $user->id)
-            ->where('product_id', $product->id)
+            ->where('template_id', $template->id)
             ->exists();
 
         if ($hasReviewed) {
@@ -232,7 +241,7 @@ class ReviewController extends Controller
                 'data' => [
                     'can_review' => false,
                     'reason' => 'already_reviewed',
-                    'message' => 'لقد قمت بتقييم هذا المنتج مسبقاً',
+                    'message' => 'لقد قمت بتقييم هذا القالب مسبقاً',
                 ],
             ]);
         }
@@ -240,8 +249,8 @@ class ReviewController extends Controller
         // Check if purchased
         $hasPurchased = Order::where('user_id', $user->id)
             ->where('status', 'completed')
-            ->whereHas('items', function ($query) use ($product) {
-                $query->where('product_id', $product->id);
+            ->whereHas('items', function ($query) use ($template) {
+                $query->where('template_id', $template->id);
             })
             ->exists();
 
@@ -251,7 +260,7 @@ class ReviewController extends Controller
                 'data' => [
                     'can_review' => false,
                     'reason' => 'not_purchased',
-                    'message' => 'يجب شراء المنتج قبل تقييمه',
+                    'message' => 'يجب شراء القالب قبل تقييمه',
                 ],
             ]);
         }
@@ -261,15 +270,15 @@ class ReviewController extends Controller
             'data' => [
                 'can_review' => true,
                 'reason' => null,
-                'message' => 'يمكنك تقييم هذا المنتج',
+                'message' => 'يمكنك تقييم هذا القالب',
             ],
         ]);
     }
 
     /**
-     * Get user's review for a product.
+     * Get user's review for a template.
      * 
-     * GET /api/products/{slug}/my-review
+     * GET /api/templates/{slug}/my-review
      * 
      * @param Request $request
      * @param string $slug
@@ -278,10 +287,10 @@ class ReviewController extends Controller
     public function myReview(Request $request, string $slug): JsonResponse
     {
         $user = $request->user();
-        $product = Product::where('slug', $slug)->firstOrFail();
+        $template = Template::where('slug', $slug)->firstOrFail();
 
         $review = Review::where('user_id', $user->id)
-            ->where('product_id', $product->id)
+            ->where('template_id', $template->id)
             ->first();
 
         return response()->json([
@@ -302,10 +311,10 @@ class ReviewController extends Controller
      */
     public function adminIndex(Request $request): JsonResponse
     {
-        $reviews = Review::with(['user:id,name,email', 'product:id,name_ar,name_en,slug'])
+        $reviews = Review::with(['user:id,name,email', 'template:id,name_ar,name_en,slug'])
             ->when($request->pending, fn($q) => $q->pending())
             ->when($request->approved, fn($q) => $q->approved())
-            ->latest()
+            ->orderBy('created_at', 'desc')
             ->paginate(20);
 
         return response()->json([
@@ -365,10 +374,7 @@ class ReviewController extends Controller
     public function adminDestroy(string $id): JsonResponse
     {
         $review = Review::findOrFail($id);
-        $product = $review->product;
-        
         $review->delete();
-        $product->recalculateRating();
 
         return response()->json([
             'success' => true,

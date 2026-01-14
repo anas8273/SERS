@@ -11,15 +11,16 @@ use Illuminate\Database\Eloquent\Model;
  * OrderItem Model
  * 
  * Represents a single item in an order.
- * Stores a snapshot of product details at purchase time.
- * Tracks Firestore sync status for interactive products.
+ * Stores a snapshot of template details at purchase time.
+ * Tracks Firestore sync status for interactive templates.
+ * Updated to use templates instead of products.
  * 
  * @property string $id UUID primary key
  * @property string $order_id FK to orders
- * @property string $product_id FK to products
+ * @property string $template_id FK to templates
  * @property float $price Price paid at time of purchase
- * @property string $product_name Product name at time of purchase
- * @property string $product_type Product type at purchase (downloadable|interactive)
+ * @property string $template_name Template name at time of purchase
+ * @property string $template_type Template type at purchase (ready|interactive)
  * @property string|null $firestore_record_id Firestore document ID after sync
  * @property string $sync_status Firestore sync status (pending|synced|failed)
  * @property int $sync_attempts Number of sync attempts
@@ -48,10 +49,10 @@ class OrderItem extends Model
      */
     protected $fillable = [
         'order_id',
-        'product_id',
+        'template_id',
         'price',
-        'product_name',
-        'product_type',
+        'template_name',
+        'template_type',
         'firestore_record_id',
         'sync_status',
         'sync_attempts',
@@ -78,12 +79,12 @@ class OrderItem extends Model
     }
 
     /**
-     * Get the product for this item.
-     * FK: order_items.product_id -> products.id (RESTRICT on delete)
+     * Get the template for this item.
+     * FK: order_items.template_id -> templates.id (RESTRICT on delete)
      */
-    public function product()
+    public function template()
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Template::class);
     }
 
     // ==================== METHODS ====================
@@ -165,15 +166,15 @@ class OrderItem extends Model
      */
     public function scopeInteractive($query)
     {
-        return $query->where('product_type', 'interactive');
+        return $query->where('template_type', 'interactive');
     }
 
     /**
-     * Scope to filter downloadable items.
+     * Scope to filter ready (downloadable) items.
      */
-    public function scopeDownloadable($query)
+    public function scopeReady($query)
     {
-        return $query->where('product_type', 'downloadable');
+        return $query->where('template_type', 'ready');
     }
 
     // ==================== ACCESSORS ====================
@@ -187,11 +188,11 @@ class OrderItem extends Model
     }
 
     /**
-     * Check if item needs sync (interactive products only).
+     * Check if item needs sync (interactive templates only).
      */
     public function getNeedsSyncAttribute(): bool
     {
-        return $this->product_type === 'interactive' && !$this->is_synced;
+        return $this->template_type === 'interactive' && !$this->is_synced;
     }
 
     /**

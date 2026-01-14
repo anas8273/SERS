@@ -15,6 +15,7 @@ use Laravel\Sanctum\HasApiTokens;
  * 
  * Represents a user account with authentication, wallet, and role management.
  * Uses UUID as primary key for Firestore compatibility.
+ * Updated to use templates instead of products.
  * 
  * @property string $id UUID primary key
  * @property string $email Unique email for authentication
@@ -36,7 +37,6 @@ class User extends Authenticatable
 
     /**
      * The attributes that are mass assignable.
-     * Matches migration columns that should be user-fillable.
      */
     protected $fillable = [
         'name',
@@ -53,7 +53,6 @@ class User extends Authenticatable
 
     /**
      * The attributes that should be hidden for serialization.
-     * Sensitive data that should never be exposed in API responses.
      */
     protected $hidden = [
         'password',
@@ -62,7 +61,6 @@ class User extends Authenticatable
 
     /**
      * The attributes that should be cast.
-     * Ensures proper type handling for database columns.
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
@@ -75,7 +73,6 @@ class User extends Authenticatable
 
     /**
      * Get all orders placed by this user.
-     * FK: orders.user_id -> users.id (CASCADE on delete)
      */
     public function orders()
     {
@@ -84,7 +81,6 @@ class User extends Authenticatable
 
     /**
      * Get all wallet transactions for this user.
-     * FK: wallet_transactions.user_id -> users.id (RESTRICT on delete)
      */
     public function walletTransactions()
     {
@@ -93,7 +89,6 @@ class User extends Authenticatable
 
     /**
      * Get all reviews written by this user.
-     * FK: reviews.user_id -> users.id (RESTRICT on delete)
      */
     public function reviews()
     {
@@ -101,8 +96,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Get the user's product library (purchased products).
-     * FK: user_libraries.user_id -> users.id (RESTRICT on delete)
+     * Get the user's template library (purchased templates).
      */
     public function library()
     {
@@ -110,19 +104,17 @@ class User extends Authenticatable
     }
 
     /**
-     * Get products owned by this user through the library.
-     * Many-to-many through user_libraries pivot table.
+     * Get templates owned by this user through the library.
      */
-    public function ownedProducts()
+    public function ownedTemplates()
     {
-        return $this->belongsToMany(Product::class, 'user_libraries')
+        return $this->belongsToMany(Template::class, 'user_libraries')
                     ->withPivot('order_id', 'purchased_at')
                     ->withTimestamps();
     }
 
     /**
      * Get user's wishlist items.
-     * FK: wishlists.user_id -> users.id (CASCADE on delete)
      */
     public function wishlists()
     {
@@ -130,12 +122,37 @@ class User extends Authenticatable
     }
 
     /**
-     * Get wishlisted products.
+     * Get wishlisted templates.
      */
-    public function wishlistedProducts()
+    public function wishlistedTemplates()
     {
-        return $this->belongsToMany(Product::class, 'wishlists')
+        return $this->belongsToMany(Template::class, 'wishlists')
                     ->withTimestamps();
+    }
+
+    /**
+     * Get user's favorite templates.
+     */
+    public function favoriteTemplates()
+    {
+        return $this->belongsToMany(Template::class, 'favorite_templates')
+                    ->withTimestamps();
+    }
+
+    /**
+     * Get user's template data (filled templates).
+     */
+    public function templateData()
+    {
+        return $this->hasMany(UserTemplateData::class);
+    }
+
+    /**
+     * Get user's evidences.
+     */
+    public function evidences()
+    {
+        return $this->hasMany(Evidence::class);
     }
 
     // ==================== SCOPES ====================
@@ -175,11 +192,27 @@ class User extends Authenticatable
     }
 
     /**
-     * Check if user owns a specific product.
+     * Check if user owns a specific template.
      */
-    public function ownsProduct(string $productId): bool
+    public function ownsTemplate(string $templateId): bool
     {
-        return $this->library()->where('product_id', $productId)->exists();
+        return $this->library()->where('template_id', $templateId)->exists();
+    }
+
+    /**
+     * Check if user has template in wishlist.
+     */
+    public function hasInWishlist(string $templateId): bool
+    {
+        return $this->wishlists()->where('template_id', $templateId)->exists();
+    }
+
+    /**
+     * Check if user has template in favorites.
+     */
+    public function hasFavorited(string $templateId): bool
+    {
+        return FavoriteTemplate::hasTemplate($this->id, $templateId);
     }
 
     /**

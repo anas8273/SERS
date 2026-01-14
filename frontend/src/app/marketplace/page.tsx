@@ -13,7 +13,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { WishlistButton } from '@/components/products/WishlistButton';
 import { useCartStore } from '@/stores/cartStore';
 import toast from 'react-hot-toast';
-import type { Product, Category } from '@/types';
+import type { Template, Category } from '@/types';
 
 function formatPrice(amount: number): string {
     return new Intl.NumberFormat('ar-SA', {
@@ -27,7 +27,7 @@ function MarketplaceContent() {
     const searchParams = useSearchParams();
     const { addItem } = useCartStore();
 
-    const [products, setProducts] = useState<Product[]>([]);
+    const [templates, setTemplates] = useState<Template[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedCategory, setSelectedCategory] = useState<string | null>(
@@ -50,15 +50,15 @@ function MarketplaceContent() {
                     api.getCategories().catch(() => ({ data: [] })),
                 ]);
 
-                let filteredProducts = productsRes.data || [];
+                let filteredTemplates = productsRes.data || [];
 
                 // Client-side price filter
-                filteredProducts = filteredProducts.filter((p: Product) => {
-                    const price = p.discount_price || p.price;
+                filteredTemplates = filteredTemplates.filter((t: Template) => {
+                    const price = t.discount_price || t.price;
                     return price >= priceRange[0] && price <= priceRange[1];
                 });
 
-                setProducts(filteredProducts);
+                setTemplates(filteredTemplates);
                 setCategories(categoriesRes.data || []);
             } catch (error) {
                 console.error('Failed to fetch products:', error);
@@ -69,13 +69,13 @@ function MarketplaceContent() {
         fetchData();
     }, [selectedCategory, selectedType, searchQuery, priceRange]);
 
-    const handleAddToCart = (product: Product) => {
+    const handleAddToCart = (template: Template) => {
         addItem({
-            productId: product.id,
-            name: product.name_ar,
-            price: product.discount_price || product.price,
-            thumbnail: product.thumbnail_url || '',
-            type: product.type,
+            templateId: template.id,
+            name: template.name_ar,
+            price: template.discount_price || template.price,
+            thumbnail: template.thumbnail_url || '',
+            type: template.type,
         });
         toast.success('تمت الإضافة للسلة 🛒');
     };
@@ -249,7 +249,7 @@ function MarketplaceContent() {
                             {/* Results Count */}
                             <div className="mb-6 flex items-center justify-between">
                                 <p className="text-gray-600 dark:text-gray-400">
-                                    {isLoading ? 'جاري البحث...' : `${products.length} منتج`}
+                                    {isLoading ? 'جاري البحث...' : `${templates.length} قالب`}
                                 </p>
                             </div>
 
@@ -260,10 +260,10 @@ function MarketplaceContent() {
                                         <ProductCardSkeleton key={i} />
                                     ))}
                                 </div>
-                            ) : products.length === 0 ? (
+                            ) : templates.length === 0 ? (
                                 <EmptyState
                                     icon={<span className="text-6xl">🔍</span>}
-                                    title="لا توجد منتجات"
+                                    title="لا توجد قوالب"
                                     description="جرب تغيير الفلاتر أو البحث بكلمات أخرى"
                                     action={
                                         <Button onClick={clearFilters} className="bg-primary-600 hover:bg-primary-700 text-white">
@@ -273,21 +273,21 @@ function MarketplaceContent() {
                                 />
                             ) : (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-                                    {products.map((product) => {
-                                        const hasDiscount = product.discount_price && product.discount_price < product.price;
+                                    {templates.map((template) => {
+                                        const hasDiscount = template.discount_price && template.discount_price < template.price;
 
                                         return (
                                             <div
-                                                key={product.id}
+                                                key={template.id}
                                                 className="group bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-700"
                                             >
                                                 {/* Product Image */}
-                                                <Link href={`/marketplace/${product.slug}`}>
+                                                <Link href={`/marketplace/${template.slug}`}>
                                                     <div className="relative aspect-[4/3] bg-gray-100 dark:bg-gray-700">
-                                                        {product.thumbnail_url ? (
+                                                        {template.thumbnail_url ? (
                                                             <Image
-                                                                src={product.thumbnail_url}
-                                                                alt={product.name_ar}
+                                                                src={template.thumbnail_url}
+                                                                alt={template.name_ar}
                                                                 fill
                                                                 className="object-cover group-hover:scale-105 transition-transform duration-300"
                                                             />
@@ -300,55 +300,55 @@ function MarketplaceContent() {
                                                         {/* Badges */}
                                                         {hasDiscount && (
                                                             <span className="absolute top-3 right-3 px-2 py-1 bg-red-500 text-white text-xs font-bold rounded">
-                                                                خصم {Math.round(((product.price - (product.discount_price || 0)) / product.price) * 100)}%
+                                                                خصم {Math.round(((template.price - (template.discount_price || 0)) / template.price) * 100)}%
                                                             </span>
                                                         )}
-                                                        <span className={`absolute top-3 left-3 px-2 py-1 rounded text-xs font-medium ${product.type === 'interactive'
+                                                        <span className={`absolute top-3 left-3 px-2 py-1 rounded text-xs font-medium ${template.type === 'interactive'
                                                             ? 'bg-blue-500 text-white'
                                                             : 'bg-gray-700 dark:bg-gray-900 text-white'
                                                             }`}>
-                                                            {product.type === 'interactive' ? 'تفاعلي' : 'ملف'}
+                                                            {template.type === 'interactive' ? 'تفاعلي' : 'جاهز'}
                                                         </span>
 
                                                         {/* Wishlist Button */}
                                                         <div className="absolute bottom-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <WishlistButton productId={product.id} size="sm" />
+                                                            <WishlistButton templateId={template.id} size="sm" />
                                                         </div>
                                                     </div>
                                                 </Link>
 
                                                 {/* Product Info */}
                                                 <div className="p-5">
-                                                    <Link href={`/marketplace/${product.slug}`}>
+                                                    <Link href={`/marketplace/${template.slug}`}>
                                                         <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-2 line-clamp-1 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
-                                                            {product.name_ar}
+                                                            {template.name_ar}
                                                         </h3>
                                                     </Link>
 
                                                     <div className="flex items-center gap-1 mb-3">
                                                         <span className="text-yellow-400">⭐</span>
                                                         <span className="text-sm text-gray-600 dark:text-gray-400">
-                                                            {Number(product.average_rating || 0).toFixed(1)}
+                                                            {Number(template.average_rating || 0).toFixed(1)}
                                                         </span>
                                                         <span className="text-xs text-gray-400 dark:text-gray-500">
-                                                            ({product.reviews_count || 0})
+                                                            ({template.reviews_count || 0})
                                                         </span>
                                                     </div>
 
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-2">
                                                             <span className="text-lg font-bold text-primary-600 dark:text-primary-400">
-                                                                {formatPrice(product.discount_price || product.price)}
+                                                                {formatPrice(template.discount_price || template.price)}
                                                             </span>
                                                             {hasDiscount && (
                                                                 <span className="text-sm text-gray-400 line-through">
-                                                                    {formatPrice(product.price)}
+                                                                    {formatPrice(template.price)}
                                                                 </span>
                                                             )}
                                                         </div>
                                                         <Button
                                                             size="sm"
-                                                            onClick={() => handleAddToCart(product)}
+                                                            onClick={() => handleAddToCart(template)}
                                                             className="bg-primary-600 hover:bg-primary-700 text-white"
                                                         >
                                                             🛒

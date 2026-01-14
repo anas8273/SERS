@@ -6,11 +6,18 @@ namespace App\Services;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Outbox;
-use App\Models\Product;
+use App\Models\Template;
 use App\Models\User;
+use App\Models\UserLibrary;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * PurchaseService
+ * 
+ * Handles order creation and payment processing.
+ * Updated to use templates instead of products.
+ */
 class PurchaseService
 {
     /**
@@ -25,12 +32,12 @@ class PurchaseService
             $itemsData = [];
 
             foreach ($cartItems as $item) {
-                $product = Product::findOrFail($item['product_id']);
-                $price = $product->effective_price;
+                $template = Template::findOrFail($item['template_id']);
+                $price = $template->discount_price ?? $template->price;
                 $subtotal += $price;
 
                 $itemsData[] = [
-                    'product' => $product,
+                    'template' => $template,
                     'price' => $price,
                 ];
             }
@@ -49,10 +56,10 @@ class PurchaseService
             foreach ($itemsData as $itemData) {
                 OrderItem::create([
                     'order_id' => $order->id,
-                    'product_id' => $itemData['product']->id,
+                    'template_id' => $itemData['template']->id,
                     'price' => $itemData['price'],
-                    'product_name' => $itemData['product']->name_ar,
-                    'product_type' => $itemData['product']->type,
+                    'template_name' => $itemData['template']->name_ar,
+                    'template_type' => $itemData['template']->type,
                     'sync_status' => 'pending',
                 ]);
             }
@@ -63,7 +70,7 @@ class PurchaseService
                 'items_count' => count($itemsData),
             ]);
 
-            return $order->load('items.product');
+            return $order->load('items.template');
         });
     }
 
@@ -77,9 +84,13 @@ class PurchaseService
             // 1. تحديث حالة الطلب
             $order->markAsPaid($paymentId, $paymentMethod, $paymentDetails);
 
-            // 2. تحديث عدد التحميلات للمنتجات
+            // 2. إضافة القوالب لمكتبة المستخدم
             foreach ($order->items as $item) {
-                $item->product->increment('downloads_count');
+                UserLibrary::addTemplate(
+                    $order->user_id,
+                    $item->template_id,
+                    $order->id
+                );
             }
 
             // 3. إنشاء حدث في صندوق الصادر للمزامنة مع Firestore
@@ -99,8 +110,8 @@ class PurchaseService
     protected function createOutboxEvent(Order $order): void
     {
         $interactiveItems = $order->items()
-            ->where('product_type', 'interactive')
-            ->with('product')
+            ->where('template_type', 'interactive')
+            ->with('template')
             ->get();
 
         if ($interactiveItems->isEmpty()) {
@@ -113,9 +124,8 @@ class PurchaseService
             'items' => $interactiveItems->map(function ($item) {
                 return [
                     'order_item_id' => $item->id,
-                    'product_id' => $item->product_id,
-                    'product_type' => $item->product_type,
-                    'template_structure' => $item->product->template_structure,
+                    'template_id' => $item->template_id,
+                    'template_type' => $item->template_type,
                 ];
             })->toArray(),
         ];

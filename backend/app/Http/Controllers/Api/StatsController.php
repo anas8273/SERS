@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
-use App\Models\Product;
+use App\Models\Template;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,6 +20,7 @@ use Carbon\Carbon;
  * Provides analytics and statistics for admin dashboard.
  * Uses caching to improve performance.
  * All endpoints require admin authentication.
+ * Updated to use templates instead of products.
  * 
  * @package App\Http\Controllers\Api
  */
@@ -81,7 +82,7 @@ class StatsController extends Controller
 
         // Total counts (fast simple queries)
         $totalUsers = User::count();
-        $totalProducts = Product::count();
+        $totalTemplates = Template::count();
         $totalOrders = Order::where('status', 'completed')->count();
         
         // Revenue calculations
@@ -107,7 +108,7 @@ class StatsController extends Controller
             ->sum('total');
 
         // Recent orders (latest 5) - eager loaded
-        $recentOrders = Order::with(['user:id,name,email', 'items.product:id,name_ar,name_en'])
+        $recentOrders = Order::with(['user:id,name,email', 'items.template:id,name_ar,name_en'])
             ->latest()
             ->limit(5)
             ->get()
@@ -123,25 +124,26 @@ class StatsController extends Controller
                 ];
             });
 
-        // Top selling products (using subquery for performance)
-        $topProducts = Product::select('products.*')
+        // Top selling templates (using subquery for performance)
+        $topTemplates = Template::select('templates.*')
             ->selectRaw('(
                 SELECT COUNT(*) FROM order_items 
                 INNER JOIN orders ON orders.id = order_items.order_id 
-                WHERE order_items.product_id = products.id 
+                WHERE order_items.template_id = templates.id 
                 AND orders.status = "completed"
             ) as sales_count')
             ->orderByDesc('sales_count')
             ->limit(5)
             ->get()
-            ->map(function ($product) {
+            ->map(function ($template) {
+                $effectivePrice = $template->discount_price ?? $template->price;
                 return [
-                    'id' => $product->id,
-                    'name_ar' => $product->name_ar,
-                    'name_en' => $product->name_en,
-                    'thumbnail_url' => $product->thumbnail_url,
-                    'sales_count' => $product->sales_count ?? 0,
-                    'revenue' => (float) ($product->sales_count * $product->effective_price),
+                    'id' => $template->id,
+                    'name_ar' => $template->name_ar,
+                    'name_en' => $template->name_en,
+                    'thumbnail_url' => $template->thumbnail_url,
+                    'sales_count' => $template->sales_count ?? 0,
+                    'revenue' => (float) ($template->sales_count * $effectivePrice),
                 ];
             });
 
@@ -158,7 +160,7 @@ class StatsController extends Controller
             'total_revenue' => (float) $totalRevenue,
             'total_orders' => $totalOrders,
             'total_users' => $totalUsers,
-            'total_products' => $totalProducts,
+            'total_templates' => $totalTemplates,
             
             // Monthly
             'monthly_revenue' => (float) $monthlyRevenue,
@@ -179,7 +181,7 @@ class StatsController extends Controller
             
             // Lists
             'recent_orders' => $recentOrders,
-            'top_products' => $topProducts,
+            'top_templates' => $topTemplates,
         ];
     }
 
@@ -248,4 +250,3 @@ class StatsController extends Controller
         Cache::forget('admin_chart');
     }
 }
-
