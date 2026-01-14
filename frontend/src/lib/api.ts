@@ -884,6 +884,250 @@ class ApiClient {
         return data;
     }
 
+    /**
+     * =========================
+     * Sections (الأقسام)
+     * =========================
+     */
+    async getSections() {
+        const { data } = await this.client.get('/sections');
+        return data;
+    }
+
+    async getSection(slug: string) {
+        const { data } = await this.client.get(`/sections/${slug}`);
+        return data;
+    }
+
+    /**
+     * =========================
+     * Categories with Section (الفئات)
+     * =========================
+     */
+    async getCategoriesBySection(sectionSlug: string) {
+        const { data } = await this.client.get(`/sections/${sectionSlug}/categories`);
+        return data;
+    }
+
+    async getCategory(slug: string) {
+        const { data } = await this.client.get(`/categories/${slug}`);
+        return data;
+    }
+
+    /**
+     * =========================
+     * Templates (القوالب)
+     * =========================
+     */
+    async getTemplates(params?: Record<string, any>) {
+        const { data } = await this.client.get('/templates', { params });
+        return data;
+    }
+
+    async getTemplatesByCategory(categorySlug: string) {
+        const { data } = await this.client.get(`/categories/${categorySlug}/templates`);
+        return data;
+    }
+
+    async getTemplate(slug: string) {
+        const { data } = await this.client.get(`/templates/${slug}`);
+        return data;
+    }
+
+    async getTemplateForEditor(slug: string) {
+        const { data } = await this.client.get(`/templates/${slug}/editor`);
+        return data;
+    }
+
+    /**
+     * =========================
+     * User Template Data (بيانات المستخدم للقوالب)
+     * =========================
+     */
+    async saveUserTemplateData(payload: {
+        template_id: number | undefined;
+        variant_id: number;
+        title: string;
+        field_values: Record<string, string>;
+    }) {
+        const { data } = await this.client.post('/user-template-data', payload);
+        return data;
+    }
+
+    async getUserTemplateData() {
+        const { data } = await this.client.get('/user-template-data');
+        return data;
+    }
+
+    async getUserTemplateDataById(id: number) {
+        const { data } = await this.client.get(`/user-template-data/${id}`);
+        return data;
+    }
+
+    async updateUserTemplateData(id: number, payload: {
+        title?: string;
+        field_values?: Record<string, string>;
+        variant_id?: number;
+    }) {
+        const { data } = await this.client.put(`/user-template-data/${id}`, payload);
+        return data;
+    }
+
+    async deleteUserTemplateData(id: number) {
+        const { data } = await this.client.delete(`/user-template-data/${id}`);
+        return data;
+    }
+
+    /**
+     * =========================
+     * Version History (سجل التغييرات)
+     * =========================
+     */
+    async getVersionHistory(userTemplateDataId: number) {
+        const { data } = await this.client.get(`/user-template-data/${userTemplateDataId}/versions`);
+        return data;
+    }
+
+    async restoreVersion(userTemplateDataId: number, versionId: number) {
+        const { data } = await this.client.post(`/user-template-data/${userTemplateDataId}/versions/${versionId}/restore`);
+        return data;
+    }
+
+    /**
+     * =========================
+     * Export (التصدير)
+     * =========================
+     */
+    async exportTemplate(payload: {
+        template_id: number | undefined;
+        variant_id: number;
+        field_values: Record<string, string>;
+        format: 'image' | 'pdf';
+    }) {
+        const { data } = await this.client.post('/export/template', payload);
+        return data;
+    }
+
+    /**
+     * =========================
+     * QR Code (الباركود)
+     * =========================
+     */
+    async generateQRCode(payload: {
+        type: 'link' | 'file';
+        content: string;
+    }) {
+        const { data } = await this.client.post('/qrcode/generate', payload);
+        return data;
+    }
+
+    async uploadFileForQR(formData: FormData) {
+        const { data } = await this.client.post('/qrcode/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return data;
+    }
+
+    /**
+     * =========================
+     * AI Suggestions (اقتراحات الذكاء الاصطناعي)
+     * =========================
+     */
+    async getAISuggestion(payload: {
+        template_id: number | undefined;
+        field_name: string;
+        title: string;
+        current_values: Record<string, string>;
+    }) {
+        const { data } = await this.client.post('/ai/suggest-field', payload);
+        return data;
+    }
+
+    async getAIFillAll(payload: {
+        template_id: number | undefined;
+        title: string;
+        current_values: Record<string, string>;
+    }) {
+        const { data } = await this.client.post('/ai/fill-all', payload);
+        return data;
+    }
+
+    /**
+     * =========================
+     * Custom Requests (الطلبات الخاصة)
+     * =========================
+     */
+    async getCustomRequests(params?: Record<string, any>) {
+        const { data } = await this.client.get('/custom-requests', { params });
+        return data;
+    }
+
+    async createCustomRequest(payload: {
+        title: string;
+        description: string;
+        category_id?: number;
+    }) {
+        const { data } = await this.client.post('/custom-requests', payload);
+        return data;
+    }
+
+    async voteCustomRequest(id: number) {
+        const { data } = await this.client.post(`/custom-requests/${id}/vote`);
+        return data;
+    }
+
+    async unvoteCustomRequest(id: number) {
+        const { data } = await this.client.delete(`/custom-requests/${id}/vote`);
+        return data;
+    }
+
+    /**
+     * =========================
+     * Notifications (الإشعارات)
+     * =========================
+     */
+    async getNotifications() {
+        const { data } = await this.client.get('/notifications');
+        return data;
+    }
+
+    async getUnreadNotificationsCount() {
+        const { data } = await this.client.get('/notifications/unread-count');
+        return data;
+    }
+
+    async markNotificationAsRead(id: number) {
+        const { data } = await this.client.post(`/notifications/${id}/read`);
+        return data;
+    }
+
+    async markAllNotificationsAsRead() {
+        const { data } = await this.client.post('/notifications/read-all');
+        return data;
+    }
+
+    /**
+     * =========================
+     * Evidences (الشواهد)
+     * =========================
+     */
+    async uploadEvidence(formData: FormData) {
+        const { data } = await this.client.post('/evidences', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return data;
+    }
+
+    async getEvidences(userTemplateDataId: number) {
+        const { data } = await this.client.get(`/user-template-data/${userTemplateDataId}/evidences`);
+        return data;
+    }
+
+    async deleteEvidence(id: number) {
+        const { data } = await this.client.delete(`/evidences/${id}`);
+        return data;
+    }
+
 }
 
 /**
