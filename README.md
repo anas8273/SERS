@@ -199,9 +199,8 @@ DB_PASSWORD=
 FIREBASE_CREDENTIALS=firebase-credentials.json
 FIREBASE_PROJECT_ID=your-project-id
 
-# OpenAI (للذكاء الاصطناعي)
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-3.5-turbo
+# GEMINI (للذكاء الاصطناعي)
+GEMINI_API_KEY=sk-...
 ```
 
 ### Frontend (.env.local)
