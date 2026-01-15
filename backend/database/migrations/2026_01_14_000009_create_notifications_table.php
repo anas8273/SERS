@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('notifications', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->uuid('id')->primary();
+            $table->uuid('user_id');
             $table->string('title_ar');
             $table->string('title_en');
             $table->text('body_ar');
@@ -24,6 +24,9 @@ return new class extends Migration
             $table->boolean('is_read')->default(false);
             $table->timestamp('read_at')->nullable();
             $table->timestamps();
+            
+            // Foreign key
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             
             $table->index(['user_id', 'is_read']);
         });

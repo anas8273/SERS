@@ -65,9 +65,12 @@ function TemplatesContent() {
   const fetchCategories = async () => {
     try {
       const response = await api.getCategories();
-      setCategories(response.data || []);
+      // API returns { success, data: [...categories] }
+      const categoriesData = response.data || [];
+      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
     } catch (error) {
       console.error('Error fetching categories:', error);
+      setCategories([]);
     }
   };
 
@@ -77,25 +80,29 @@ function TemplatesContent() {
       const params: any = {
         sort_by: sortBy,
       };
-      
+
       if (selectedCategory !== 'all') {
         params.category_id = selectedCategory;
       }
-      
+
       if (priceFilter === 'free') {
         params.is_free = true;
       } else if (priceFilter === 'paid') {
         params.is_free = false;
       }
-      
+
       if (searchQuery) {
         params.search = searchQuery;
       }
 
       const response = await api.getTemplates(params);
-      setTemplates(response.data || []);
+      // API returns paginated response: { success, data: { data: [...templates], current_page, ... } }
+      // The templates array is in response.data.data (pagination wrapper)
+      const templatesData = response.data?.data || response.data || [];
+      setTemplates(Array.isArray(templatesData) ? templatesData : []);
     } catch (error) {
       console.error('Error fetching templates:', error);
+      setTemplates([]);
     } finally {
       setLoading(false);
     }
@@ -115,7 +122,7 @@ function TemplatesContent() {
           <p className="text-xl text-center opacity-90 mb-8">
             اختر من بين مئات القوالب الجاهزة وقم بتخصيصها حسب احتياجاتك
           </p>
-          
+
           {/* Search Bar */}
           <form onSubmit={handleSearch} className="max-w-2xl mx-auto">
             <div className="relative">
@@ -233,20 +240,20 @@ function TemplatesContent() {
                       </Badge>
                     )}
                   </div>
-                  
+
                   <CardHeader className="pb-2">
                     <CardTitle className="text-lg line-clamp-1">{template.name_ar}</CardTitle>
                     <Badge variant="outline" className="w-fit">
                       {template.category?.name_ar}
                     </Badge>
                   </CardHeader>
-                  
+
                   <CardContent className="pb-2">
                     <p className="text-sm text-gray-500 line-clamp-2">
                       {template.description_ar}
                     </p>
                   </CardContent>
-                  
+
                   <CardFooter className="flex justify-between items-center pt-2 border-t">
                     <div className="flex items-center gap-4 text-sm text-gray-500">
                       <span className="flex items-center gap-1">

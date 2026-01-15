@@ -30,7 +30,7 @@ class CategoryController extends Controller
     {
         $query = Category::query()
             ->where('is_active', true)
-            ->sorted();
+            ->ordered();
 
         // Filter by parent (null = root categories only)
         if ($request->has('root') && $request->boolean('root')) {
@@ -38,12 +38,12 @@ class CategoryController extends Controller
         }
 
         // Include children count
-        $query->withCount('products');
+        $query->withCount('templates');
 
         // Eager load children if requested
         if ($request->boolean('with_children')) {
             $query->with(['children' => function ($q) {
-                $q->where('is_active', true)->sorted();
+                $q->where('is_active', true)->ordered();
             }]);
         }
 
@@ -68,9 +68,9 @@ class CategoryController extends Controller
         $category = Category::where('slug', $slug)
             ->where('is_active', true)
             ->with(['children' => function ($q) {
-                $q->where('is_active', true)->sorted();
+                $q->where('is_active', true)->ordered();
             }])
-            ->withCount('products')
+            ->withCount('templates')
             ->first();
 
         if (!$category) {
@@ -81,8 +81,8 @@ class CategoryController extends Controller
             ], 404);
         }
 
-        // Get products in this category
-        $products = $category->products()
+        // Get templates in this category
+        $templates = $category->templates()
             ->where('is_active', true)
             ->latest()
             ->paginate(12);
@@ -91,7 +91,7 @@ class CategoryController extends Controller
             'success' => true,
             'data' => [
                 'category' => $category,
-                'products' => $products,
+                'templates' => $templates,
             ],
         ]);
     }
@@ -106,8 +106,8 @@ class CategoryController extends Controller
     public function adminIndex(): JsonResponse
     {
         $categories = Category::query()
-            ->withCount('products')
-            ->sorted()
+            ->withCount('templates')
+            ->ordered()
             ->get();
 
         return response()->json([
@@ -196,13 +196,13 @@ class CategoryController extends Controller
      */
     public function destroy(string $id): JsonResponse
     {
-        $category = Category::withCount('products')->findOrFail($id);
+        $category = Category::withCount('templates')->findOrFail($id);
 
-        // Check if category has products
-        if ($category->products_count > 0) {
+        // Check if category has templates
+        if ($category->templates_count > 0) {
             return response()->json([
                 'success' => false,
-                'message' => 'لا يمكن حذف التصنيف لأنه يحتوي على منتجات. قم بنقل المنتجات أولاً.',
+                'message' => 'لا يمكن حذف التصنيف لأنه يحتوي على قوالب. قم بنقل القوالب أولاً.',
             ], 422);
         }
 

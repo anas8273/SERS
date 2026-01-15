@@ -50,7 +50,7 @@ class CustomRequest extends Model
      */
     public function assignedTemplate(): BelongsTo
     {
-        return $this->belongsTo(InteractiveTemplate::class, 'assigned_template_id');
+        return $this->belongsTo(Template::class, 'assigned_template_id');
     }
 
     /**

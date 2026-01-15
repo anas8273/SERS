@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { FcGoogle } from 'react-icons/fc';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -18,11 +17,14 @@ interface SocialProps {
  * 
  * تسجيل الدخول عبر Google باستخدام Firebase Authentication
  * ثم إرسال الـ ID Token للـ Laravel Backend للتحقق وإنشاء جلسة Sanctum
+ * 
+ * FIX: Now uses authStore.socialLogin() to properly save token to localStorage
+ * before any subsequent API calls or navigation.
  */
 export const Social = ({ isPending }: SocialProps) => {
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
-    const { checkAuth } = useAuthStore();
+    const { socialLogin } = useAuthStore();
 
     const handleGoogleLogin = async () => {
         if (isLoading || isPending) return;
@@ -41,21 +43,15 @@ export const Social = ({ isPending }: SocialProps) => {
             // 2. الحصول على ID Token
             const idToken = await result.user.getIdToken();
 
-            // 3. إرسال التوكن للـ Backend
-            const response = await api.socialLogin(idToken);
+            // 3. تسجيل الدخول عبر الـ Backend وحفظ التوكن في Store
+            // هذا يحفظ التوكن في localStorage مباشرة قبل أي عملية أخرى
+            await socialLogin(idToken);
 
-            if (response.success) {
-                toast.success('تم تسجيل الدخول بنجاح! 🎉');
+            toast.success('تم تسجيل الدخول بنجاح! 🎉');
 
-                // تحديث حالة المستخدم
-                await checkAuth();
-
-                // إعادة التوجيه
-                router.push('/dashboard');
-                router.refresh();
-            } else {
-                throw new Error(response.message || 'فشل تسجيل الدخول');
-            }
+            // 4. إعادة التوجيه للوحة التحكم
+            router.push('/dashboard');
+            router.refresh();
 
         } catch (error: unknown) {
             console.error('Google login error:', error);

@@ -13,20 +13,20 @@ class SectionsAndCategoriesSeeder extends Seeder
      */
     public function run(): void
     {
-        // الأقسام الرئيسية
+        // الأقسام الرئيسية (Main Sections)
         $sections = [
-            ['name_ar' => 'ملفات الإنجاز', 'name_en' => 'Achievement Files', 'slug' => 'achievement-files', 'icon' => 'folder', 'order' => 1],
-            ['name_ar' => 'شواهد الأداء الوظيفي', 'name_en' => 'Performance Evidence', 'slug' => 'performance-evidence', 'icon' => 'award', 'order' => 2],
-            ['name_ar' => 'التقارير', 'name_en' => 'Reports', 'slug' => 'reports', 'icon' => 'file-text', 'order' => 3],
-            ['name_ar' => 'الشهادات', 'name_en' => 'Certificates', 'slug' => 'certificates', 'icon' => 'medal', 'order' => 4],
-            ['name_ar' => 'الخطط', 'name_en' => 'Plans', 'slug' => 'plans', 'icon' => 'clipboard', 'order' => 5],
-            ['name_ar' => 'السجلات', 'name_en' => 'Records', 'slug' => 'records', 'icon' => 'book', 'order' => 6],
-            ['name_ar' => 'العروض التقديمية', 'name_en' => 'Presentations', 'slug' => 'presentations', 'icon' => 'presentation', 'order' => 7],
-            ['name_ar' => 'السيرة الذاتية', 'name_en' => 'CV', 'slug' => 'cv', 'icon' => 'user', 'order' => 8],
-            ['name_ar' => 'البطاقات', 'name_en' => 'Cards', 'slug' => 'cards', 'icon' => 'credit-card', 'order' => 9],
-            ['name_ar' => 'الإنفوجرافيك', 'name_en' => 'Infographics', 'slug' => 'infographics', 'icon' => 'image', 'order' => 10],
-            ['name_ar' => 'الجداول', 'name_en' => 'Schedules', 'slug' => 'schedules', 'icon' => 'calendar', 'order' => 11],
-            ['name_ar' => 'الاختبارات', 'name_en' => 'Tests', 'slug' => 'tests', 'icon' => 'check-square', 'order' => 12],
+            ['name_ar' => 'ملفات الإنجاز', 'name_en' => 'Achievement Files', 'slug' => 'achievement-files', 'icon' => 'folder', 'sort_order' => 1, 'is_active' => true],
+            ['name_ar' => 'شواهد الأداء الوظيفي', 'name_en' => 'Performance Evidence', 'slug' => 'performance-evidence', 'icon' => 'award', 'sort_order' => 2, 'is_active' => true],
+            ['name_ar' => 'التقارير', 'name_en' => 'Reports', 'slug' => 'reports', 'icon' => 'file-text', 'sort_order' => 3, 'is_active' => true],
+            ['name_ar' => 'الشهادات', 'name_en' => 'Certificates', 'slug' => 'certificates', 'icon' => 'medal', 'sort_order' => 4, 'is_active' => true],
+            ['name_ar' => 'الخطط', 'name_en' => 'Plans', 'slug' => 'plans', 'icon' => 'clipboard', 'sort_order' => 5, 'is_active' => true],
+            ['name_ar' => 'السجلات', 'name_en' => 'Records', 'slug' => 'records', 'icon' => 'book', 'sort_order' => 6, 'is_active' => true],
+            ['name_ar' => 'العروض التقديمية', 'name_en' => 'Presentations', 'slug' => 'presentations', 'icon' => 'presentation', 'sort_order' => 7, 'is_active' => true],
+            ['name_ar' => 'السيرة الذاتية', 'name_en' => 'CV', 'slug' => 'cv', 'icon' => 'user', 'sort_order' => 8, 'is_active' => true],
+            ['name_ar' => 'البطاقات', 'name_en' => 'Cards', 'slug' => 'cards', 'icon' => 'credit-card', 'sort_order' => 9, 'is_active' => true],
+            ['name_ar' => 'الإنفوجرافيك', 'name_en' => 'Infographics', 'slug' => 'infographics', 'icon' => 'image', 'sort_order' => 10, 'is_active' => true],
+            ['name_ar' => 'الجداول', 'name_en' => 'Schedules', 'slug' => 'schedules', 'icon' => 'calendar', 'sort_order' => 11, 'is_active' => true],
+            ['name_ar' => 'الاختبارات', 'name_en' => 'Tests', 'slug' => 'tests', 'icon' => 'check-square', 'sort_order' => 12, 'is_active' => true],
         ];
 
         foreach ($sections as $sectionData) {

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\InteractiveTemplate;
+use App\Models\Template;
 use App\Models\FavoriteTemplate;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -15,7 +15,8 @@ class InteractiveTemplateController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = InteractiveTemplate::with(['category', 'variants'])
+        $query = Template::with(['category', 'variants'])
+            ->interactive()
             ->active();
 
         // Filter by category
@@ -55,14 +56,22 @@ class InteractiveTemplateController extends Controller
     /**
      * Display the specified template.
      */
-    public function show(InteractiveTemplate $interactiveTemplate): JsonResponse
+    public function show(Template $template): JsonResponse
     {
-        $interactiveTemplate->load(['category', 'variants', 'fields']);
-        $interactiveTemplate->incrementViews();
+        // Ensure it's an interactive template
+        if (!$template->isInteractive()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'هذا القالب ليس تفاعلياً'
+            ], 404);
+        }
+
+        $template->load(['category', 'variants', 'fields']);
+        $template->incrementUses();
 
         return response()->json([
             'success' => true,
-            'data' => $interactiveTemplate,
+            'data' => $template,
         ]);
     }
 
@@ -71,7 +80,8 @@ class InteractiveTemplateController extends Controller
      */
     public function byCategory(int $categoryId): JsonResponse
     {
-        $templates = InteractiveTemplate::with(['variants'])
+        $templates = Template::with(['variants'])
+            ->interactive()
             ->active()
             ->where('category_id', $categoryId)
             ->orderBy('downloads_count', 'desc')
@@ -88,7 +98,8 @@ class InteractiveTemplateController extends Controller
      */
     public function popular(): JsonResponse
     {
-        $templates = InteractiveTemplate::with(['category', 'variants'])
+        $templates = Template::with(['category', 'variants'])
+            ->interactive()
             ->active()
             ->orderBy('downloads_count', 'desc')
             ->limit(10)
@@ -105,7 +116,8 @@ class InteractiveTemplateController extends Controller
      */
     public function free(): JsonResponse
     {
-        $templates = InteractiveTemplate::with(['category', 'variants'])
+        $templates = Template::with(['category', 'variants'])
+            ->interactive()
             ->active()
             ->free()
             ->orderBy('created_at', 'desc')
@@ -120,12 +132,12 @@ class InteractiveTemplateController extends Controller
     /**
      * Toggle favorite status.
      */
-    public function toggleFavorite(Request $request, InteractiveTemplate $interactiveTemplate): JsonResponse
+    public function toggleFavorite(Request $request, Template $template): JsonResponse
     {
         $user = $request->user();
 
         $favorite = FavoriteTemplate::where('user_id', $user->id)
-            ->where('template_id', $interactiveTemplate->id)
+            ->where('template_id', $template->id)
             ->first();
 
         if ($favorite) {
@@ -134,7 +146,7 @@ class InteractiveTemplateController extends Controller
         } else {
             FavoriteTemplate::create([
                 'user_id' => $user->id,
-                'template_id' => $interactiveTemplate->id,
+                'template_id' => $template->id,
             ]);
             $isFavorite = true;
         }
@@ -153,8 +165,9 @@ class InteractiveTemplateController extends Controller
     {
         $user = $request->user();
 
-        $templates = InteractiveTemplate::with(['category', 'variants'])
-            ->whereHas('favoritedBy', function ($query) use ($user) {
+        $templates = Template::with(['category', 'variants'])
+            ->interactive()
+            ->whereHas('favoritedByUsers', function ($query) use ($user) {
                 $query->where('user_id', $user->id);
             })
             ->get();

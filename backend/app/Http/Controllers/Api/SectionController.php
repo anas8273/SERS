@@ -13,7 +13,9 @@ class SectionController extends Controller
      */
     public function index(): JsonResponse
     {
-        $sections = Section::orderBy('order')->get();
+        $sections = Section::where('is_active', true)
+            ->orderBy('sort_order')
+            ->get();
 
         return response()->json([
             'success' => true,

@@ -12,11 +12,16 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('custom_request_votes', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->foreignId('custom_request_id')->constrained()->onDelete('cascade');
+            $table->uuid('id')->primary();
+            $table->uuid('user_id');
+            $table->uuid('custom_request_id');
             $table->timestamps();
             
+            // Foreign keys
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('custom_request_id')->references('id')->on('custom_requests')->onDelete('cascade');
+            
+            // Unique constraint
             $table->unique(['user_id', 'custom_request_id']);
         });
     }

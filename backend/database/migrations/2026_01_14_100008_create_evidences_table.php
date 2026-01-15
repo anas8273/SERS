@@ -20,7 +20,7 @@ return new class extends Migration
             $table->uuid('id')->primary()->comment('UUID primary key');
 
             // Relationships
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->uuid('user_id')->comment('FK to users table');
             // REQUIRED: Evidence must be linked to a user template data
             $table->uuid('user_template_data_id')->comment('FK to user_template_data - REQUIRED');
 
@@ -57,7 +57,13 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            // Foreign Key
+            // Foreign Keys
+            $table->foreign('user_id')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('cascade')
+                  ->onUpdate('cascade');
+                  
             $table->foreign('user_template_data_id')
                   ->references('id')
                   ->on('user_template_data')

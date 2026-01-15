@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Cairo, Inter } from 'next/font/google';
 import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from '@/providers/ThemeProvider';
+import { AuthProvider } from '@/components/providers/auth-provider';
 import './globals.css';
 
 // Arabic font for better RTL support
@@ -41,37 +42,39 @@ export default function RootLayout({
     <html lang="ar" dir="rtl" className={`${cairo.variable} ${inter.variable}`} suppressHydrationWarning>
       <body className={`${cairo.className} antialiased bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-300`}>
         <ThemeProvider defaultTheme="system" storageKey="sers-theme">
-          {/* Toast Notifications */}
-          <Toaster
-            position="top-center"
-            reverseOrder={false}
-            gutter={8}
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: '#1f2937',
-                color: '#f9fafb',
-                fontFamily: 'var(--font-cairo)',
-                borderRadius: '12px',
-                padding: '12px 16px',
-              },
-              success: {
-                iconTheme: {
-                  primary: '#10b981',
-                  secondary: '#f9fafb',
+          <AuthProvider>
+            {/* Toast Notifications */}
+            <Toaster
+              position="top-center"
+              reverseOrder={false}
+              gutter={8}
+              toastOptions={{
+                duration: 4000,
+                style: {
+                  background: '#1f2937',
+                  color: '#f9fafb',
+                  fontFamily: 'var(--font-cairo)',
+                  borderRadius: '12px',
+                  padding: '12px 16px',
                 },
-              },
-              error: {
-                iconTheme: {
-                  primary: '#ef4444',
-                  secondary: '#f9fafb',
+                success: {
+                  iconTheme: {
+                    primary: '#10b981',
+                    secondary: '#f9fafb',
+                  },
                 },
-              },
-            }}
-          />
+                error: {
+                  iconTheme: {
+                    primary: '#ef4444',
+                    secondary: '#f9fafb',
+                  },
+                },
+              }}
+            />
 
-          {/* Main Content */}
-          {children}
+            {/* Main Content */}
+            {children}
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

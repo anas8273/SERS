@@ -26,7 +26,23 @@ class ApiClient {
             },
         });
 
-        // Add interceptor to include auth token
+        // Add response interceptor to handle errors
+        this.client.interceptors.response.use(
+            (response) => response,
+            (error) => {
+                // Pass through the full error response for better error handling
+                if (error.response) {
+                    // Server responded with error status
+                    throw error;
+                } else if (error.request) {
+                    // Request was made but no response received
+                    throw new Error('لا يمكن الاتصال بالخادم');
+                } else {
+                    // Something else happened
+                    throw new Error('حدث خطأ غير متوقع');
+                }
+            }
+        );
         this.client.interceptors.request.use((config) => {
             if (typeof window !== 'undefined') {
                 const token = localStorage.getItem('auth-storage');
@@ -77,22 +93,22 @@ class ApiClient {
      * =========================
      */
     async login(payload: any): Promise<ApiResponse> {
-        const { data } = await this.client.post('/login', payload);
+        const { data } = await this.client.post('/auth/login', payload);
         return data;
     }
 
     async register(payload: any): Promise<ApiResponse> {
-        const { data } = await this.client.post('/register', payload);
+        const { data } = await this.client.post('/auth/register', payload);
         return data;
     }
 
     async logout(): Promise<ApiResponse> {
-        const { data } = await this.client.post('/logout');
+        const { data } = await this.client.post('/auth/logout');
         return data;
     }
 
     async socialLogin(token: string): Promise<ApiResponse> {
-        const { data } = await this.client.post('/auth/social', { token });
+        const { data } = await this.client.post('/auth/social', { firebase_token: token });
         return data;
     }
 
@@ -102,7 +118,8 @@ class ApiClient {
     }
 
     async getMe(): Promise<ApiResponse> {
-        return this.getProfile();
+        const { data } = await this.client.get('/auth/me');
+        return data;
     }
 
     async changePassword(payload: {

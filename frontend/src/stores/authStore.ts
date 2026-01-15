@@ -15,6 +15,7 @@ interface User {
 
 interface AuthState {
     user: User | null;
+    token: string | null;
     isAuthenticated: boolean;
     isLoading: boolean;
     _hasHydrated: boolean;
@@ -39,6 +40,7 @@ export const useAuthStore = create<AuthState>()(
     persist(
         (set, get) => ({
             user: null,
+            token: null,
             isAuthenticated: false,
             isLoading: false, // Start as FALSE - we check on mount
             _hasHydrated: false,
@@ -54,12 +56,14 @@ export const useAuthStore = create<AuthState>()(
                 try {
                     const response: any = await api.login({ email, password });
                     const user = response.data?.user;
+                    const token = response.data?.token;
 
                     // Normalize role
                     if (user) user.role = normalizeRole(user.role);
 
                     set({
                         user,
+                        token,
                         isAuthenticated: true,
                         isLoading: false,
                     });
@@ -81,12 +85,14 @@ export const useAuthStore = create<AuthState>()(
                         password_confirmation: password,
                     });
                     const user = response.data?.user;
+                    const token = response.data?.token;
 
                     // Normalize role
                     if (user) user.role = normalizeRole(user.role);
 
                     set({
                         user,
+                        token,
                         isAuthenticated: true,
                         isLoading: false,
                     });
@@ -103,12 +109,14 @@ export const useAuthStore = create<AuthState>()(
                 try {
                     const response: any = await api.socialLogin(firebaseToken);
                     const user = response.data?.user;
+                    const token = response.data?.token;
 
                     // Normalize role
                     if (user) user.role = normalizeRole(user.role);
 
                     set({
                         user,
+                        token,
                         isAuthenticated: true,
                         isLoading: false,
                     });
@@ -128,6 +136,7 @@ export const useAuthStore = create<AuthState>()(
 
                 set({
                     user: null,
+                    token: null,
                     isAuthenticated: false,
                     isLoading: false,
                 });
@@ -156,6 +165,7 @@ export const useAuthStore = create<AuthState>()(
                     } else {
                         set({
                             user: null,
+                            token: null,
                             isAuthenticated: false,
                             isLoading: false,
                         });
@@ -163,6 +173,7 @@ export const useAuthStore = create<AuthState>()(
                 } catch {
                     set({
                         user: null,
+                        token: null,
                         isAuthenticated: false,
                         isLoading: false,
                     });
@@ -187,6 +198,7 @@ export const useAuthStore = create<AuthState>()(
             name: 'auth-storage',
             partialize: (state) => ({
                 user: state.user,
+                token: state.token,
                 isAuthenticated: state.isAuthenticated,
             }),
             onRehydrateStorage: () => (state) => {

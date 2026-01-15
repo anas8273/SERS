@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('content_library', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->uuid('id')->primary();
+            $table->uuid('user_id');
             $table->string('title');
             $table->enum('type', ['text', 'image', 'signature', 'logo'])->default('text');
             $table->text('content')->nullable();
@@ -21,6 +21,9 @@ return new class extends Migration
             $table->boolean('is_favorite')->default(false);
             $table->unsignedInteger('usage_count')->default(0);
             $table->timestamps();
+            
+            // Foreign key
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             
             $table->index(['user_id', 'type']);
         });

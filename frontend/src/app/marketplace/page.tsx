@@ -12,14 +12,14 @@ import { TemplateCardSkeleton } from '@/components/ui/skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
 import { WishlistButton } from '@/components/products/WishlistButton';
 import { useCartStore } from '@/stores/cartStore';
-import { 
-    Search, 
-    Filter, 
-    X, 
-    ShoppingCart, 
-    Star, 
-    ArrowLeft, 
-    Zap, 
+import {
+    Search,
+    Filter,
+    X,
+    ShoppingCart,
+    Star,
+    ArrowLeft,
+    Zap,
     Download,
     Layout,
     SlidersHorizontal
@@ -60,11 +60,14 @@ function MarketplaceContent() {
                         category: selectedCategory || undefined,
                         type: selectedType || undefined,
                         search: searchQuery || undefined,
-                    }).catch(() => ({ data: [] })),
+                    }).catch(() => ({ data: { data: [] } })),
                     api.getCategories().catch(() => ({ data: [] })),
                 ]);
 
-                let filteredTemplates = templatesRes.data || [];
+                // Templates API returns paginated response: { data: { data: [...], ... } }
+                // Extract the inner data array from pagination
+                const templatesData = templatesRes.data?.data || templatesRes.data || [];
+                let filteredTemplates = Array.isArray(templatesData) ? templatesData : [];
 
                 // Client-side price filter
                 filteredTemplates = filteredTemplates.filter((t: Template) => {
@@ -73,9 +76,14 @@ function MarketplaceContent() {
                 });
 
                 setTemplates(filteredTemplates);
-                setCategories(categoriesRes.data || []);
+
+                // Categories API returns simple array
+                const categoriesData = categoriesRes.data || [];
+                setCategories(Array.isArray(categoriesData) ? categoriesData : []);
             } catch (error) {
                 console.error('Failed to fetch templates:', error);
+                setTemplates([]);
+                setCategories([]);
             } finally {
                 setIsLoading(false);
             }
@@ -159,8 +167,8 @@ function MarketplaceContent() {
                                             onClick={() => setSelectedCategory(null)}
                                             className={cn(
                                                 "text-right px-4 py-2 rounded-xl text-sm font-bold transition-all",
-                                                !selectedCategory 
-                                                    ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                                                !selectedCategory
+                                                    ? "bg-primary text-white shadow-lg shadow-primary/20"
                                                     : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
                                             )}
                                         >
@@ -172,8 +180,8 @@ function MarketplaceContent() {
                                                 onClick={() => setSelectedCategory(category.slug)}
                                                 className={cn(
                                                     "text-right px-4 py-2 rounded-xl text-sm font-bold transition-all",
-                                                    selectedCategory === category.slug 
-                                                        ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                                                    selectedCategory === category.slug
+                                                        ? "bg-primary text-white shadow-lg shadow-primary/20"
                                                         : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
                                                 )}
                                             >
@@ -191,8 +199,8 @@ function MarketplaceContent() {
                                             onClick={() => setSelectedType(null)}
                                             className={cn(
                                                 "text-right px-4 py-2 rounded-xl text-sm font-bold transition-all",
-                                                !selectedType 
-                                                    ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                                                !selectedType
+                                                    ? "bg-primary text-white shadow-lg shadow-primary/20"
                                                     : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
                                             )}
                                         >
@@ -202,8 +210,8 @@ function MarketplaceContent() {
                                             onClick={() => setSelectedType('interactive')}
                                             className={cn(
                                                 "flex items-center justify-between px-4 py-2 rounded-xl text-sm font-bold transition-all",
-                                                selectedType === 'interactive' 
-                                                    ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                                                selectedType === 'interactive'
+                                                    ? "bg-primary text-white shadow-lg shadow-primary/20"
                                                     : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
                                             )}
                                         >
@@ -214,8 +222,8 @@ function MarketplaceContent() {
                                             onClick={() => setSelectedType('downloadable')}
                                             className={cn(
                                                 "flex items-center justify-between px-4 py-2 rounded-xl text-sm font-bold transition-all",
-                                                selectedType === 'downloadable' 
-                                                    ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                                                selectedType === 'downloadable'
+                                                    ? "bg-primary text-white shadow-lg shadow-primary/20"
                                                     : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
                                             )}
                                         >
@@ -231,8 +239,8 @@ function MarketplaceContent() {
                         <div className="flex-1 space-y-8">
                             {/* Mobile Filter Toggle */}
                             <div className="lg:hidden flex items-center justify-between bg-gray-50 dark:bg-gray-900 p-4 rounded-2xl">
-                                <Button 
-                                    variant="outline" 
+                                <Button
+                                    variant="outline"
                                     className="rounded-xl font-bold gap-2"
                                     onClick={() => setIsMobileFilterOpen(true)}
                                 >
@@ -313,9 +321,9 @@ function MarketplaceContent() {
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <Button 
+                                                    <Button
                                                         onClick={() => handleAddToCart(template)}
-                                                        size="sm" 
+                                                        size="sm"
                                                         className="rounded-full font-black gap-2 shadow-lg shadow-primary/20"
                                                     >
                                                         <ShoppingCart className="w-4 h-4" />

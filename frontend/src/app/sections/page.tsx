@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { 
-  FolderOpen, 
-  FileText, 
-  Award, 
-  ClipboardList, 
-  Calendar, 
+import {
+  FolderOpen,
+  FileText,
+  Award,
+  ClipboardList,
+  Calendar,
   BookOpen,
   Presentation,
   User,
@@ -78,10 +78,15 @@ export default function SectionsPage() {
       setLoading(true);
       const response = await api.getSections();
       if (response.success) {
-        setSections(response.data);
+        const sectionsData = response.data || [];
+        setSections(Array.isArray(sectionsData) ? sectionsData : []);
+      } else {
+        setSections([]);
       }
     } catch (err: any) {
+      console.error('Error fetching sections:', err);
       setError(err.message || 'حدث خطأ في تحميل الأقسام');
+      setSections([]);
     } finally {
       setLoading(false);
     }
@@ -100,7 +105,7 @@ export default function SectionsPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-500 mb-4">{error}</p>
-          <button 
+          <button
             onClick={fetchSections}
             className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
           >
@@ -129,7 +134,7 @@ export default function SectionsPage() {
           {sections.map((section) => {
             const IconComponent = sectionIcons[section.name_ar] || FolderOpen;
             const colorClass = sectionColors[section.name_ar] || 'from-gray-500 to-gray-600';
-            
+
             return (
               <Link
                 key={section.id}
@@ -148,7 +153,7 @@ export default function SectionsPage() {
                       )}
                     </div>
                   </div>
-                  
+
                   {/* Content */}
                   <div className="p-6">
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 group-hover:text-primary transition-colors">

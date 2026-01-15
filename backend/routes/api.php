@@ -231,9 +231,17 @@ Route::middleware('auth:sanctum')->group(function () {
         // توليد بيانات شاملة لجميع حقول القالب
         Route::post('fill-all', [AIController::class, 'fillAll']);
 
+        // توليد معاينة للقالب
+        Route::post('generate-preview', [AIController::class, 'generatePreview']);
+
         // قبول أو رفض اقتراح
         Route::post('accept', [AIController::class, 'acceptSuggestion']);
     });
+
+    // ---------------------------
+    // البحث العام (Global Search)
+    // ---------------------------
+    Route::get('search', [AIController::class, 'search']);
 
     // ---------------------------
     // المفضلة (Wishlist)

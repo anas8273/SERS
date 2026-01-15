@@ -22,7 +22,13 @@ return new class extends Migration
             $table->string('user_agent')->nullable();
             $table->timestamps();
 
-            $table->foreign('user_id')->references('id')->on('users')->nullOnDelete();
+            // Foreign key constraint - references users table
+            $table->foreign('user_id')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('set null');
+            
+            // Performance indexes
             $table->index(['entity_type', 'entity_id']);
             $table->index('action');
             $table->index('created_at');

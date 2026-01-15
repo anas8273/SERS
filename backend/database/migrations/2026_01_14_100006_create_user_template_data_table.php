@@ -19,7 +19,7 @@ return new class extends Migration
             $table->uuid('id')->primary()->comment('UUID primary key');
 
             // Relationships
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->uuid('user_id')->comment('FK to users table');
             $table->uuid('template_id')->comment('FK to templates table');
             $table->uuid('variant_id')->comment('FK to template_variants table');
 
@@ -45,6 +45,12 @@ return new class extends Migration
             $table->softDeletes();
 
             // Foreign Keys
+            $table->foreign('user_id')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('cascade')
+                  ->onUpdate('cascade');
+                  
             $table->foreign('template_id')
                   ->references('id')
                   ->on('templates')
