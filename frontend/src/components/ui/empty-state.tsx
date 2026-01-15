@@ -1,6 +1,8 @@
 'use client';
 
 import { ReactNode } from 'react';
+import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 interface EmptyStateProps {
     icon?: ReactNode;
@@ -24,10 +26,13 @@ export function EmptyState({
     className = ''
 }: EmptyStateProps) {
     return (
-        <div className={`flex flex-col items-center justify-center py-16 px-4 ${className}`}>
+        <div className={cn(
+            "flex flex-col items-center justify-center py-16 px-4",
+            className
+        )}>
             {/* Icon */}
             {icon && (
-                <div className="text-gray-300 mb-4">
+                <div className="text-gray-300 dark:text-gray-600 mb-4">
                     {icon}
                 </div>
             )}
@@ -38,13 +43,13 @@ export function EmptyState({
             )}
 
             {/* Title */}
-            <h3 className="text-xl font-semibold text-gray-700 mb-2 text-center">
+            <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2 text-center">
                 {title}
             </h3>
 
             {/* Description */}
             {description && (
-                <p className="text-gray-500 text-center max-w-md mb-6">
+                <p className="text-gray-500 dark:text-gray-400 text-center max-w-md mb-6">
                     {description}
                 </p>
             )}
@@ -63,37 +68,40 @@ export function EmptyState({
  * Pre-built Empty States
  */
 
-export function NoProductsEmpty() {
+export function NoTemplatesEmpty() {
     return (
         <EmptyState
             icon={<span className="text-6xl">📦</span>}
-            title="لا توجد منتجات"
-            description="لم يتم إضافة أي منتجات بعد. ابدأ بإضافة منتجك الأول!"
+            title="لا توجد قوالب"
+            description="لم يتم إضافة أي قوالب بعد. ابدأ بإضافة قالبك الأول!"
             action={
-                <a
-                    href="/admin/products/create"
+                <Link
+                    href="/admin/templates/create"
                     className="px-6 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                 >
-                    إضافة منتج جديد
-                </a>
+                    إضافة قالب جديد
+                </Link>
             }
         />
     );
 }
+
+// Alias for backward compatibility
+export const NoProductsEmpty = NoTemplatesEmpty;
 
 export function NoOrdersEmpty() {
     return (
         <EmptyState
             icon={<span className="text-6xl">🛒</span>}
             title="لا توجد طلبات"
-            description="لم تقم بأي عملية شراء بعد. تصفح المتجر واكتشف منتجاتنا!"
+            description="لم تقم بأي عملية شراء بعد. تصفح المتجر واكتشف قوالبنا!"
             action={
-                <a
+                <Link
                     href="/marketplace"
                     className="px-6 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                 >
                     تصفح المتجر
-                </a>
+                </Link>
             }
         />
     );
@@ -104,7 +112,7 @@ export function NoSearchResultsEmpty({ query }: { query: string }) {
         <EmptyState
             icon={<span className="text-6xl">🔍</span>}
             title="لا توجد نتائج"
-            description={`لم نجد أي منتجات تطابق "${query}". جرب كلمات بحث مختلفة.`}
+            description={`لم نجد أي قوالب تطابق "${query}". جرب كلمات بحث مختلفة.`}
         />
     );
 }
@@ -114,15 +122,67 @@ export function NoLibraryEmpty() {
         <EmptyState
             icon={<span className="text-6xl">📚</span>}
             title="مكتبتك فارغة"
-            description="المنتجات التي تشتريها ستظهر هنا للوصول السريع."
+            description="القوالب التي تشتريها ستظهر هنا للوصول السريع."
             action={
-                <a
+                <Link
                     href="/marketplace"
                     className="px-6 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                 >
-                    استكشف المنتجات
-                </a>
+                    استكشف القوالب
+                </Link>
             }
+        />
+    );
+}
+
+export function NoRecordsEmpty() {
+    return (
+        <EmptyState
+            icon={<span className="text-6xl">📝</span>}
+            title="لا توجد سجلات"
+            description="لم تقم بإنشاء أي سجلات تفاعلية بعد."
+            action={
+                <Link
+                    href="/marketplace?type=interactive"
+                    className="px-6 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                >
+                    استكشف القوالب التفاعلية
+                </Link>
+            }
+        />
+    );
+}
+
+export function NoNotificationsEmpty() {
+    return (
+        <EmptyState
+            icon={<span className="text-6xl">🔔</span>}
+            title="لا توجد إشعارات"
+            description="ستظهر هنا الإشعارات الجديدة عند وصولها."
+        />
+    );
+}
+
+export function ErrorState({ 
+    message = "حدث خطأ غير متوقع",
+    onRetry 
+}: { 
+    message?: string;
+    onRetry?: () => void;
+}) {
+    return (
+        <EmptyState
+            icon={<span className="text-6xl">⚠️</span>}
+            title="حدث خطأ"
+            description={message}
+            action={onRetry && (
+                <button
+                    onClick={onRetry}
+                    className="px-6 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                >
+                    إعادة المحاولة
+                </button>
+            )}
         />
     );
 }

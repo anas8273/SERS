@@ -5,9 +5,11 @@ import { useWishlistStore } from '@/stores/wishlistStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { Heart, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface WishlistButtonProps {
-    templateId: string;
+    templateId: string | number;
     className?: string;
     size?: 'sm' | 'md' | 'lg';
     variant?: 'icon' | 'button';
@@ -31,12 +33,18 @@ export function WishlistButton({
     const { isWishlisted, toggleWishlist } = useWishlistStore();
     const [isLoading, setIsLoading] = useState(false);
 
-    const wishlisted = isWishlisted(templateId);
+    const wishlisted = isWishlisted(String(templateId));
 
     const sizeClasses = {
-        sm: 'w-8 h-8 text-lg',
-        md: 'w-10 h-10 text-xl',
-        lg: 'w-12 h-12 text-2xl',
+        sm: 'w-8 h-8',
+        md: 'w-10 h-10',
+        lg: 'w-12 h-12',
+    };
+
+    const iconSizes = {
+        sm: 'w-4 h-4',
+        md: 'w-5 h-5',
+        lg: 'w-6 h-6',
     };
 
     const handleClick = async (e: React.MouseEvent) => {
@@ -49,31 +57,44 @@ export function WishlistButton({
         }
 
         setIsLoading(true);
-        await toggleWishlist(templateId);
-        setIsLoading(false);
+        try {
+            await toggleWishlist(String(templateId));
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     if (variant === 'button') {
+        const buttonSize = size === 'md' ? 'default' : size;
         return (
-            <button
+            <Button
+                variant="outline"
+                size={buttonSize as any}
                 onClick={handleClick}
                 disabled={isLoading}
                 className={cn(
-                    'flex items-center gap-2 px-4 py-2 rounded-lg border transition-all duration-200',
+                    'rounded-full font-bold gap-2 border-2 transition-all duration-300',
                     wishlisted
-                        ? 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100'
-                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50',
-                    isLoading && 'opacity-50 cursor-not-allowed',
+                        ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30'
+                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700',
                     className
                 )}
             >
-                <span className={cn('transition-transform', isLoading && 'animate-pulse')}>
-                    {wishlisted ? '❤️' : '🤍'}
-                </span>
-                <span className="text-sm font-medium">
+                {isLoading ? (
+                    <Loader2 className={cn('animate-spin', iconSizes[size])} />
+                ) : (
+                    <Heart 
+                        className={cn(
+                            'transition-all duration-300',
+                            iconSizes[size],
+                            wishlisted && 'fill-current scale-110'
+                        )} 
+                    />
+                )}
+                <span>
                     {wishlisted ? 'في المفضلة' : 'أضف للمفضلة'}
                 </span>
-            </button>
+            </Button>
         );
     }
 
@@ -82,25 +103,40 @@ export function WishlistButton({
             onClick={handleClick}
             disabled={isLoading}
             className={cn(
-                'flex items-center justify-center rounded-full transition-all duration-200',
-                'bg-white/90 backdrop-blur-sm shadow-md hover:shadow-lg',
-                'hover:scale-110 active:scale-95',
+                'flex items-center justify-center rounded-full transition-all duration-300 group',
+                'bg-white/90 dark:bg-gray-800/90 backdrop-blur-md shadow-lg hover:shadow-xl',
+                'hover:scale-110 active:scale-95 border border-white/20 dark:border-gray-700',
                 sizeClasses[size],
-                wishlisted && 'bg-red-50',
+                wishlisted && 'bg-red-50 dark:bg-red-900/20',
                 isLoading && 'opacity-50 cursor-not-allowed',
                 className
             )}
             aria-label={wishlisted ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
         >
-            <span
-                className={cn(
-                    'transition-all duration-300',
-                    isLoading && 'animate-pulse',
-                    wishlisted && 'animate-[heartbeat_0.3s_ease-in-out]'
-                )}
-            >
-                {wishlisted ? '❤️' : '🤍'}
-            </span>
+            {isLoading ? (
+                <Loader2 className={cn('animate-spin text-primary', iconSizes[size])} />
+            ) : (
+                <Heart
+                    className={cn(
+                        'transition-all duration-500',
+                        iconSizes[size],
+                        wishlisted 
+                            ? 'fill-red-500 text-red-500 animate-[heartbeat_0.5s_ease-in-out]' 
+                            : 'text-gray-400 group-hover:text-red-400'
+                    )}
+                />
+            )}
+            
+            {/* Heartbeat Animation Style */}
+            <style jsx>{`
+                @keyframes heartbeat {
+                    0% { transform: scale(1); }
+                    25% { transform: scale(1.3); }
+                    50% { transform: scale(1); }
+                    75% { transform: scale(1.3); }
+                    100% { transform: scale(1); }
+                }
+            `}</style>
         </button>
     );
 }

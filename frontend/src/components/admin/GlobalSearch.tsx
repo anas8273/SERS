@@ -42,7 +42,7 @@ export default function GlobalSearch() {
         try {
             // Search users and products in parallel
             const [usersRes, productsRes] = await Promise.allSettled([
-                api.getAdminUsers({ search: searchQuery }),
+                api.getAdminUsers(1, searchQuery),
                 api.getAdminProducts({ search: searchQuery }),
             ]);
 

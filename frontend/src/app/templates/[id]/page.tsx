@@ -139,7 +139,7 @@ export default function TemplatePage() {
       return;
     }
 
-    if (!template?.is_free && template?.price > 0) {
+    if (template && !template.is_free && (template.price || 0) > 0) {
       // Check if user has purchased
       // For now, just show editor
     }

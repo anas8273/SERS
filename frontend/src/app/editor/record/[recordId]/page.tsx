@@ -61,21 +61,21 @@ export default function EditorPage() {
     }, [recordId]);
 
     // حفظ التغييرات مع debounce
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const saveChanges = useCallback(
-        debounce(async (newUserData: Record<string, any>) => {
+        debounce((newUserData: Record<string, any>) => {
             setIsSaving(true);
-            try {
-                await updateDoc(doc(db, 'user_records', recordId), {
-                    user_data: newUserData,
-                    updated_at: new Date(),
+            updateDoc(doc(db, 'user_records', recordId), {
+                user_data: newUserData,
+                updated_at: new Date(),
+            })
+                .catch((error: Error) => {
+                    console.error('Error saving:', error);
+                    toast.error('فشل حفظ التغييرات');
+                })
+                .finally(() => {
+                    setIsSaving(false);
                 });
-                // لا حاجة لإظهار رسالة نجاح لأن الحفظ تلقائي
-            } catch (error) {
-                console.error('Error saving:', error);
-                toast.error('فشل حفظ التغييرات');
-            } finally {
-                setIsSaving(false);
-            }
         }, 1000),
         [recordId]
     );

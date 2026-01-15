@@ -81,9 +81,14 @@ export interface Template {
     tags?: string[];
     is_featured: boolean;
     is_active: boolean;
+    is_free?: boolean;
     created_at: string;
     variants?: TemplateVariant[];
     fields?: TemplateField[];
+    average_rating?: number;
+    reviews_count?: number;
+    sales_count?: number;
+    downloads_count?: number;
 }
 
 // Alias for backward compatibility

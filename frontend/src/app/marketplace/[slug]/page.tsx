@@ -31,7 +31,7 @@ export default function ProductDetailsPage() {
     const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    const isInCart = product ? items.some((item) => item.productId === product.id) : false;
+    const isInCart = product ? items.some((item) => item.templateId === product.id) : false;
 
     useEffect(() => {
         const fetchProduct = async () => {
@@ -76,7 +76,7 @@ export default function ProductDetailsPage() {
         }
 
         addItem({
-            productId: product.id,
+            templateId: product.id,
             name: product.name_ar,
             price: product.discount_price || product.price,
             thumbnail: product.thumbnail_url || '',
@@ -183,7 +183,7 @@ export default function ProductDetailsPage() {
 
                             {/* Wishlist Button */}
                             <div className="absolute bottom-4 left-4">
-                                <WishlistButton productId={product.id} size="lg" variant="button" />
+                                <WishlistButton templateId={product.id} size="lg" variant="button" />
                             </div>
                         </div>
 

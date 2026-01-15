@@ -32,11 +32,11 @@ export default function AdminUsersPage() {
     const fetchUsers = async () => {
         setIsLoading(true);
         try {
-            const response = await api.getAdminUsers({
-                search: searchQuery || undefined,
-                role: roleFilter || undefined,
-                page: currentPage,
-            });
+            const response = await api.getAdminUsers(
+                currentPage,
+                searchQuery || '',
+                roleFilter || ''
+            );
             setUsers(response.data || []);
             setTotalPages(response.meta?.last_page || 1);
         } catch (error) {

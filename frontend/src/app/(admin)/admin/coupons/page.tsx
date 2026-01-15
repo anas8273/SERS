@@ -22,7 +22,13 @@ export default function AdminCouponsPage() {
     const [coupons, setCoupons] = useState<Coupon[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isCreating, setIsCreating] = useState(false);
-    const [newCoupon, setNewCoupon] = useState({
+    const [newCoupon, setNewCoupon] = useState<{
+        code: string;
+        discount_type: 'percentage' | 'fixed';
+        discount_value: string;
+        max_uses: string;
+        expires_at: string;
+    }>({
         code: '',
         discount_type: 'percentage',
         discount_value: '',

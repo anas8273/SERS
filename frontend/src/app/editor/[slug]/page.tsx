@@ -236,7 +236,7 @@ export default function InteractiveEditorPage() {
     try {
       setSaving(true);
       
-      const response = await api.saveUserTemplateData({
+      const response = await api.saveUserTemplateData(slug, {
         template_id: template?.id,
         variant_id: userData.selected_variant_id,
         title: userData.title,
@@ -258,16 +258,19 @@ export default function InteractiveEditorPage() {
     try {
       setExporting(true);
       
-      const response = await api.exportTemplate({
-        template_id: template?.id,
-        variant_id: userData.selected_variant_id,
-        field_values: userData.field_values,
-        format
-      });
+      const response = await api.exportTemplate(slug, format);
       
-      if (response.success && response.data.download_url) {
+      if (response.success && response.data?.download_url) {
         // Download the file
         window.open(response.data.download_url, '_blank');
+      } else if (response instanceof Blob) {
+        const url = window.URL.createObjectURL(response);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `template-${format}.${format === 'pdf' ? 'pdf' : 'png'}`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
       }
     } catch (err) {
       console.error('Export error:', err);

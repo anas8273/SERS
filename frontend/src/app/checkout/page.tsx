@@ -48,11 +48,15 @@ export default function CheckoutPage() {
 
         try {
             // Create order
-            const orderPayload = items.map((item) => ({
-                template_id: item.templateId,
-            }));
+            const orderPayload = {
+                items: items.map((item) => ({
+                    template_id: item.templateId,
+                })),
+                payment_method: 'wallet', // Default for now
+                coupon_code: appliedCoupon?.code
+            };
 
-            const orderResponse = await api.createOrder(orderPayload);
+            const orderResponse = await api.createOrder(orderPayload as any);
 
             if (!orderResponse.success) {
                 throw new Error(orderResponse.message || 'فشل في إنشاء الطلب');

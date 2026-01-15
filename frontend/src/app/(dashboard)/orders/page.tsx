@@ -188,7 +188,7 @@ export default function OrdersPage() {
                                                         </div>
                                                         <div>
                                                             <p className="font-medium text-gray-900 dark:text-white">
-                                                                {item.name_ar || item.product?.name_ar}
+                                                                {item.template_name || item.template?.name_ar}
                                                             </p>
                                                             <p className="text-sm text-gray-500 dark:text-gray-400">
                                                                 {formatPrice(item.price)}

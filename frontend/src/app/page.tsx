@@ -7,8 +7,21 @@ import { api } from '@/lib/api';
 import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
-import { ProductCardSkeleton } from '@/components/ui/skeletons';
-import type { Product, Category } from '@/types';
+import { TemplateCardSkeleton } from '@/components/ui/skeletons';
+import { 
+    Star, 
+    ArrowLeft, 
+    Zap, 
+    ShieldCheck, 
+    Layout, 
+    Users, 
+    Sparkles,
+    BookOpen,
+    GraduationCap,
+    Palette,
+    Baby
+} from 'lucide-react';
+import type { Template, Category } from '@/types';
 
 function formatPrice(amount: number): string {
     return new Intl.NumberFormat('ar-SA', {
@@ -19,18 +32,18 @@ function formatPrice(amount: number): string {
 }
 
 export default function HomePage() {
-    const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+    const [featuredTemplates, setFeaturedTemplates] = useState<Template[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [productsRes, categoriesRes] = await Promise.all([
+                const [templatesRes, categoriesRes] = await Promise.all([
                     api.getFeaturedProducts().catch(() => ({ data: [] })),
                     api.getCategories().catch(() => ({ data: [] })),
                 ]);
-                setFeaturedProducts(productsRes.data?.slice(0, 8) || []);
+                setFeaturedTemplates(templatesRes.data?.slice(0, 8) || []);
                 setCategories(categoriesRes.data?.slice(0, 6) || []);
             } catch (error) {
                 console.error('Failed to fetch data:', error);
@@ -42,75 +55,61 @@ export default function HomePage() {
     }, []);
 
     return (
-        <div className="min-h-screen flex flex-col">
+        <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950 transition-colors duration-500" dir="rtl">
             <Navbar />
 
             <main className="flex-1">
                 {/* Hero Section */}
-                <section className="relative bg-white dark:bg-gray-900 overflow-hidden transition-colors duration-300">
-                    {/* Background Pattern */}
-                    <div className="absolute inset-0 opacity-10 dark:opacity-20 pointer-events-none">
-                        <div className="absolute top-0 left-0 w-72 h-72 bg-primary-200 dark:bg-primary-900 rounded-full -translate-x-1/2 -translate-y-1/2 blur-3xl" />
-                        <div className="absolute bottom-0 right-0 w-96 h-96 bg-secondary-200 dark:bg-secondary-900 rounded-full translate-x-1/3 translate-y-1/3 blur-3xl" />
+                <section className="relative overflow-hidden pt-20 pb-32 lg:pt-32 lg:pb-48">
+                    {/* Background Elements */}
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full -z-10 overflow-hidden">
+                        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px] animate-pulse" />
+                        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[120px] animate-pulse" />
                     </div>
 
-                    <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
-                        <div className="grid lg:grid-cols-2 gap-12 items-center">
-                            <div className="text-center lg:text-right space-y-8">
-                                <div className="inline-block px-4 py-2 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-full text-sm font-medium">
-                                    🎓 منصة تعليمية متكاملة
-                                </div>
-
-                                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-gray-900 dark:text-white">
-                                    سجلاتك التعليمية
-                                    <span className="block text-primary-600 dark:text-primary-400 mt-2">بذكاء وسهولة</span>
-                                </h1>
-
-                                <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-lg mx-auto lg:mx-0">
-                                    اكتشف مئات القوالب التعليمية التفاعلية والقابلة للتحميل،
-                                    مصممة خصيصاً للمعلمين والمعلمات في رياض الأطفال والمراحل الابتدائية.
-                                </p>
-
-                                <div className="flex flex-wrap gap-4 justify-center lg:justify-start">
-                                    <Link href="/marketplace">
-                                        <Button size="lg" className="bg-primary-600 hover:bg-primary-700 text-white px-8 py-4 text-lg font-semibold shadow-xl">
-                                            تصفح المتجر 🛍️
-                                        </Button>
-                                    </Link>
-                                    <Link href="/about">
-                                        <Button size="lg" variant="outline" className="border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 px-8 py-4 text-lg">
-                                            تعرف علينا
-                                        </Button>
-                                    </Link>
-                                </div>
-
-                                {/* Stats */}
-                                <div className="flex gap-8 justify-center lg:justify-start pt-8">
-                                    <div className="text-center">
-                                        <div className="text-3xl font-bold text-gray-900 dark:text-white">500+</div>
-                                        <div className="text-gray-500 dark:text-gray-400 text-sm">قالب تعليمي</div>
-                                    </div>
-                                    <div className="text-center">
-                                        <div className="text-3xl font-bold text-gray-900 dark:text-white">10K+</div>
-                                        <div className="text-gray-500 dark:text-gray-400 text-sm">معلم ومعلمة</div>
-                                    </div>
-                                    <div className="text-center">
-                                        <div className="text-3xl font-bold text-gray-900 dark:text-white">4.9⭐</div>
-                                        <div className="text-gray-500 dark:text-gray-400 text-sm">تقييم المستخدمين</div>
-                                    </div>
-                                </div>
+                    <div className="container mx-auto px-4">
+                        <div className="max-w-4xl mx-auto text-center space-y-8">
+                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-bold animate-fade-in">
+                                <Sparkles className="w-4 h-4" />
+                                <span>الجيل القادم من السجلات التعليمية</span>
                             </div>
 
-                            {/* Hero Image */}
-                            <div className="hidden lg:block relative">
-                                <div className="relative w-full h-96 bg-gray-100 dark:bg-gray-800/50 backdrop-blur-sm rounded-3xl p-8 transform rotate-3 hover:rotate-0 transition-transform duration-500 border border-gray-200 dark:border-gray-700">
-                                    <div className="absolute inset-4 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl flex items-center justify-center border border-gray-100 dark:border-gray-800">
-                                        <div className="text-center p-8">
-                                            <div className="text-6xl mb-4">📚</div>
-                                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">سجلات ذكية</h3>
-                                            <p className="text-gray-600 dark:text-gray-400 mt-2">تفاعلية ومدعومة بالذكاء الاصطناعي</p>
-                                        </div>
-                                    </div>
+                            <h1 className="text-5xl md:text-7xl font-black tracking-tight text-gray-900 dark:text-white leading-[1.1] animate-slide-up">
+                                صمم سجلاتك التعليمية <br />
+                                <span className="text-primary">بلمسة إبداعية</span>
+                            </h1>
+
+                            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed animate-slide-up" style={{ animationDelay: '0.1s' }}>
+                                اكتشف مئات القوالب التعليمية التفاعلية المدعومة بالذكاء الاصطناعي. 
+                                صممت خصيصاً لتوفير وقتك وإبهار طلابك.
+                            </p>
+
+                            <div className="flex flex-wrap gap-4 justify-center pt-4 animate-slide-up" style={{ animationDelay: '0.2s' }}>
+                                <Link href="/marketplace">
+                                    <Button size="lg" className="rounded-full px-10 py-7 text-lg font-bold shadow-2xl shadow-primary/20 hover:scale-105 transition-transform">
+                                        ابدأ التصميم الآن
+                                    </Button>
+                                </Link>
+                                <Link href="/templates">
+                                    <Button size="lg" variant="outline" className="rounded-full px-10 py-7 text-lg font-bold border-2 hover:bg-gray-50 dark:hover:bg-gray-900 transition-all">
+                                        تصفح القوالب
+                                    </Button>
+                                </Link>
+                            </div>
+
+                            {/* Trust Badges */}
+                            <div className="pt-12 flex flex-wrap justify-center items-center gap-8 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
+                                <div className="flex items-center gap-2 font-bold text-xl">
+                                    <Users className="w-6 h-6" />
+                                    <span>+10,000 معلم</span>
+                                </div>
+                                <div className="flex items-center gap-2 font-bold text-xl">
+                                    <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" />
+                                    <span>4.9 تقييم</span>
+                                </div>
+                                <div className="flex items-center gap-2 font-bold text-xl">
+                                    <ShieldCheck className="w-6 h-6" />
+                                    <span>موثوق تعليمياً</span>
                                 </div>
                             </div>
                         </div>
@@ -118,42 +117,57 @@ export default function HomePage() {
                 </section>
 
                 {/* Categories Section */}
-                <section className="py-16 bg-gray-50 dark:bg-gray-800/50 transition-colors">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="text-center mb-12">
-                            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">التصنيفات</h2>
-                            <p className="text-gray-600 dark:text-gray-400 mt-2">اختر المرحلة التعليمية المناسبة</p>
+                <section className="py-24 bg-gray-50 dark:bg-gray-900/50">
+                    <div className="container mx-auto px-4">
+                        <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+                            <div className="space-y-2">
+                                <h2 className="text-3xl font-black text-gray-900 dark:text-white">تصفح حسب التصنيف</h2>
+                                <p className="text-gray-500 dark:text-gray-400">اختر المرحلة التعليمية أو نوع المحتوى الذي تبحث عنه</p>
+                            </div>
+                            <Link href="/marketplace">
+                                <Button variant="ghost" className="text-primary font-bold hover:bg-primary/5">
+                                    عرض جميع التصنيفات <ArrowLeft className="mr-2 w-4 h-4" />
+                                </Button>
+                            </Link>
                         </div>
 
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
                             {categories.length > 0 ? categories.map((category) => (
                                 <Link
                                     key={category.id}
                                     href={`/marketplace?category=${category.slug}`}
-                                    className="group p-6 bg-white dark:bg-gray-800 rounded-2xl hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:shadow-lg transition-all duration-300 text-center border border-gray-100 dark:border-gray-700"
+                                    className="group p-8 bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-500 text-center"
                                 >
-                                    <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">
-                                        {category.icon === 'baby' ? '👶' :
-                                            category.icon === 'book-open' ? '📖' :
-                                                category.icon === 'graduation-cap' ? '🎓' : '📚'}
+                                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary/5 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors duration-500">
+                                        {category.slug.includes('baby') || category.slug.includes('kindergarten') ? <Baby className="w-8 h-8" /> :
+                                         category.slug.includes('school') || category.slug.includes('primary') ? <BookOpen className="w-8 h-8" /> :
+                                         category.slug.includes('high') || category.slug.includes('grad') ? <GraduationCap className="w-8 h-8" /> :
+                                         <Palette className="w-8 h-8" />}
                                     </div>
-                                    <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400">
+                                    <h3 className="font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors">
                                         {category.name_ar}
                                     </h3>
                                 </Link>
                             )) : (
-                                // Placeholder categories
-                                ['رياض الأطفال', 'الابتدائية', 'المتوسطة', 'الثانوية', 'التعليم الخاص', 'الأنشطة'].map((name, i) => (
+                                // Placeholder categories with icons
+                                [
+                                    { name: 'رياض الأطفال', icon: <Baby className="w-8 h-8" /> },
+                                    { name: 'الابتدائية', icon: <BookOpen className="w-8 h-8" /> },
+                                    { name: 'المتوسطة', icon: <GraduationCap className="w-8 h-8" /> },
+                                    { name: 'الثانوية', icon: <Layout className="w-8 h-8" /> },
+                                    { name: 'الأنشطة', icon: <Palette className="w-8 h-8" /> },
+                                    { name: 'الشهادات', icon: <Zap className="w-8 h-8" /> }
+                                ].map((cat, i) => (
                                     <Link
                                         key={i}
                                         href="/marketplace"
-                                        className="group p-6 bg-white dark:bg-gray-800 rounded-2xl hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:shadow-lg transition-all duration-300 text-center border border-gray-100 dark:border-gray-700"
+                                        className="group p-8 bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-500 text-center"
                                     >
-                                        <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">
-                                            {['👶', '📖', '🎓', '🏫', '⭐', '🎨'][i]}
+                                        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary/5 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors duration-500">
+                                            {cat.icon}
                                         </div>
-                                        <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400">
-                                            {name}
+                                        <h3 className="font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors">
+                                            {cat.name}
                                         </h3>
                                     </Link>
                                 ))
@@ -162,194 +176,136 @@ export default function HomePage() {
                     </div>
                 </section>
 
-                {/* Featured Products */}
-                <section className="py-16 bg-white dark:bg-gray-900 transition-colors">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="flex items-center justify-between mb-12">
-                            <div>
-                                <h2 className="text-3xl font-bold text-gray-900 dark:text-white">المنتجات المميزة ⭐</h2>
-                                <p className="text-gray-600 dark:text-gray-400 mt-2">أكثر القوالب طلباً من معلمينا</p>
+                {/* Featured Templates */}
+                <section className="py-24">
+                    <div className="container mx-auto px-4">
+                        <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+                            <div className="space-y-2">
+                                <h2 className="text-3xl font-black text-gray-900 dark:text-white">القوالب الأكثر تميزاً</h2>
+                                <p className="text-gray-500 dark:text-gray-400">مجموعة مختارة من أفضل القوالب التي نالت إعجاب المعلمين</p>
                             </div>
                             <Link href="/marketplace">
-                                <Button variant="outline" className="hidden md:flex text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                                    عرض الكل ←
+                                <Button variant="outline" className="rounded-full px-6 border-2 font-bold">
+                                    استكشف المتجر بالكامل
                                 </Button>
                             </Link>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
                             {isLoading ? (
-                                [1, 2, 3, 4].map((i) => <ProductCardSkeleton key={i} />)
-                            ) : featuredProducts.length > 0 ? (
-                                featuredProducts.map((product) => (
+                                [1, 2, 3, 4].map((i) => <TemplateCardSkeleton key={i} />)
+                            ) : featuredTemplates.length > 0 ? (
+                                featuredTemplates.map((template) => (
                                     <Link
-                                        key={product.id}
-                                        href={`/marketplace/${product.slug}`}
-                                        className="group bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-700"
+                                        key={template.id}
+                                        href={`/marketplace/${template.slug}`}
+                                        className="group bg-white dark:bg-gray-800 rounded-3xl overflow-hidden border border-gray-100 dark:border-gray-700 hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500 flex flex-col h-full"
                                     >
-                                        <div className="relative aspect-[4/3] bg-gray-100 dark:bg-gray-700">
-                                            {product.thumbnail_url ? (
+                                        <div className="relative aspect-[4/3] overflow-hidden bg-gray-100 dark:bg-gray-700">
+                                            {template.thumbnail_url ? (
                                                 <Image
-                                                    src={product.thumbnail_url}
-                                                    alt={product.name_ar}
+                                                    src={template.thumbnail_url}
+                                                    alt={template.name_ar}
                                                     fill
-                                                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                                    className="object-cover group-hover:scale-110 transition-transform duration-700"
                                                 />
                                             ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-5xl text-gray-300 dark:text-gray-600">
-                                                    📄
+                                                <div className="w-full h-full flex items-center justify-center text-gray-300">
+                                                    <Layout className="w-12 h-12" />
                                                 </div>
                                             )}
-                                            <span className={`absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-medium ${product.type === 'interactive'
-                                                ? 'bg-blue-500 text-white'
-                                                : 'bg-gray-700 text-white'
-                                                }`}>
-                                                {product.type === 'interactive' ? 'تفاعلي' : 'ملف'}
-                                            </span>
-                                        </div>
-                                        <div className="p-5">
-                                            <h3 className="font-bold text-gray-900 dark:text-white mb-2 line-clamp-1 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
-                                                {product.name_ar}
-                                            </h3>
-                                            <div className="flex items-center gap-1 mb-3">
-                                                <span className="text-yellow-400">⭐</span>
-                                                <span className="text-sm text-gray-600 dark:text-gray-400">{product.average_rating?.toFixed(1) || '0.0'}</span>
-                                                <span className="text-xs text-gray-400 dark:text-gray-500">({product.reviews_count || 0})</span>
+                                            <div className="absolute top-4 right-4">
+                                                <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur px-3 py-1 rounded-full flex items-center gap-1 text-amber-500 shadow-lg">
+                                                    <Star className="w-3 h-3 fill-current" />
+                                                    <span className="text-xs font-black">{template.average_rating || '5.0'}</span>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-xl font-bold text-primary-600 dark:text-primary-400">
-                                                    {formatPrice(product.discount_price || product.price)}
+                                        </div>
+
+                                        <div className="p-6 flex-1 flex flex-col">
+                                            <div className="flex-1 space-y-2">
+                                                <span className="text-[10px] font-black text-primary uppercase tracking-widest bg-primary/5 px-2 py-0.5 rounded-full">
+                                                    {template.category?.name_ar || 'قالب تعليمي'}
                                                 </span>
-                                                {product.discount_price && product.discount_price < product.price && (
-                                                    <span className="text-sm text-gray-400 dark:text-gray-500 line-through">
-                                                        {formatPrice(product.price)}
-                                                    </span>
-                                                )}
+                                                <h3 className="text-lg font-black text-gray-900 dark:text-white group-hover:text-primary transition-colors line-clamp-1">
+                                                    {template.name_ar}
+                                                </h3>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
+                                                    {template.description_ar}
+                                                </p>
+                                            </div>
+
+                                            <div className="mt-6 pt-6 border-t border-gray-50 dark:border-gray-700 flex items-center justify-between">
+                                                <div className="flex flex-col">
+                                                    {template.discount_price ? (
+                                                        <>
+                                                            <span className="text-xs text-gray-400 line-through">{formatPrice(template.price)}</span>
+                                                            <span className="text-lg font-black text-primary">{formatPrice(template.discount_price)}</span>
+                                                        </>
+                                                    ) : (
+                                                        <span className="text-lg font-black text-gray-900 dark:text-white">
+                                                            {template.is_free ? 'مجاني' : formatPrice(template.price)}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all duration-500">
+                                                    <ArrowLeft className="w-5 h-5" />
+                                                </div>
                                             </div>
                                         </div>
                                     </Link>
                                 ))
                             ) : (
-                                // Placeholder products when empty
-                                [
-                                    { name: 'سجل الملاحظات الذكي', price: 49.99, type: 'interactive' },
-                                    { name: 'نموذج تقييم الطالب', price: 29.99, type: 'downloadable' },
-                                    { name: 'سجل الحضور والغياب', price: 39.99, type: 'interactive' },
-                                    { name: 'خطة درس تفاعلية', price: 19.99, type: 'interactive' },
-                                ].map((product, i) => (
-                                    <Link
-                                        key={i}
-                                        href="/marketplace"
-                                        className="group bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-700"
-                                    >
-                                        <div className="relative aspect-[4/3] bg-gradient-to-br from-primary-100 to-primary-200 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center">
-                                            <span className="text-6xl">📘</span>
-                                            <span className={`absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-medium ${product.type === 'interactive'
-                                                ? 'bg-blue-500 text-white'
-                                                : 'bg-gray-700 text-white'
-                                                }`}>
-                                                {product.type === 'interactive' ? 'تفاعلي' : 'ملف'}
-                                            </span>
-                                        </div>
-                                        <div className="p-5">
-                                            <h3 className="font-bold text-gray-900 dark:text-white mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
-                                                {product.name}
-                                            </h3>
-                                            <div className="flex items-center gap-1 mb-3">
-                                                <span className="text-yellow-400">⭐</span>
-                                                <span className="text-sm text-gray-600 dark:text-gray-400">4.5</span>
-                                            </div>
-                                            <span className="text-xl font-bold text-primary-600 dark:text-primary-400">
-                                                {formatPrice(product.price)}
-                                            </span>
-                                        </div>
-                                    </Link>
-                                ))
+                                <div className="col-span-full py-20 text-center">
+                                    <p className="text-gray-500 font-bold">لا توجد قوالب مميزة حالياً</p>
+                                </div>
                             )}
                         </div>
-
-                        <div className="text-center mt-8 md:hidden">
-                            <Link href="/marketplace">
-                                <Button className="bg-primary-600 hover:bg-primary-700 text-white">
-                                    عرض جميع المنتجات
-                                </Button>
-                            </Link>
-                        </div>
                     </div>
                 </section>
 
-                {/* Features Section */}
-                <section className="py-20 bg-gray-50 dark:bg-gray-800/50 transition-colors">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="text-center mb-16">
-                            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">لماذا SERS؟</h2>
-                            <p className="text-gray-600 dark:text-gray-400 mt-2 max-w-2xl mx-auto">
-                                نقدم لك تجربة فريدة في إعداد السجلات التعليمية
-                            </p>
+                {/* Features Grid */}
+                <section className="py-24 bg-gray-50 dark:bg-gray-900/50">
+                    <div className="container mx-auto px-4">
+                        <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
+                            <h2 className="text-4xl font-black text-gray-900 dark:text-white">لماذا يختار المعلمون SERS؟</h2>
+                            <p className="text-gray-500 dark:text-gray-400 text-lg">نحن نوفر لك الأدوات التي تجعل عملك التعليمي أكثر سهولة وإبداعاً</p>
                         </div>
 
-                        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-                            {[
-                                {
-                                    icon: '🤖',
-                                    title: 'ذكاء اصطناعي',
-                                    description: 'اقتراحات ذكية تساعدك في كتابة الملاحظات والتقييمات',
-                                },
-                                {
-                                    icon: '⚡',
-                                    title: 'سرعة وسهولة',
-                                    description: 'واجهة بسيطة تمكنك من إنجاز عملك في دقائق',
-                                },
-                                {
-                                    icon: '🔒',
-                                    title: 'آمن وموثوق',
-                                    description: 'بياناتك محمية بأعلى معايير الأمان والخصوصية',
-                                },
-                                {
-                                    icon: '📱',
-                                    title: 'متوافق مع الجميع',
-                                    description: 'يعمل على الكمبيوتر والتابلت والجوال بسلاسة',
-                                },
-                            ].map((feature, i) => (
-                                <div
-                                    key={i}
-                                    className="text-center p-8 rounded-2xl bg-white dark:bg-gray-800 hover:bg-primary-50 dark:hover:bg-primary-900/10 hover:shadow-lg transition-all duration-300 border border-gray-100 dark:border-gray-700"
-                                >
-                                    <div className="text-5xl mb-4">{feature.icon}</div>
-                                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{feature.title}</h3>
-                                    <p className="text-gray-600 dark:text-gray-400">{feature.description}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </section>
-
-                {/* CTA Section */}
-                <section className="py-20 bg-primary-50 dark:bg-gray-900 transition-colors duration-300">
-                    <div className="max-w-4xl mx-auto px-4 text-center">
-                        <h2 className="text-3xl md:text-4xl font-bold mb-6 text-gray-900 dark:text-white">
-                            جاهز لتطوير تجربتك التعليمية؟
-                        </h2>
-                        <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
-                            انضم لآلاف المعلمين الذين يوفرون وقتهم مع SERS
-                        </p>
-                        <div className="flex flex-wrap gap-4 justify-center">
-                            <Link href="/register">
-                                <Button size="lg" className="bg-primary-600 hover:bg-primary-700 text-white px-8 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transition-all">
-                                    ابدأ مجاناً 🚀
-                                </Button>
-                            </Link>
-                            <Link href="/marketplace">
-                                <Button size="lg" variant="outline" className="border-2 border-primary-200 dark:border-gray-700 text-primary-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 px-8 py-4 text-lg">
-                                    تصفح المنتجات
-                                </Button>
-                            </Link>
+                        <div className="grid md:grid-cols-3 gap-8">
+                            <FeatureCard 
+                                icon={<Zap className="w-8 h-8" />}
+                                title="سرعة فائقة"
+                                description="صمم سجلاتك في دقائق معدودة بدلاً من ساعات العمل الطويلة."
+                            />
+                            <FeatureCard 
+                                icon={<Sparkles className="w-8 h-8" />}
+                                title="ذكاء اصطناعي"
+                                description="استخدم مساعدنا الذكي لتوليد المحتوى واقتراح الأفكار الإبداعية."
+                            />
+                            <FeatureCard 
+                                icon={<ShieldCheck className="w-8 h-8" />}
+                                title="جودة مضمونة"
+                                description="جميع القوالب مراجعة من قبل خبراء تربويين لضمان فعاليتها."
+                            />
                         </div>
                     </div>
                 </section>
             </main>
 
             <Footer />
+        </div>
+    );
+}
+
+function FeatureCard({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) {
+    return (
+        <div className="p-10 bg-white dark:bg-gray-800 rounded-[2.5rem] border border-gray-100 dark:border-gray-700 hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500 group">
+            <div className="w-16 h-16 rounded-2xl bg-primary/5 text-primary flex items-center justify-center mb-6 group-hover:bg-primary group-hover:text-white transition-all duration-500">
+                {icon}
+            </div>
+            <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-4">{title}</h3>
+            <p className="text-gray-500 dark:text-gray-400 leading-relaxed text-lg">{description}</p>
         </div>
     );
 }

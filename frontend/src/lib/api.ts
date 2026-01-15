@@ -1,198 +1,74 @@
 // src/lib/api.ts
 
-import axios, {
-    AxiosInstance,
-    AxiosError,
-    AxiosResponse,
-} from 'axios';
+import axios, { AxiosInstance } from 'axios';
+import { 
+    ApiResponse, 
+    User, 
+    Template, 
+    Category, 
+    Section, 
+    Order, 
+    Coupon, 
+    Review, 
+    ReviewSummary,
+    CartItem
+} from '@/types';
 
-/**
- * =========================
- * Configuration
- * =========================
- */
-const API_URL =
-    process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
-
-const TOKEN_KEY = 'auth_token';
-
-/**
- * =========================
- * Types
- * =========================
- */
-interface ApiResponse<T = any> {
-    success: boolean;
-    message?: string;
-    data: T;
-}
-
-interface AuthResponse {
-    user: any;
-    token: string;
-}
-
-/**
- * =========================
- * Api Client
- * =========================
- */
 class ApiClient {
     private client: AxiosInstance;
-    private token: string | null = null;
-    private maxRetries = 3;
-    private retryDelay = 1000;
 
     constructor() {
         this.client = axios.create({
-            baseURL: API_URL,
+            baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api',
             headers: {
-                Accept: 'application/json',
                 'Content-Type': 'application/json',
+                'Accept': 'application/json',
             },
-            withCredentials: true, // مهم مع Sanctum
-            timeout: 30000, // 30 seconds timeout
         });
 
-        this.initializeToken();
-        this.registerInterceptors();
-    }
-
-    /**
-     * =========================
-     * Token Handling
-     * =========================
-     */
-    private initializeToken() {
-        if (typeof window !== 'undefined') {
-            this.token = localStorage.getItem(TOKEN_KEY);
-        }
-    }
-
-    private setAuthHeader(config: any) {
-        if (this.token) {
-            config.headers.Authorization = `Bearer ${this.token}`;
-        }
-        return config;
-    }
-
-    setToken(token: string) {
-        this.token = token;
-        if (typeof window !== 'undefined') {
-            localStorage.setItem(TOKEN_KEY, token);
-        }
-    }
-
-    clearToken() {
-        this.token = null;
-        if (typeof window !== 'undefined') {
-            localStorage.removeItem(TOKEN_KEY);
-        }
-    }
-
-    /**
-     * =========================
-     * Axios Interceptors
-     * =========================
-     */
-    private registerInterceptors() {
-        // Request
-        this.client.interceptors.request.use((config) =>
-            this.setAuthHeader(config)
-        );
-
-        // Response
-        this.client.interceptors.response.use(
-            (response: AxiosResponse) => response,
-            (error: AxiosError) => {
-                const status = error.response?.status;
-                const data = error.response?.data as Record<string, unknown>;
-
-                // Handle 401 Unauthorized
-                if (status === 401) {
-                    this.clearToken();
-                    if (typeof window !== 'undefined') {
-                        this.showToast('انتهت جلستك، يرجى تسجيل الدخول مرة أخرى', 'error');
-                        window.location.href = '/login';
+        // Add interceptor to include auth token
+        this.client.interceptors.request.use((config) => {
+            if (typeof window !== 'undefined') {
+                const token = localStorage.getItem('auth-storage');
+                if (token) {
+                    try {
+                        const { state } = JSON.parse(token);
+                        if (state.token) {
+                            config.headers.Authorization = `Bearer ${state.token}`;
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse auth token');
                     }
                 }
-
-                // Handle 403 Forbidden
-                if (status === 403) {
-                    this.showToast('ليس لديك صلاحية للقيام بهذا الإجراء', 'error');
-                }
-
-                // Handle 422 Validation Errors
-                if (status === 422 && data?.errors) {
-                    const errors = data.errors as Record<string, string[]>;
-                    const firstError = Object.values(errors)[0];
-                    if (Array.isArray(firstError) && firstError.length > 0) {
-                        this.showToast(firstError[0], 'error');
-                    }
-                }
-
-                // Handle 429 Rate Limit
-                if (status === 429) {
-                    this.showToast('تم تجاوز عدد المحاولات المسموح، انتظر قليلاً', 'error');
-                }
-
-                // Handle 500 Server Errors
-                if (status === 500) {
-                    this.showToast('حدث خطأ في الخادم، حاول مرة أخرى لاحقاً', 'error');
-                }
-
-                return Promise.reject(this.normalizeError(error));
             }
-        );
+            return config;
+        });
     }
 
-    /**
-     * Show toast notification (lazy import to avoid SSR issues)
-     */
-    private showToast(message: string, type: 'success' | 'error' = 'error') {
-        if (typeof window !== 'undefined') {
-            import('react-hot-toast').then(({ toast }) => {
-                if (type === 'error') {
-                    toast.error(message);
-                } else {
-                    toast.success(message);
-                }
-            });
-        }
+    // Generic methods
+    async get(url: string, config?: any) {
+        const { data } = await this.client.get(url, config);
+        return data;
     }
 
-    private normalizeError(error: AxiosError) {
-        const data = error.response?.data as Record<string, unknown> | undefined;
-        return {
-            status: error.response?.status,
-            message: (data?.message as string) ?? 'حدث خطأ غير متوقع',
-            errors: data?.errors as Record<string, string[]> | undefined,
-            code: data?.error as string | undefined,
-        };
+    async post(url: string, payload?: any, config?: any) {
+        const { data } = await this.client.post(url, payload, config);
+        return data;
     }
 
-    /**
-     * Retry wrapper for API calls with exponential backoff
-     */
-    private async requestWithRetry<T>(
-        requestFn: () => Promise<T>,
-        retries = this.maxRetries
-    ): Promise<T> {
-        try {
-            return await requestFn();
-        } catch (error: any) {
-            // Only retry on network errors or 5xx errors
-            const isNetworkError = !error.response;
-            const isServerError = error.response?.status >= 500;
+    async put(url: string, payload?: any, config?: any) {
+        const { data } = await this.client.put(url, payload, config);
+        return data;
+    }
 
-            if (retries > 0 && (isNetworkError || isServerError)) {
-                await new Promise((resolve) =>
-                    setTimeout(resolve, this.retryDelay * (this.maxRetries - retries + 1))
-                );
-                return this.requestWithRetry(requestFn, retries - 1);
-            }
-            throw error;
-        }
+    async delete(url: string, config?: any) {
+        const { data } = await this.client.delete(url, config);
+        return data;
+    }
+
+    async patch(url: string, payload?: any, config?: any) {
+        const { data } = await this.client.patch(url, payload, config);
+        return data;
     }
 
     /**
@@ -200,54 +76,35 @@ class ApiClient {
      * Auth
      * =========================
      */
-    async register(payload: {
-        name: string;
-        email: string;
-        password: string;
-        password_confirmation: string;
-    }): Promise<ApiResponse<AuthResponse>> {
-        const { data } = await this.client.post('/auth/register', payload);
-        if (data.success) this.setToken(data.data.token);
+    async login(payload: any): Promise<ApiResponse> {
+        const { data } = await this.client.post('/login', payload);
         return data;
     }
 
-    async login(payload: {
-        email: string;
-        password: string;
-    }): Promise<ApiResponse<AuthResponse>> {
-        const { data } = await this.client.post('/auth/login', payload);
-        if (data.success) this.setToken(data.data.token);
-        return data;
-    }
-
-    /**
-     * ✅ Google / Firebase Social Login
-     */
-    async socialLogin(
-        firebaseToken: string
-    ): Promise<ApiResponse<AuthResponse>> {
-        const { data } = await this.client.post('/auth/social', {
-            firebase_token: firebaseToken,
-        });
-
-        if (data.success) this.setToken(data.data.token);
+    async register(payload: any): Promise<ApiResponse> {
+        const { data } = await this.client.post('/register', payload);
         return data;
     }
 
     async logout(): Promise<ApiResponse> {
-        const { data } = await this.client.post('/auth/logout');
-        this.clearToken();
+        const { data } = await this.client.post('/logout');
+        return data;
+    }
+
+    async socialLogin(token: string): Promise<ApiResponse> {
+        const { data } = await this.client.post('/auth/social', { token });
+        return data;
+    }
+
+    async getProfile(): Promise<ApiResponse> {
+        const { data } = await this.client.get('/user/profile');
         return data;
     }
 
     async getMe(): Promise<ApiResponse> {
-        const { data } = await this.client.get('/auth/me');
-        return data;
+        return this.getProfile();
     }
 
-    /**
-     * Change user password
-     */
     async changePassword(payload: {
         current_password: string;
         new_password: string;
@@ -257,13 +114,22 @@ class ApiClient {
         return data;
     }
 
-    /**
-     * Update user profile
-     */
     async updateProfile(formData: FormData): Promise<ApiResponse> {
         const { data } = await this.client.post('/user/profile', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
         });
+        return data;
+    }
+
+    async uploadFileForQR(formData: FormData) {
+        const { data } = await this.client.post('/qrcode/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return data;
+    }
+
+    async generateQRCode(payload: any) {
+        const { data } = await this.client.post('/qrcode/generate', payload);
         return data;
     }
 
@@ -277,7 +143,10 @@ class ApiClient {
         return data;
     }
 
-    // Alias for backward compatibility
+    async getFeaturedProducts() {
+        return this.getTemplates({ featured: 1 });
+    }
+
     async getProducts(params?: Record<string, any>) {
         return this.getTemplates(params);
     }
@@ -287,7 +156,6 @@ class ApiClient {
         return data;
     }
 
-    // Alias for backward compatibility
     async getProduct(slug: string) {
         return this.getTemplate(slug);
     }
@@ -299,38 +167,57 @@ class ApiClient {
         return data;
     }
 
-    // Alias for backward compatibility
-    async searchProducts(query: string) {
-        return this.searchTemplates(query);
-    }
-
-    async getFeaturedTemplates() {
-        const { data } = await this.client.get('/templates/featured');
+    /**
+     * =========================
+     * Categories & Sections
+     * =========================
+     */
+    async getSections() {
+        const { data } = await this.client.get('/sections');
         return data;
     }
 
-    // Alias for backward compatibility
-    async getFeaturedProducts() {
-        return this.getFeaturedTemplates();
+    async getSection(slug: string) {
+        const { data } = await this.client.get(`/sections/${slug}`);
+        return data;
     }
 
-    /**
-     * =========================
-     * Categories
-     * =========================
-     */
+    async getSectionBySlug(slug: string) {
+        return this.getSection(slug);
+    }
+
+    async getTemplatesBySection(sectionSlug: string, params?: Record<string, any>) {
+        const { data } = await this.client.get(`/sections/${sectionSlug}/templates`, { params });
+        return data;
+    }
+
     async getCategories() {
         const { data } = await this.client.get('/categories');
         return data;
     }
 
+    async getCategory(slug: string) {
+        const { data } = await this.client.get(`/categories/${slug}`);
+        return data;
+    }
+
+    async getTemplatesByCategory(categorySlug: string) {
+        const { data } = await this.client.get(`/categories/${categorySlug}/templates`);
+        return data;
+    }
+
     /**
      * =========================
-     * Orders
+     * Orders & Cart
      * =========================
      */
-    async createOrder(items: { template_id: string }[]) {
-        const { data } = await this.client.post('/orders', { items });
+    async createOrder(payload: any) {
+        const { data } = await this.client.post('/orders', payload);
+        return data;
+    }
+
+    async payOrder(orderId: string | number) {
+        const { data } = await this.client.post(`/orders/${orderId}/pay`);
         return data;
     }
 
@@ -344,41 +231,67 @@ class ApiClient {
         return data;
     }
 
-    /**
-     * =========================
-     * Payments
-     * =========================
-     */
-    async createPaymentIntent(orderId: string) {
-        const { data } = await this.client.post(
-            '/payments/create-intent',
-            { order_id: orderId }
-        );
-        return data;
-    }
-
-    /**
-     * =========================
-     * Records (Firestore)
-     * =========================
-     */
-    async getRecords() {
-        const { data } = await this.client.get('/records');
-        return data;
-    }
-
-    async getRecord(recordId: string) {
-        const { data } = await this.client.get(`/records/${recordId}`);
-        return data;
-    }
-
-    async updateRecord(
-        recordId: string,
-        userData: Record<string, any>
-    ) {
-        const { data } = await this.client.put(`/records/${recordId}`, {
-            user_data: userData,
+    async downloadFile(urlOrId: string, filename?: string) {
+        const url = urlOrId.startsWith('/') ? urlOrId : `/orders/items/${urlOrId}/download`;
+        const response = await this.client.get(url, {
+            responseType: 'blob',
         });
+        
+        if (filename && typeof window !== 'undefined') {
+            const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(blobUrl);
+        }
+        
+        return response;
+    }
+
+    async validateCoupon(code: string, total?: number) {
+        const { data } = await this.client.post('/coupons/validate', { code, total });
+        return data;
+    }
+
+    /**
+     * =========================
+     * Wishlist
+     * =========================
+     */
+    async getWishlist() {
+        const { data } = await this.client.get('/wishlist');
+        return data;
+    }
+
+    async getWishlistIds() {
+        return this.getWishlist();
+    }
+
+    async toggleWishlist(templateId: string) {
+        const { data } = await this.client.post('/wishlist/toggle', { template_id: templateId });
+        return data;
+    }
+
+    /**
+     * =========================
+     * Reviews
+     * =========================
+     */
+    async getProductReviews(slug: string) {
+        const { data } = await this.client.get(`/templates/${slug}/reviews`);
+        return data;
+    }
+
+    async canReviewProduct(slug: string) {
+        const { data } = await this.client.get(`/templates/${slug}/can-review`);
+        return data;
+    }
+
+    async createReview(slug: string, payload: { rating: number; comment?: string }) {
+        const { data } = await this.client.post(`/templates/${slug}/reviews`, payload);
         return data;
     }
 
@@ -388,720 +301,31 @@ class ApiClient {
      * =========================
      */
     async getAISuggestion(
-        recordId: string,
-        fieldName: string,
-        context: Record<string, any>
+        recordIdOrPayload: string | {
+            template_id: number | undefined;
+            field_name: string;
+            title: string;
+            current_values: Record<string, any>;
+        },
+        fieldName?: string,
+        context?: Record<string, any>
     ) {
-        const { data } = await this.client.post('/ai/suggest', {
-            record_id: recordId,
-            field_name: fieldName,
-            context,
-        });
-        return data;
-    }
-    /**
-     * =========================
-     * Admin - Dashboard
-     * =========================
-     */
-
-    /**
-     * إحصائيات لوحة التحكم
-     */
-    async getAdminStats() {
-        const { data } = await this.client.get('/admin/stats');
-        return data;
-    }
-
-    /**
-     * بيانات الرسم البياني (آخر 7 أيام)
-     */
-    async getAdminChart() {
-        const { data } = await this.client.get('/admin/stats/chart');
-        return data;
-    }
-
-    /**
-     * =========================
-     * Admin - Templates
-     * =========================
-     */
-
-    /**
-     * قائمة جميع القوالب (بما فيها غير النشطة)
-     */
-    async getAdminTemplates(params?: Record<string, any>) {
-        const { data } = await this.client.get('/admin/templates', { params });
-        return data;
-    }
-
-    // Alias for backward compatibility
-    async getAdminProducts(params?: Record<string, any>) {
-        return this.getAdminTemplates(params);
-    }
-
-    /**
-     * إضافة قالب جديد (مع رفع صور / ملفات)
-     */
-    async createTemplate(formData: FormData) {
-        const { data } = await this.client.post('/admin/templates', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        return data;
-    }
-
-    // Alias for backward compatibility
-    async createProduct(formData: FormData) {
-        return this.createTemplate(formData);
-    }
-
-    /**
-     * عرض قالب واحد (Admin)
-     */
-    async getAdminTemplate(id: string) {
-        const { data } = await this.client.get(`/admin/templates/${id}`);
-        return data;
-    }
-
-    // Alias for backward compatibility
-    async getAdminProduct(id: string) {
-        return this.getAdminTemplate(id);
-    }
-
-    /**
-     * تحديث قالب
-     */
-    async updateTemplate(id: string, formData: FormData) {
-        // Laravel requires POST with _method=PUT for FormData
-        formData.append('_method', 'PUT');
-        const { data } = await this.client.post(`/admin/templates/${id}`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        return data;
-    }
-
-    // Alias for backward compatibility
-    async updateProduct(id: string, formData: FormData) {
-        return this.updateTemplate(id, formData);
-    }
-
-    /**
-     * حذف قالب
-     */
-    async deleteTemplate(id: string) {
-        const { data } = await this.client.delete(`/admin/templates/${id}`);
-        return data;
-    }
-
-    // Alias for backward compatibility
-    async deleteProduct(id: string) {
-        return this.deleteTemplate(id);
-    }
-
-    /**
-     * =========================
-     * Admin - Categories
-     * =========================
-     */
-
-    /**
-     * قائمة جميع التصنيفات
-     */
-    async getAdminCategories() {
-        const { data } = await this.client.get('/admin/categories');
-        return data;
-    }
-
-    /**
-     * إضافة تصنيف جديد
-     */
-    async createCategory(payload: {
-        name_ar: string;
-        name_en: string;
-        slug?: string;
-        description_ar?: string;
-        description_en?: string;
-        icon?: string;
-        is_active?: boolean;
-    }) {
-        const { data } = await this.client.post('/admin/categories', payload);
-        return data;
-    }
-
-    /**
-     * تحديث تصنيف
-     */
-    async updateCategory(id: string, payload: Partial<{
-        name_ar: string;
-        name_en: string;
-        slug: string;
-        description_ar: string;
-        description_en: string;
-        icon: string;
-        is_active: boolean;
-    }>) {
-        const { data } = await this.client.put(`/admin/categories/${id}`, payload);
-        return data;
-    }
-
-    /**
-     * حذف تصنيف
-     */
-    async deleteCategory(id: string) {
-        const { data } = await this.client.delete(`/admin/categories/${id}`);
-        return data;
-    }
-
-    /**
-     * =========================
-     * Admin - Users
-     * =========================
-     */
-    // Admin Users
-    async getAdminUsers(page = 1, search = '', role = '') {
-        const params = new URLSearchParams({ page: page.toString() });
-        if (search) params.append('search', search);
-        if (role && role !== 'all') params.append('role', role);
-        const { data } = await this.client.get(`/admin/users?${params.toString()}`);
-        return data;
-    }
-
-    async getAdminUser(id: string) {
-        const { data } = await this.client.get(`/admin/users/${id}`);
-        return data;
-    }
-
-    async updateAdminUser(id: string, payload: any) {
-        const { data } = await this.client.put(`/admin/users/${id}`, payload);
-        return data;
-    }
-
-    async deleteAdminUser(id: string) {
-        const { data } = await this.client.delete(`/admin/users/${id}`);
-        return data;
-    }
-
-    /**
-     * تفعيل/تعطيل مستخدم
-     */
-    async toggleUserStatus(id: string) {
-        const { data } = await this.client.post(`/admin/users/${id}/toggle-status`);
-        return data;
-    }
-
-    /**
-     * ترقية/تخفيض صلاحيات مستخدم
-     */
-    async toggleUserRole(id: string) {
-        const { data } = await this.client.post(`/admin/users/${id}/toggle-role`);
-        return data;
-    }
-
-    /**
-     * حذف مستخدم
-     */
-    async deleteUser(id: string) {
-        const { data } = await this.client.delete(`/admin/users/${id}`);
-        return data;
-    }
-
-    /**
-     * =========================
-     * Admin - Settings
-     * =========================
-     */
-
-    /**
-     * Get system settings
-     */
-    async getAdminSettings() {
-        const { data } = await this.client.get('/admin/settings');
-        return data;
-    }
-
-    /**
-     * Clear application cache
-     */
-    async clearCache() {
-        const { data } = await this.client.post('/admin/settings/clear-cache');
-        return data;
-    }
-
-    /**
-     * Get system logs
-     */
-    async getAdminLogs() {
-        const { data } = await this.client.get('/admin/settings/logs');
-        return data;
-    }
-
-    /**
-     * Toggle maintenance mode
-     */
-    async toggleMaintenance(enable: boolean) {
-        const { data } = await this.client.post('/admin/settings/maintenance', { enable });
-        return data;
-    }
-
-    /**
-     * Get storage info
-     */
-    async getStorageInfo() {
-        const { data } = await this.client.get('/admin/settings/storage');
-        return data;
-    }
-
-    /**
-     * =========================
-     * Admin - Activity Logs
-     * =========================
-     */
-
-    /**
-     * Get activity logs (paginated, filterable)
-     */
-    async getActivityLogs(params?: {
-        action?: string;
-        entity_type?: string;
-        user_id?: string;
-        page?: number;
-        per_page?: number;
-    }) {
-        const { data } = await this.client.get('/admin/activity-logs', { params });
-        return data;
-    }
-
-    /**
-     * Get activity log summary
-     */
-    async getActivitySummary() {
-        const { data } = await this.client.get('/admin/activity-logs/summary');
-        return data;
-    }
-
-    /**
-     * =========================
-     * Admin - Coupons
-     * =========================
-     */
-
-    /**
-     * قائمة جميع أكواد الخصم
-     */
-    async getAdminCoupons() {
-        const { data } = await this.client.get('/admin/coupons');
-        return data;
-    }
-
-    /**
-     * إضافة كود خصم جديد
-     */
-    async createCoupon(payload: {
-        code: string;
-        description_ar?: string;
-        description_en?: string;
-        discount_type: 'percentage' | 'fixed';
-        discount_value: number;
-        max_discount?: number;
-        min_order_amount?: number;
-        max_uses?: number;
-        max_uses_per_user?: number;
-        starts_at?: string;
-        expires_at?: string;
-        is_active?: boolean;
-    }) {
-        const { data } = await this.client.post('/admin/coupons', payload);
-        return data;
-    }
-
-    /**
-     * تحديث كود خصم
-     */
-    async updateCoupon(id: string, payload: Partial<{
-        code: string;
-        description_ar: string;
-        description_en: string;
-        discount_type: 'percentage' | 'fixed';
-        discount_value: number;
-        max_discount: number;
-        min_order_amount: number;
-        max_uses: number;
-        max_uses_per_user: number;
-        starts_at: string;
-        expires_at: string;
-        is_active: boolean;
-    }>) {
-        const { data } = await this.client.put(`/admin/coupons/${id}`, payload);
-        return data;
-    }
-
-    /**
-     * حذف كود خصم
-     */
-    async deleteCoupon(id: string) {
-        const { data } = await this.client.delete(`/admin/coupons/${id}`);
-        return data;
-    }
-
-    /**
-     * =========================
-     * Admin - Reviews
-     * =========================
-     */
-
-    /**
-     * قائمة جميع التقييمات
-     */
-    async getAdminReviews(params?: { is_approved?: boolean; page?: number }) {
-        const { data } = await this.client.get('/admin/reviews', { params });
-        return data;
-    }
-
-    /**
-     * الموافقة على تقييم
-     */
-    async approveReview(id: string) {
-        const { data } = await this.client.post(`/admin/reviews/${id}/approve`);
-        return data;
-    }
-
-    /**
-     * رفض تقييم
-     */
-    async rejectReview(id: string) {
-        const { data } = await this.client.post(`/admin/reviews/${id}/reject`);
-        return data;
-    }
-
-    /**
-     * حذف تقييم (Admin)
-     */
-    async adminDeleteReview(id: string) {
-        const { data } = await this.client.delete(`/admin/reviews/${id}`);
-        return data;
-    }
-
-    /**
-     * =========================
-     * Downloads (Secure)
-     * =========================
-     */
-    async payOrder(id: string) {
-        return this.client.post(`/orders/${id}/pay`, {});
-    }
-
-    /**
-     * تحميل ملف منتج (يتطلب ملكية)
-     */
-    async downloadFile(orderItemId: string) {
-        const response = await this.client.get(`/downloads/${orderItemId}`, {
-            responseType: 'blob',
-        });
-        return response;
-    }
-
-    /**
-     * معلومات التحميل
-     */
-    async getDownloadInfo(orderItemId: string) {
-        const { data } = await this.client.get(`/downloads/${orderItemId}/info`);
-        return data;
-    }
-
-    /**
-     * =========================
-     * Wishlist (المفضلة)
-     * =========================
-     */
-
-    /**
-     * الحصول على قائمة المفضلة
-     */
-    async getWishlist() {
-        const { data } = await this.client.get('/wishlists');
-        return data;
-    }
-
-    /**
-     * الحصول على معرفات المنتجات في المفضلة
-     */
-    async getWishlistIds() {
-        const { data } = await this.client.get('/wishlists/ids');
-        return data;
-    }
-
-    /**
-     * إضافة/إزالة قالب من المفضلة
-     */
-    async toggleWishlist(templateId: string) {
-        const { data } = await this.client.post('/wishlists/toggle', {
-            template_id: templateId,
-        });
-        return data;
-    }
-
-    /**
-     * التحقق من وجود قالب في المفضلة
-     */
-    async checkWishlist(templateId: string) {
-        const { data } = await this.client.get(`/wishlists/check/${templateId}`);
-        return data;
-    }
-
-    /**
-     * إزالة قالب من المفضلة
-     */
-    async removeFromWishlist(templateId: string) {
-        const { data } = await this.client.delete(`/wishlists/${templateId}`);
-        return data;
-    }
-
-    /**
-     * =========================
-     * Coupons (أكواد الخصم)
-     * =========================
-     */
-
-    /**
-     * التحقق من صلاحية كود الخصم
-     */
-    async validateCoupon(code: string, orderTotal?: number) {
-        const { data } = await this.client.post('/coupons/validate', {
-            code,
-            order_total: orderTotal,
-        });
-        return data;
-    }
-
-    /**
-     * =========================
-     * Reviews (التقييمات)
-     * =========================
-     */
-
-    /**
-     * الحصول على تقييمات قالب
-     */
-    async getTemplateReviews(slug: string, page = 1) {
-        const { data } = await this.client.get(`/templates/${slug}/reviews`, {
-            params: { page },
-        });
-        return data;
-    }
-
-    // Alias for backward compatibility
-    async getProductReviews(slug: string, page = 1) {
-        return this.getTemplateReviews(slug, page);
-    }
-
-    /**
-     * التحقق من إمكانية تقييم قالب
-     */
-    async canReviewTemplate(slug: string) {
-        const { data } = await this.client.get(`/templates/${slug}/can-review`);
-        return data;
-    }
-
-    // Alias for backward compatibility
-    async canReviewProduct(slug: string) {
-        return this.canReviewTemplate(slug);
-    }
-
-    /**
-     * الحصول على تقييم المستخدم لقالب
-     */
-    async getMyReview(slug: string) {
-        const { data } = await this.client.get(`/templates/${slug}/my-review`);
-        return data;
-    }
-
-    /**
-     * إضافة تقييم لقالب
-     */
-    async createReview(slug: string, payload: { rating: number; comment?: string }) {
-        const { data } = await this.client.post(`/templates/${slug}/reviews`, payload);
-        return data;
-    }
-
-    /**
-     * تحديث تقييم
-     */
-    async updateReview(reviewId: string, payload: { rating?: number; comment?: string }) {
-        const { data } = await this.client.put(`/reviews/${reviewId}`, payload);
-        return data;
-    }
-
-    /**
-     * حذف تقييم
-     */
-    async deleteReview(reviewId: string) {
-        const { data } = await this.client.delete(`/reviews/${reviewId}`);
-        return data;
-    }
-
-    /**
-     * =========================
-     * Sections (الأقسام)
-     * =========================
-     */
-    async getSections() {
-        const { data } = await this.client.get('/sections');
-        return data;
-    }
-
-    async getSection(slug: string) {
-        const { data } = await this.client.get(`/sections/${slug}`);
-        return data;
-    }
-
-    /**
-     * =========================
-     * Categories with Section (الفئات)
-     * =========================
-     */
-    async getCategoriesBySection(sectionSlug: string) {
-        const { data } = await this.client.get(`/sections/${sectionSlug}/categories`);
-        return data;
-    }
-
-    async getCategory(slug: string) {
-        const { data } = await this.client.get(`/categories/${slug}`);
-        return data;
-    }
-
-    /**
-     * =========================
-     * Templates (القوالب)
-     * =========================
-     */
-    async getTemplates(params?: Record<string, any>) {
-        const { data } = await this.client.get('/templates', { params });
-        return data;
-    }
-
-    async getTemplatesByCategory(categorySlug: string) {
-        const { data } = await this.client.get(`/categories/${categorySlug}/templates`);
-        return data;
-    }
-
-    async getTemplate(slug: string) {
-        const { data } = await this.client.get(`/templates/${slug}`);
-        return data;
-    }
-
-    async getTemplateForEditor(slug: string) {
-        const { data } = await this.client.get(`/templates/${slug}/editor`);
-        return data;
-    }
-
-    /**
-     * =========================
-     * User Template Data (بيانات المستخدم للقوالب)
-     * =========================
-     */
-    async saveUserTemplateData(payload: {
-        template_id: number | undefined;
-        variant_id: number;
-        title: string;
-        field_values: Record<string, string>;
-    }) {
-        const { data } = await this.client.post('/user-template-data', payload);
-        return data;
-    }
-
-    async getUserTemplateData() {
-        const { data } = await this.client.get('/user-template-data');
-        return data;
-    }
-
-    async getUserTemplateDataById(id: number) {
-        const { data } = await this.client.get(`/user-template-data/${id}`);
-        return data;
-    }
-
-    async updateUserTemplateData(id: number, payload: {
-        title?: string;
-        field_values?: Record<string, string>;
-        variant_id?: number;
-    }) {
-        const { data } = await this.client.put(`/user-template-data/${id}`, payload);
-        return data;
-    }
-
-    async deleteUserTemplateData(id: number) {
-        const { data } = await this.client.delete(`/user-template-data/${id}`);
-        return data;
-    }
-
-    /**
-     * =========================
-     * Version History (سجل التغييرات)
-     * =========================
-     */
-    async getVersionHistory(userTemplateDataId: number) {
-        const { data } = await this.client.get(`/user-template-data/${userTemplateDataId}/versions`);
-        return data;
-    }
-
-    async restoreVersion(userTemplateDataId: number, versionId: number) {
-        const { data } = await this.client.post(`/user-template-data/${userTemplateDataId}/versions/${versionId}/restore`);
-        return data;
-    }
-
-    /**
-     * =========================
-     * Export (التصدير)
-     * =========================
-     */
-    async exportTemplate(payload: {
-        template_id: number | undefined;
-        variant_id: number;
-        field_values: Record<string, string>;
-        format: 'image' | 'pdf';
-    }) {
-        const { data } = await this.client.post('/export/template', payload);
-        return data;
-    }
-
-    /**
-     * =========================
-     * QR Code (الباركود)
-     * =========================
-     */
-    async generateQRCode(payload: {
-        type: 'link' | 'file';
-        content: string;
-    }) {
-        const { data } = await this.client.post('/qrcode/generate', payload);
-        return data;
-    }
-
-    async uploadFileForQR(formData: FormData) {
-        const { data } = await this.client.post('/qrcode/upload', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        return data;
-    }
-
-    /**
-     * =========================
-     * AI Suggestions (اقتراحات الذكاء الاصطناعي)
-     * =========================
-     */
-    async getAISuggestion(payload: {
-        template_id: number | undefined;
-        field_name: string;
-        title: string;
-        current_values: Record<string, string>;
-    }) {
-        const { data } = await this.client.post('/ai/suggest-field', payload);
-        return data;
+        if (typeof recordIdOrPayload === 'string') {
+            const { data } = await this.client.post(`/ai/suggest/${recordIdOrPayload}`, {
+                field_name: fieldName,
+                context,
+            });
+            return data;
+        } else {
+            const { data } = await this.client.post('/ai/suggest-field', recordIdOrPayload);
+            return data;
+        }
     }
 
     async getAIFillAll(payload: {
         template_id: number | undefined;
         title: string;
-        current_values: Record<string, string>;
+        current_values: Record<string, any>;
     }) {
         const { data } = await this.client.post('/ai/fill-all', payload);
         return data;
@@ -1109,86 +333,210 @@ class ApiClient {
 
     /**
      * =========================
-     * Custom Requests (الطلبات الخاصة)
+     * Admin
      * =========================
      */
-    async getCustomRequests(params?: Record<string, any>) {
-        const { data } = await this.client.get('/custom-requests', { params });
+    async getAdminStats() {
+        const { data } = await this.client.get('/admin/stats');
         return data;
     }
 
-    async createCustomRequest(payload: {
-        title: string;
-        description: string;
-        category_id?: number;
-    }) {
-        const { data } = await this.client.post('/custom-requests', payload);
+    async getAdminChart() {
+        const { data } = await this.client.get('/admin/chart');
         return data;
     }
 
-    async voteCustomRequest(id: number) {
-        const { data } = await this.client.post(`/custom-requests/${id}/vote`);
+    async getAdminUsers(paramsOrPage: any = 1, search = '', role = '') {
+        const params = typeof paramsOrPage === 'object' 
+            ? paramsOrPage 
+            : { page: paramsOrPage, search, role };
+        const { data } = await this.client.get('/admin/users', { params });
         return data;
     }
 
-    async unvoteCustomRequest(id: number) {
-        const { data } = await this.client.delete(`/custom-requests/${id}/vote`);
+    async toggleUserStatus(id: string | number) {
+        const { data } = await this.client.post(`/admin/users/${id}/toggle-status`);
         return data;
     }
 
-    /**
-     * =========================
-     * Notifications (الإشعارات)
-     * =========================
-     */
-    async getNotifications() {
-        const { data } = await this.client.get('/notifications');
+    async toggleUserRole(id: string | number) {
+        const { data } = await this.client.post(`/admin/users/${id}/toggle-role`);
         return data;
     }
 
-    async getUnreadNotificationsCount() {
-        const { data } = await this.client.get('/notifications/unread-count');
+    async deleteUser(id: string | number) {
+        const { data } = await this.client.delete(`/admin/users/${id}`);
         return data;
     }
 
-    async markNotificationAsRead(id: number) {
-        const { data } = await this.client.post(`/notifications/${id}/read`);
+    async getAdminUser(id: string | number) {
+        const { data } = await this.client.get(`/admin/users/${id}`);
         return data;
     }
 
-    async markAllNotificationsAsRead() {
-        const { data } = await this.client.post('/notifications/read-all');
+    async updateAdminUser(id: string | number, payload: any) {
+        const { data } = await this.client.put(`/admin/users/${id}`, payload);
         return data;
     }
 
-    /**
-     * =========================
-     * Evidences (الشواهد)
-     * =========================
-     */
-    async uploadEvidence(formData: FormData) {
-        const { data } = await this.client.post('/evidences', formData, {
+    async getAdminProducts(params?: any) {
+        const { data } = await this.client.get('/admin/templates', { params });
+        return data;
+    }
+
+    async getAdminProduct(id: string | number) {
+        const { data } = await this.client.get(`/admin/templates/${id}`);
+        return data;
+    }
+
+    async updateAdminProduct(id: string | number, payload: any) {
+        const { data } = await this.client.post(`/admin/templates/${id}`, payload, {
             headers: { 'Content-Type': 'multipart/form-data' },
         });
         return data;
     }
 
-    async getEvidences(userTemplateDataId: number) {
-        const { data } = await this.client.get(`/user-template-data/${userTemplateDataId}/evidences`);
+    async updateProduct(id: string | number, payload: any) {
+        return this.updateAdminProduct(id, payload);
+    }
+
+    async createProduct(payload: any) {
+        const { data } = await this.client.post('/admin/templates', payload, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
         return data;
     }
 
-    async deleteEvidence(id: number) {
-        const { data } = await this.client.delete(`/evidences/${id}`);
+    async deleteAdminProduct(id: string | number) {
+        const { data } = await this.client.delete(`/admin/templates/${id}`);
         return data;
     }
 
+    async deleteProduct(id: string | number) {
+        return this.deleteAdminProduct(id);
+    }
+
+    async getAdminOrders(params?: any) {
+        const { data } = await this.client.get('/admin/orders', { params });
+        return data;
+    }
+
+    async getAdminReviews() {
+        const { data } = await this.client.get('/admin/reviews');
+        return data;
+    }
+
+    async deleteAdminReview(id: string | number) {
+        const { data } = await this.client.delete(`/admin/reviews/${id}`);
+        return data;
+    }
+
+    async approveReview(id: string | number) {
+        const { data } = await this.client.post(`/admin/reviews/${id}/approve`);
+        return data;
+    }
+
+    async rejectReview(id: string | number) {
+        const { data } = await this.client.post(`/admin/reviews/${id}/reject`);
+        return data;
+    }
+
+    async deleteReview(id: string | number) {
+        return this.deleteAdminReview(id);
+    }
+
+    async getAdminCoupons() {
+        const { data } = await this.client.get('/admin/coupons');
+        return data;
+    }
+
+    async getAdminCategories() {
+        const { data } = await this.client.get('/admin/categories');
+        return data;
+    }
+
+    async getAdminSections() {
+        const { data } = await this.client.get('/admin/sections');
+        return data;
+    }
+
+    async createCategory(payload: any) {
+        const { data } = await this.client.post('/admin/categories', payload);
+        return data;
+    }
+
+    async updateCategory(id: string | number, payload: any) {
+        const { data } = await this.client.put(`/admin/categories/${id}`, payload);
+        return data;
+    }
+
+    async deleteCategory(id: string | number) {
+        const { data } = await this.client.delete(`/admin/categories/${id}`);
+        return data;
+    }
+
+    async createSection(payload: any) {
+        const { data } = await this.client.post('/admin/sections', payload);
+        return data;
+    }
+
+    async updateSection(id: string | number, payload: any) {
+        const { data } = await this.client.put(`/admin/sections/${id}`, payload);
+        return data;
+    }
+
+    async deleteSection(id: string | number) {
+        const { data } = await this.client.delete(`/admin/sections/${id}`);
+        return data;
+    }
+
+    async createAdminCoupon(payload: any) {
+        const { data } = await this.client.post('/admin/coupons', payload);
+        return data;
+    }
+
+    async createCoupon(payload: any) {
+        return this.createAdminCoupon(payload);
+    }
+
+    async deleteAdminCoupon(id: string | number) {
+        const { data } = await this.client.delete(`/admin/coupons/${id}`);
+        return data;
+    }
+
+    async deleteCoupon(id: string | number) {
+        return this.deleteAdminCoupon(id);
+    }
+
+    async getTemplateForEditor(slug: string) {
+        const { data } = await this.client.get(`/templates/${slug}/editor`);
+        return data;
+    }
+
+    async saveUserTemplateData(id: string | number, payload: any) {
+        const { data } = await this.client.post(`/user-templates/${id}/data`, payload);
+        return data;
+    }
+
+    async getUserTemplateRecords() {
+        const { data } = await this.client.get('/user-templates');
+        return data;
+    }
+
+    async getVersionHistory(id: string | number) {
+        const { data } = await this.client.get(`/user-templates/${id}/versions`);
+        return data;
+    }
+
+    async restoreVersion(id: string | number, versionId: string | number) {
+        const { data } = await this.client.post(`/user-templates/${id}/versions/${versionId}/restore`);
+        return data;
+    }
+
+    async exportTemplate(id: string | number, format: string = 'pdf') {
+        const { data } = await this.client.post(`/user-templates/${id}/export`, { format });
+        return data;
+    }
 }
 
-/**
- * =========================
- * Export Singleton
- * =========================
- */
 export const api = new ApiClient();
-

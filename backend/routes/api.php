@@ -225,8 +225,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // الذكاء الاصطناعي (AI)
     // ---------------------------
     Route::prefix('ai')->group(function () {
-        // طلب اقتراح من الذكاء الاصطناعي
+        // طلب اقتراح من الذكاء الاصطناعي لحقل واحد
         Route::post('suggest', [AIController::class, 'suggest']);
+
+        // توليد بيانات شاملة لجميع حقول القالب
+        Route::post('fill-all', [AIController::class, 'fillAll']);
 
         // قبول أو رفض اقتراح
         Route::post('accept', [AIController::class, 'acceptSuggestion']);

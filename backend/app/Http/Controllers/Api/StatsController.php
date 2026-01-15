@@ -155,6 +155,9 @@ class StatsController extends Controller
             ->groupBy('status')
             ->pluck('count', 'status');
 
+        // AI Predictions (Mock for 2026)
+        $predictedRevenueNextMonth = $monthlyRevenue * (1 + ($revenueTrend / 100));
+
         return [
             // Overview
             'total_revenue' => (float) $totalRevenue,
@@ -171,6 +174,13 @@ class StatsController extends Controller
             'today_orders' => $todayOrders,
             'today_revenue' => (float) $todayRevenue,
             
+            // AI Insights
+            'ai_insights' => [
+                'predicted_revenue' => round($predictedRevenueNextMonth, 2),
+                'growth_status' => $revenueTrend >= 0 ? 'صعود' : 'هبوط',
+                'recommendation' => $revenueTrend < 5 ? 'أنصح بإطلاق حملة ترويجية للقوالب الأكثر مبيعاً لزيادة العوائد.' : 'الأداء ممتاز، استمر في إضافة قوالب تعليمية جديدة.',
+            ],
+
             // Orders breakdown
             'orders_by_status' => [
                 'pending' => $ordersByStatus['pending'] ?? 0,
@@ -231,10 +241,15 @@ class StatsController extends Controller
                 ->whereDate('created_at', $date)
                 ->sum('total');
             
+            $orders = Order::where('status', 'completed')
+                ->whereDate('created_at', $date)
+                ->count();
+            
             $days->push([
                 'date' => $date->format('Y-m-d'),
                 'day' => $date->locale('ar')->dayName,
                 'revenue' => (float) $revenue,
+                'orders' => $orders,
             ]);
         }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -47,7 +47,7 @@ interface Category {
   children?: Category[];
 }
 
-export default function TemplatesPage() {
+function TemplatesContent() {
   const searchParams = useSearchParams();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -64,8 +64,8 @@ export default function TemplatesPage() {
 
   const fetchCategories = async () => {
     try {
-      const response = await api.get('/categories');
-      setCategories(response.data.data || []);
+      const response = await api.getCategories();
+      setCategories(response.data || []);
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
@@ -92,8 +92,8 @@ export default function TemplatesPage() {
         params.search = searchQuery;
       }
 
-      const response = await api.get('/templates', { params });
-      setTemplates(response.data.data || []);
+      const response = await api.getTemplates(params);
+      setTemplates(response.data || []);
     } catch (error) {
       console.error('Error fetching templates:', error);
     } finally {
@@ -269,5 +269,13 @@ export default function TemplatesPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function TemplatesPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">جاري التحميل...</div>}>
+      <TemplatesContent />
+    </Suspense>
   );
 }

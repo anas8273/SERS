@@ -64,7 +64,7 @@ export default function WishlistPage() {
     const handleRemove = async (productId: string) => {
         try {
             await toggleWishlist(productId);
-            setWishlistItems(items => items.filter(item => item.product_id !== productId));
+            setWishlistItems(items => items.filter(item => item.template_id !== productId));
         } catch (error) {
             toast.error('حدث خطأ، حاول مرة أخرى');
         }
@@ -72,13 +72,13 @@ export default function WishlistPage() {
 
     // Add to cart
     const handleAddToCart = (item: WishlistItem) => {
-        const product = item.product;
+        const template = item.template;
         addItem({
-            productId: product.id,
-            name: product.name_ar,
-            price: product.discount_price || product.price,
-            thumbnail: product.thumbnail_url || '',
-            type: product.type,
+            templateId: template.id,
+            name: template.name_ar,
+            price: template.discount_price || template.price,
+            thumbnail: template.thumbnail_url || '',
+            type: template.type,
         });
         toast.success('تمت الإضافة للسلة 🛒');
     };
@@ -133,8 +133,8 @@ export default function WishlistPage() {
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {wishlistItems.map((item) => {
-                            const product = item.product;
-                            const hasDiscount = product.discount_price && product.discount_price < product.price;
+                            const template = item.template;
+                            const hasDiscount = template.discount_price && template.discount_price < template.price;
 
                             return (
                                 <div
@@ -142,12 +142,12 @@ export default function WishlistPage() {
                                     className="group bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300"
                                 >
                                     {/* Product Image */}
-                                    <Link href={`/marketplace/${product.slug}`}>
+                                    <Link href={`/marketplace/${template.slug}`}>
                                         <div className="relative aspect-[4/3] bg-gray-100">
-                                            {product.thumbnail_url ? (
+                                            {template.thumbnail_url ? (
                                                 <Image
-                                                    src={product.thumbnail_url}
-                                                    alt={product.name_ar}
+                                                    src={template.thumbnail_url}
+                                                    alt={template.name_ar}
                                                     fill
                                                     className="object-cover group-hover:scale-105 transition-transform duration-300"
                                                 />
@@ -160,16 +160,16 @@ export default function WishlistPage() {
                                             {/* Discount Badge */}
                                             {hasDiscount && (
                                                 <span className="absolute top-2 right-2 px-2 py-1 bg-red-500 text-white text-xs font-bold rounded">
-                                                    خصم {Math.round(((product.price - (product.discount_price || 0)) / product.price) * 100)}%
+                                                    خصم {Math.round(((template.price - (template.discount_price || 0)) / template.price) * 100)}%
                                                 </span>
                                             )}
 
                                             {/* Type Badge */}
-                                            <span className={`absolute top-2 left-2 px-2 py-1 rounded text-xs font-medium ${product.type === 'interactive'
+                                            <span className={`absolute top-2 left-2 px-2 py-1 rounded text-xs font-medium ${template.type === 'interactive'
                                                 ? 'bg-blue-500 text-white'
                                                 : 'bg-gray-500 text-white'
                                                 }`}>
-                                                {product.type === 'interactive' ? 'تفاعلي' : 'ملف'}
+                                                {template.type === 'interactive' ? 'تفاعلي' : 'ملف'}
                                             </span>
                                         </div>
                                     </Link>
@@ -177,32 +177,29 @@ export default function WishlistPage() {
                                     {/* Product Info */}
                                     <div className="p-4 space-y-3">
                                         <div>
-                                            <Link href={`/marketplace/${product.slug}`}>
+                                            <Link href={`/marketplace/${template.slug}`}>
                                                 <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-1 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
-                                                    {product.name_ar}
+                                                    {template.name_ar}
                                                 </h3>
                                             </Link>
 
-                                            {/* Rating */}
-                                            <div className="flex items-center gap-1 mt-1">
-                                                <span className="text-yellow-400">⭐</span>
-                                                <span className="text-sm text-gray-600">
-                                                    {product.average_rating.toFixed(1)}
-                                                </span>
-                                                <span className="text-xs text-gray-400">
-                                                    ({product.reviews_count})
-                                                </span>
-                                            </div>
+                                            {/* Type Badge */}
+                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium mt-1 ${template.type === 'interactive'
+                                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                                                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                            }`}>
+                                                {template.type === 'interactive' ? 'تفاعلي' : 'ملف جاهز'}
+                                            </span>
                                         </div>
 
                                         {/* Price */}
                                         <div className="flex items-center gap-2">
                                             <span className="text-lg font-bold text-primary-600">
-                                                {formatPrice(product.discount_price || product.price)}
+                                                {formatPrice(template.discount_price || template.price)}
                                             </span>
                                             {hasDiscount && (
                                                 <span className="text-sm text-gray-400 line-through">
-                                                    {formatPrice(product.price)}
+                                                    {formatPrice(template.price)}
                                                 </span>
                                             )}
                                         </div>
@@ -216,7 +213,7 @@ export default function WishlistPage() {
                                                 أضف للسلة 🛒
                                             </Button>
                                             <button
-                                                onClick={() => handleRemove(product.id)}
+                                                onClick={() => handleRemove(template.id)}
                                                 className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                                                 title="إزالة من المفضلة"
                                             >

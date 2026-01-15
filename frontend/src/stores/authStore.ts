@@ -52,8 +52,8 @@ export const useAuthStore = create<AuthState>()(
                 set({ isLoading: true });
 
                 try {
-                    const response = await api.login({ email, password });
-                    const user = response.data.user;
+                    const response: any = await api.login({ email, password });
+                    const user = response.data?.user;
 
                     // Normalize role
                     if (user) user.role = normalizeRole(user.role);
@@ -74,13 +74,13 @@ export const useAuthStore = create<AuthState>()(
                 set({ isLoading: true });
 
                 try {
-                    const response = await api.register({
+                    const response: any = await api.register({
                         name,
                         email,
                         password,
                         password_confirmation: password,
                     });
-                    const user = response.data.user;
+                    const user = response.data?.user;
 
                     // Normalize role
                     if (user) user.role = normalizeRole(user.role);
@@ -101,8 +101,8 @@ export const useAuthStore = create<AuthState>()(
                 set({ isLoading: true });
 
                 try {
-                    const response = await api.socialLogin(firebaseToken);
-                    const user = response.data.user;
+                    const response: any = await api.socialLogin(firebaseToken);
+                    const user = response.data?.user;
 
                     // Normalize role
                     if (user) user.role = normalizeRole(user.role);
@@ -141,7 +141,7 @@ export const useAuthStore = create<AuthState>()(
                 set({ isLoading: true });
 
                 try {
-                    const response = await api.getMe();
+                    const response: any = await api.getMe();
                     const user = response.data?.user;
 
                     if (user) {
@@ -172,7 +172,7 @@ export const useAuthStore = create<AuthState>()(
             // إعادة جلب بيانات المستخدم
             fetchUser: async () => {
                 try {
-                    const response = await api.getMe();
+                    const response: any = await api.getMe();
                     const user = response.data?.user;
                     if (user) {
                         user.role = normalizeRole(user.role);
