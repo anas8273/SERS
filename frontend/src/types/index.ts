@@ -360,3 +360,486 @@ export interface ReviewFormData {
     rating: number;
     comment?: string;
 }
+
+
+/**
+ * =========================
+ * Analysis Types (تحليل النتائج)
+ * =========================
+ */
+export interface StudentData {
+    name: string;
+    grade: number;
+    student_id?: string;
+}
+
+export interface AnalysisResults {
+    count: number;
+    sum: number;
+    average: number;
+    min: number;
+    max: number;
+    std_dev: number;
+    pass_rate: number;
+    distribution: {
+        excellent: number;
+        very_good: number;
+        good: number;
+        acceptable: number;
+        fail: number;
+    };
+}
+
+export interface Analysis {
+    id: string;
+    user_id: string;
+    name: string;
+    subject?: string;
+    grade?: string;
+    semester?: string;
+    students_data: StudentData[];
+    results?: AnalysisResults;
+    charts_data?: Record<string, unknown>;
+    ai_recommendations?: string;
+    status: 'draft' | 'completed';
+    created_at: string;
+    updated_at: string;
+}
+
+/**
+ * =========================
+ * Certificate Types (الشهادات)
+ * =========================
+ */
+export type CertificateType = 
+    | 'appreciation' 
+    | 'thanks' 
+    | 'graduation' 
+    | 'honor' 
+    | 'participation' 
+    | 'achievement' 
+    | 'training' 
+    | 'custom';
+
+export interface Certificate {
+    id: string;
+    user_id: string;
+    template_id?: string;
+    type: CertificateType;
+    recipient_name: string;
+    recipient_title?: string;
+    issuer_name?: string;
+    issuer_title?: string;
+    organization?: string;
+    reason?: string;
+    issue_date?: string;
+    custom_fields?: Record<string, unknown>;
+    file_path?: string;
+    file_type?: string;
+    qr_code?: string;
+    template?: Template;
+    created_at: string;
+    updated_at: string;
+}
+
+export const CERTIFICATE_TYPES: Record<CertificateType, string> = {
+    appreciation: 'شهادة تقدير',
+    thanks: 'شهادة شكر',
+    graduation: 'شهادة تخرج',
+    honor: 'لوحة شرف',
+    participation: 'شهادة مشاركة',
+    achievement: 'شهادة إنجاز',
+    training: 'شهادة تدريب',
+    custom: 'مخصصة',
+};
+
+/**
+ * =========================
+ * Plan Types (الخطط التعليمية)
+ * =========================
+ */
+export type PlanType = 
+    | 'remedial' 
+    | 'enrichment' 
+    | 'weekly' 
+    | 'curriculum' 
+    | 'daily' 
+    | 'semester';
+
+export type PlanStatus = 'draft' | 'active' | 'completed' | 'archived';
+
+export interface Plan {
+    id: string;
+    user_id: string;
+    type: PlanType;
+    name: string;
+    description?: string;
+    subject?: string;
+    grade?: string;
+    semester?: string;
+    start_date?: string;
+    end_date?: string;
+    content: Record<string, unknown>;
+    objectives?: string[];
+    activities?: Record<string, unknown>[];
+    resources?: string[];
+    assessment?: Record<string, unknown>;
+    ai_suggestions?: string;
+    status: PlanStatus;
+    file_path?: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export const PLAN_TYPES: Record<PlanType, string> = {
+    remedial: 'خطة علاجية',
+    enrichment: 'خطة إثرائية',
+    weekly: 'خطة أسبوعية',
+    curriculum: 'توزيع المنهج',
+    daily: 'خطة يومية',
+    semester: 'خطة فصلية',
+};
+
+export const PLAN_STATUSES: Record<PlanStatus, string> = {
+    draft: 'مسودة',
+    active: 'نشطة',
+    completed: 'مكتملة',
+    archived: 'مؤرشفة',
+};
+
+/**
+ * =========================
+ * Achievement Types (الإنجازات)
+ * =========================
+ */
+export type AchievementType = 'daily' | 'weekly' | 'monthly' | 'semester' | 'annual';
+export type AchievementCategory = 'teaching' | 'administrative' | 'professional' | 'community' | 'creative' | 'other';
+
+export interface Achievement {
+    id: string;
+    user_id: string;
+    type: AchievementType;
+    date: string;
+    end_date?: string;
+    title: string;
+    description: string;
+    category?: AchievementCategory;
+    goals?: string[];
+    metrics?: Record<string, unknown>;
+    attachments?: Array<{
+        path: string;
+        name: string;
+        uploaded_at: string;
+    }>;
+    evidence_id?: string;
+    is_verified: boolean;
+    verified_by?: string;
+    verified_at?: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export const ACHIEVEMENT_TYPES: Record<AchievementType, string> = {
+    daily: 'إنجاز يومي',
+    weekly: 'إنجاز أسبوعي',
+    monthly: 'إنجاز شهري',
+    semester: 'إنجاز فصلي',
+    annual: 'إنجاز سنوي',
+};
+
+export const ACHIEVEMENT_CATEGORIES: Record<AchievementCategory, string> = {
+    teaching: 'تعليمي',
+    administrative: 'إداري',
+    professional: 'مهني',
+    community: 'مجتمعي',
+    creative: 'إبداعي',
+    other: 'أخرى',
+};
+
+/**
+ * =========================
+ * Performance Types (تقييم الأداء)
+ * =========================
+ */
+export type PerformanceSemester = 'first' | 'second' | 'annual';
+export type PerformanceStatus = 'draft' | 'submitted' | 'reviewed' | 'approved' | 'rejected';
+export type PerformanceGrade = 'excellent' | 'very_good' | 'good' | 'acceptable' | 'weak';
+
+export interface PerformanceCriterion {
+    name: string;
+    weight: number;
+    score?: number;
+    items: Record<string, string>;
+}
+
+export interface Performance {
+    id: string;
+    user_id: string;
+    evaluator_id?: string;
+    year: number;
+    semester: PerformanceSemester;
+    criteria: Record<string, PerformanceCriterion>;
+    total_score?: number;
+    grade?: PerformanceGrade;
+    strengths?: string;
+    weaknesses?: string;
+    recommendations?: string;
+    notes?: string;
+    evidences?: string[];
+    status: PerformanceStatus;
+    submitted_at?: string;
+    reviewed_at?: string;
+    approved_at?: string;
+    evaluator?: User;
+    created_at: string;
+    updated_at: string;
+}
+
+export const PERFORMANCE_SEMESTERS: Record<PerformanceSemester, string> = {
+    first: 'الفصل الأول',
+    second: 'الفصل الثاني',
+    annual: 'سنوي',
+};
+
+export const PERFORMANCE_STATUSES: Record<PerformanceStatus, string> = {
+    draft: 'مسودة',
+    submitted: 'مُقدم',
+    reviewed: 'قيد المراجعة',
+    approved: 'معتمد',
+    rejected: 'مرفوض',
+};
+
+export const PERFORMANCE_GRADES: Record<PerformanceGrade, { name: string; min: number }> = {
+    excellent: { name: 'ممتاز', min: 90 },
+    very_good: { name: 'جيد جداً', min: 80 },
+    good: { name: 'جيد', min: 70 },
+    acceptable: { name: 'مقبول', min: 60 },
+    weak: { name: 'ضعيف', min: 0 },
+};
+
+/**
+ * =========================
+ * Test Types (الاختبارات)
+ * =========================
+ */
+export type TestType = 'quiz' | 'midterm' | 'final' | 'diagnostic' | 'practice';
+export type QuestionType = 'multiple_choice' | 'true_false' | 'short_answer' | 'essay' | 'matching' | 'fill_blank' | 'ordering';
+
+export interface TestQuestion {
+    id?: number;
+    type: QuestionType;
+    text: string;
+    options?: string[];
+    correct_answer: string | string[];
+    marks?: number;
+    explanation?: string;
+}
+
+export interface Test {
+    id: string;
+    user_id: string;
+    title: string;
+    description?: string;
+    subject?: string;
+    grade?: string;
+    type: TestType;
+    questions: TestQuestion[];
+    settings?: Record<string, unknown>;
+    duration?: number;
+    total_marks: number;
+    pass_marks?: number;
+    shuffle_questions: boolean;
+    shuffle_answers: boolean;
+    show_answers: boolean;
+    is_published: boolean;
+    file_path?: string;
+    results_count?: number;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface TestResult {
+    id: string;
+    test_id: string;
+    student_name: string;
+    student_id?: string;
+    answers: Record<number, string | string[]>;
+    score?: number;
+    percentage?: number;
+    passed?: boolean;
+    time_taken?: number;
+    started_at?: string;
+    completed_at?: string;
+    created_at: string;
+}
+
+export const TEST_TYPES: Record<TestType, string> = {
+    quiz: 'اختبار قصير',
+    midterm: 'اختبار نصفي',
+    final: 'اختبار نهائي',
+    diagnostic: 'اختبار تشخيصي',
+    practice: 'تدريب',
+};
+
+export const QUESTION_TYPES: Record<QuestionType, string> = {
+    multiple_choice: 'اختيار من متعدد',
+    true_false: 'صح أو خطأ',
+    short_answer: 'إجابة قصيرة',
+    essay: 'مقالي',
+    matching: 'مطابقة',
+    fill_blank: 'ملء الفراغ',
+    ordering: 'ترتيب',
+};
+
+/**
+ * =========================
+ * School Types (المدارس)
+ * =========================
+ */
+export type SchoolType = 'kindergarten' | 'primary' | 'intermediate' | 'secondary' | 'combined';
+export type SchoolGender = 'male' | 'female' | 'mixed';
+export type SchoolMemberRole = 'principal' | 'vice_principal' | 'teacher' | 'counselor' | 'admin' | 'supervisor';
+
+export interface School {
+    id: string;
+    name: string;
+    name_en?: string;
+    type: SchoolType;
+    gender: SchoolGender;
+    country: string;
+    city?: string;
+    district?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+    website?: string;
+    logo?: string;
+    owner_id: string;
+    settings?: Record<string, unknown>;
+    is_active: boolean;
+    owner?: User;
+    members?: SchoolMember[];
+    members_count?: number;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface SchoolMember {
+    id: number;
+    school_id: string;
+    user_id: string;
+    role: SchoolMemberRole;
+    department?: string;
+    specialization?: string;
+    joined_at?: string;
+    is_active: boolean;
+    user?: User;
+    created_at: string;
+    updated_at: string;
+}
+
+export const SCHOOL_TYPES: Record<SchoolType, string> = {
+    kindergarten: 'روضة أطفال',
+    primary: 'ابتدائي',
+    intermediate: 'متوسط',
+    secondary: 'ثانوي',
+    combined: 'مجمع تعليمي',
+};
+
+export const SCHOOL_GENDERS: Record<SchoolGender, string> = {
+    male: 'بنين',
+    female: 'بنات',
+    mixed: 'مختلط',
+};
+
+export const SCHOOL_MEMBER_ROLES: Record<SchoolMemberRole, string> = {
+    principal: 'مدير',
+    vice_principal: 'وكيل',
+    teacher: 'معلم',
+    counselor: 'مرشد',
+    admin: 'إداري',
+    supervisor: 'مشرف',
+};
+
+/**
+ * =========================
+ * AI Conversation Types
+ * =========================
+ */
+export interface AIMessage {
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: string;
+}
+
+export interface AIConversation {
+    id: string;
+    user_id: string;
+    title?: string;
+    messages: AIMessage[];
+    context_type?: string;
+    context_id?: string;
+    tokens_used: number;
+    created_at: string;
+    updated_at: string;
+}
+
+/**
+ * =========================
+ * Notification Types
+ * =========================
+ */
+export interface Notification {
+    id: string;
+    user_id: string;
+    type: string;
+    title: string;
+    message: string;
+    data?: Record<string, unknown>;
+    is_read: boolean;
+    read_at?: string;
+    created_at: string;
+}
+
+/**
+ * =========================
+ * Custom Request Types
+ * =========================
+ */
+export type CustomRequestStatus = 'pending' | 'in_progress' | 'completed' | 'rejected';
+
+export interface CustomRequest {
+    id: string;
+    user_id: string;
+    title: string;
+    description: string;
+    category?: string;
+    attachments?: string[];
+    status: CustomRequestStatus;
+    votes_count: number;
+    assigned_template_id?: string;
+    admin_notes?: string;
+    user?: User;
+    created_at: string;
+    updated_at: string;
+}
+
+/**
+ * =========================
+ * Dashboard Statistics Types
+ * =========================
+ */
+export interface DashboardStats {
+    templates_count: number;
+    analyses_count: number;
+    certificates_count: number;
+    plans_count: number;
+    achievements_count: number;
+    tests_count: number;
+    orders_count: number;
+    recent_activities: Array<{
+        type: string;
+        title: string;
+        date: string;
+    }>;
+}

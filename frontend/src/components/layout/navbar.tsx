@@ -57,6 +57,7 @@ export function Navbar() {
     const navItems = [
         { label: 'الرئيسية', href: '/' },
         { label: 'سوق القوالب', href: '/marketplace' },
+        { label: 'الخدمات', href: '/services' },
         { label: 'من نحن', href: '/about' },
         { label: 'تواصل معنا', href: '/contact' },
     ];
