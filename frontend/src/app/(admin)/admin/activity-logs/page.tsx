@@ -17,8 +17,8 @@ const mockActivityLogs: ActivityLog[] = [
     {
         id: '1',
         user_name: 'أحمد المشرف',
-        action: 'إضافة منتج',
-        description: 'تم إضافة منتج جديد "دورة React المتقدمة"',
+        action: 'إضافة قالب',
+        description: 'تم إضافة قالب جديد "دورة React المتقدمة"',
         created_at: '2026-01-12T10:30:00',
         icon: '📦',
         color: 'green',

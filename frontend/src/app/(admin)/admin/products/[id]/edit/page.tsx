@@ -63,7 +63,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                     // Note: We can't easily get the original filename of the secure download file
                     setCurrentFileName('Available (Upload new to replace)');
                 } else {
-                    toast.error('فشل في جلب بيانات المنتج');
+                    toast.error('فشل في جلب بيانات القالب');
                     router.push('/admin/products');
                 }
 
@@ -118,10 +118,10 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
             const response = await api.updateProduct(id, formData);
 
             if (response.success) {
-                toast.success('تم تحديث المنتج بنجاح ✅');
+                toast.success('تم تحديث القالب بنجاح ✅');
                 router.push('/admin/products');
             } else {
-                toast.error(response.message || 'فشل في تحديث المنتج ❌');
+                toast.error(response.message || 'فشل في تحديث القالب ❌');
             }
         } catch (error: any) {
             console.error('Submit Error:', error);
@@ -143,7 +143,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         <div className="max-w-4xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                    تعديل المنتج: {nameAr}
+                    تعديل القالب: {nameAr}
                 </h1>
                 <Link href="/admin/products">
                     <Button variant="outline" className="dark:text-gray-100 dark:border-gray-600 dark:hover:bg-gray-800">
@@ -247,7 +247,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
 
                     <div className="grid md:grid-cols-3 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">نوع المنتج</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">نوع القالب</label>
                             <select
                                 value={type}
                                 onChange={(e) => setType(e.target.value)}
@@ -291,7 +291,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
 
                     <div className="grid md:grid-cols-2 gap-8">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">صورة المنتج</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">صورة القالب</label>
                             <div className="flex items-center gap-4">
                                 {(thumbnailPreview || currentThumbnail) && (
                                     <div className="relative w-24 h-24 bg-gray-100 rounded-lg overflow-hidden border dark:border-gray-600">
@@ -316,7 +316,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">ملف المنتج (الذي سيتم تحميله)</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">ملف القالب (الذي سيتم تحميله)</label>
                             <input
                                 type="file"
                                 onChange={handleFileChange}

@@ -96,7 +96,7 @@ export default function AdminDashboardPage() {
                 </div>
                 <Link href="/admin/products/create">
                     <Button className="btn-primary">
-                        + إضافة منتج
+                        + إضافة قالب
                     </Button>
                 </Link>
             </div>
@@ -178,14 +178,14 @@ export default function AdminDashboardPage() {
                                     <span>📦</span>
                                 </div>
                                 <div>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">المنتجات</p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">القوالب</p>
                                     <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
                                         {stats?.total_products || 0}
                                     </h3>
                                 </div>
                             </div>
                             <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-                                منتج في المتجر
+                                قالب في السوق
                             </div>
                         </div>
                     </>
@@ -305,7 +305,7 @@ export default function AdminDashboardPage() {
                                                 {order.user_name}
                                             </div>
                                             <div className="text-xs text-gray-500 dark:text-gray-400">
-                                                {order.items_count} منتج • {order.time_ago}
+                                                {order.items_count} قالب • {order.time_ago}
                                             </div>
                                         </div>
                                     </div>
@@ -331,7 +331,7 @@ export default function AdminDashboardPage() {
                 {/* Top Products */}
                 <div className="admin-card">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                        المنتجات الأكثر مبيعاً
+                        القوالب الأكثر مبيعاً
                     </h2>
 
                     {isLoading ? (

@@ -33,7 +33,7 @@ export default function AdminProductsPage() {
             setCategories(categoriesRes.data || []);
         } catch (error) {
             console.error('Failed to fetch products:', error);
-            toast.error('فشل في جلب المنتجات');
+            toast.error('فشل في جلب القوالب');
         } finally {
             setIsLoading(false);
         }
@@ -47,13 +47,13 @@ export default function AdminProductsPage() {
         try {
             const response = await api.deleteProduct(id);
             if (response.success) {
-                toast.success('تم حذف المنتج بنجاح ✅');
+                toast.success('تم حذف القالب بنجاح ✅');
                 setProducts(products.filter((p) => p.id !== id));
             } else {
-                toast.error(response.message || 'فشل في حذف المنتج');
+                toast.error(response.message || 'فشل في حذف القالب');
             }
         } catch (error: any) {
-            toast.error(error.message || 'فشل في حذف المنتج');
+            toast.error(error.message || 'فشل في حذف القالب');
         } finally {
             setDeleteConfirm(null);
         }
@@ -69,12 +69,12 @@ export default function AdminProductsPage() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">إدارة المنتجات 📦</h1>
-                    <p className="text-gray-600 dark:text-gray-400 mt-1">{products.length} منتج</p>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">إدارة القوالب 📋</h1>
+                    <p className="text-gray-600 dark:text-gray-400 mt-1">{products.length} قالب</p>
                 </div>
                 <Link href="/admin/products/create">
                     <Button className="bg-primary-600 hover:bg-primary-700 text-white">
-                        ➕ إضافة منتج جديد
+                        ➕ إضافة قالب جديد
                     </Button>
                 </Link>
             </div>
@@ -85,7 +85,7 @@ export default function AdminProductsPage() {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="🔍 بحث عن منتج..."
+                    placeholder="🔍 بحث عن قالب..."
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 dark:border-gray-600 dark:placeholder-gray-400"
                 />
             </div>
@@ -95,17 +95,16 @@ export default function AdminProductsPage() {
                 {isLoading ? (
                     <div className="p-12 text-center">
                         <div className="animate-spin text-4xl mb-4">⏳</div>
-                        <p className="text-gray-600 dark:text-gray-400">جاري تحميل المنتجات...</p>
+                        <p className="text-gray-600 dark:text-gray-400">جاري تحميل القوالب...</p>
                     </div>
                 ) : filteredProducts.length === 0 ? (
                     <div className="p-12 text-center">
                         <div className="text-6xl mb-4">📭</div>
-                        <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">لا توجد منتجات</h3>
-                        <p className="text-gray-500 dark:text-gray-400 mb-4">ابدأ بإضافة أول منتج لك</p>
+                        <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">لا توجد قوالب</h3>
+                        <p className="text-gray-500 dark:text-gray-400 mb-4">ابدأ بإضافة أول قالب لك</p>
                         <Link href="/admin/products/create">
                             <Button className="bg-primary-600 hover:bg-primary-700 text-white">
-                                إضافة منتج
-                            </Button>
+                               >إضافة قالب<                            </Button>
                         </Link>
                     </div>
                 ) : (
@@ -113,7 +112,7 @@ export default function AdminProductsPage() {
                         <table className="w-full">
                             <thead className="bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
                                 <tr>
-                                    <th className="text-right py-4 px-6 font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">المنتج</th>
+                                    <th className="text-right py-4 px-6 font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">القالب</th>
                                     <th className="text-right py-4 px-4 font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap hidden sm:table-cell">التصنيف</th>
                                     <th className="text-right py-4 px-4 font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap hidden md:table-cell">النوع</th>
                                     <th className="text-right py-4 px-4 font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">السعر</th>
