@@ -7,18 +7,18 @@ import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
 import type { Review, ReviewSummary } from '@/types';
 
-interface ProductReviewsProps {
-    productSlug: string;
-    productId: string;
+interface TemplateReviewsProps {
+    templateSlug: string;
+    templateId: string;
 }
 
 /**
- * ProductReviews
+ * TemplateReviews
  * 
- * Displays product reviews with rating summary and review form.
- * Only allows reviews from users who have purchased the product.
+ * Displays template reviews with rating summary and review form.
+ * Only allows reviews from users who have purchased the template.
  */
-export function ProductReviews({ productSlug, productId }: ProductReviewsProps) {
+export function TemplateReviews({ templateSlug, templateId }: TemplateReviewsProps) {
     const { isAuthenticated } = useAuthStore();
     const [reviews, setReviews] = useState<Review[]>([]);
     const [summary, setSummary] = useState<ReviewSummary | null>(null);
@@ -36,7 +36,7 @@ export function ProductReviews({ productSlug, productId }: ProductReviewsProps) 
     useEffect(() => {
         const fetchReviews = async () => {
             try {
-                const response = await api.getProductReviews(productSlug);
+                const response = await api.getProductReviews(templateSlug);
                 if (response.success) {
                     setReviews(response.data.reviews);
                     setSummary(response.data.summary);
@@ -49,19 +49,19 @@ export function ProductReviews({ productSlug, productId }: ProductReviewsProps) 
         };
 
         fetchReviews();
-    }, [productSlug]);
+    }, [templateSlug]);
 
     // Check if user can review
     useEffect(() => {
         const checkCanReview = async () => {
             if (!isAuthenticated) {
                 setCanReview(false);
-                setCanReviewReason('يجب تسجيل الدخول لتقييم المنتج');
+                setCanReviewReason('يجب تسجيل الدخول لتقييم القالب');
                 return;
             }
 
             try {
-                const response = await api.canReviewProduct(productSlug);
+                const response = await api.canReviewProduct(templateSlug);
                 if (response.success) {
                     setCanReview(response.data.can_review);
                     setCanReviewReason(response.data.message);
@@ -72,7 +72,7 @@ export function ProductReviews({ productSlug, productId }: ProductReviewsProps) 
         };
 
         checkCanReview();
-    }, [isAuthenticated, productSlug]);
+    }, [isAuthenticated, templateSlug]);
 
     // Submit review
     const handleSubmit = async (e: React.FormEvent) => {
@@ -82,7 +82,7 @@ export function ProductReviews({ productSlug, productId }: ProductReviewsProps) 
 
         setIsSubmitting(true);
         try {
-            const response = await api.createReview(productSlug, { rating, comment });
+            const response = await api.createReview(templateSlug, { rating, comment });
 
             if (response.success) {
                 toast.success('تم إضافة تقييمك بنجاح ⭐');
@@ -208,7 +208,7 @@ export function ProductReviews({ productSlug, productId }: ProductReviewsProps) 
                         <textarea
                             value={comment}
                             onChange={(e) => setComment(e.target.value)}
-                            placeholder="شاركنا تجربتك مع هذا المنتج..."
+                            placeholder="شاركنا تجربتك مع هذا القالب..."
                             rows={4}
                             className="w-full px-4 py-3 border dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                         />
@@ -246,7 +246,7 @@ export function ProductReviews({ productSlug, productId }: ProductReviewsProps) 
                     <div className="text-center py-12 text-gray-500">
                         <div className="text-4xl mb-3">📝</div>
                         <p>لا توجد تقييمات بعد</p>
-                        <p className="text-sm">كن أول من يقيم هذا المنتج!</p>
+                        <p className="text-sm">كن أول من يقيم هذا القالب!</p>
                     </div>
                 ) : (
                     reviews.map((review) => (
@@ -281,4 +281,4 @@ export function ProductReviews({ productSlug, productId }: ProductReviewsProps) 
     );
 }
 
-export default ProductReviews;
+export default TemplateReviews;

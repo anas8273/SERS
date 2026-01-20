@@ -294,17 +294,27 @@ class ApiClient {
 
     /**
      * =========================
-     * Reviews
+     * Template Reviews
      * =========================
      */
-    async getProductReviews(slug: string) {
+    async getTemplateReviews(slug: string) {
         const { data } = await this.client.get(`/templates/${slug}/reviews`);
         return data;
     }
 
-    async canReviewProduct(slug: string) {
+    // Backward compatibility alias
+    async getProductReviews(slug: string) {
+        return this.getTemplateReviews(slug);
+    }
+
+    async canReviewTemplate(slug: string) {
         const { data } = await this.client.get(`/templates/${slug}/can-review`);
         return data;
+    }
+
+    // Backward compatibility alias
+    async canReviewProduct(slug: string) {
+        return this.canReviewTemplate(slug);
     }
 
     async createReview(slug: string, payload: { rating: number; comment?: string }) {

@@ -70,8 +70,8 @@ export default function GlobalSearch() {
                         type: 'product',
                         title: product.name_ar,
                         subtitle: product.category?.name_ar || 'بدون تصنيف',
-                        icon: '📦',
-                        href: `/admin/products/${product.id}/edit`,
+                        icon: '📋',
+                        href: `/admin/templates/${product.id}/edit`,
                     });
                 });
             }

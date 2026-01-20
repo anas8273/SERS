@@ -61,6 +61,33 @@ class Template extends Model
         'deleted_at',
     ];
 
+    /**
+     * The accessors to append to the model's array form.
+     */
+    protected $appends = [
+        'thumbnail_url',
+    ];
+
+    // ==================== ACCESSORS ====================
+
+    /**
+     * Get the full URL for the thumbnail image.
+     */
+    public function getThumbnailUrlAttribute(): ?string
+    {
+        if (!$this->thumbnail) {
+            return null;
+        }
+
+        // If already a full URL, return as-is
+        if (str_starts_with($this->thumbnail, 'http')) {
+            return $this->thumbnail;
+        }
+
+        // Otherwise, prepend the storage URL
+        return asset('storage/' . $this->thumbnail);
+    }
+
     // ==================== RELATIONSHIPS ====================
 
     /**

@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 
 const sidebarItems = [
     { label: 'لوحة التحكم', href: '/admin', icon: '📊' },
-    { label: 'المنتجات', href: '/admin/products', icon: '📦' },
+    { label: 'القوالب', href: '/admin/templates', icon: '📋' },
     { label: 'التصنيفات', href: '/admin/categories', icon: '🗂️' },
     { label: 'المستخدمون', href: '/admin/users', icon: '👥' },
     { label: 'أكواد الخصم', href: '/admin/coupons', icon: '🎟️' },
@@ -22,7 +22,7 @@ const sidebarItems = [
 // Dynamic page titles based on route
 const pageTitles: Record<string, string> = {
     '/admin': 'لوحة التحكم',
-    '/admin/products': 'إدارة المنتجات',
+    '/admin/templates': 'إدارة القوالب',
     '/admin/categories': 'إدارة التصنيفات',
     '/admin/users': 'إدارة المستخدمين',
     '/admin/coupons': 'إدارة أكواد الخصم',
@@ -50,7 +50,7 @@ export default function AdminLayout({
         if (pageTitles[pathname]) {
             return pageTitles[pathname];
         }
-        // Check for partial matches (for nested routes like /admin/products/create)
+        // Check for partial matches (for nested routes like /admin/templates/create)
         for (const [path, title] of Object.entries(pageTitles)) {
             if (path !== '/admin' && pathname.startsWith(path)) {
                 return title;
@@ -127,10 +127,10 @@ export default function AdminLayout({
                                     استخدم Ctrl+K للبحث السريع في النظام
                                 </p>
                                 <Link
-                                    href="/admin/products/create"
+                                    href="/admin/templates/create"
                                     className="inline-block bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
                                 >
-                                    ➕ إضافة منتج
+                                    ➕ إضافة قالب
                                 </Link>
                             </div>
                         </div>

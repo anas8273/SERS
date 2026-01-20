@@ -2,39 +2,29 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import Image from 'next/image';
 import { api } from '@/lib/api';
 import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
 import { TemplateCardSkeleton } from '@/components/ui/skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
-import { WishlistButton } from '@/components/products/WishlistButton';
+import TemplateCard from '@/components/templates/TemplateCard';
 import { useCartStore } from '@/stores/cartStore';
 import {
     Search,
     Filter,
     X,
-    ShoppingCart,
-    Star,
-    ArrowLeft,
-    Zap,
-    Download,
     Layout,
-    SlidersHorizontal
+    SlidersHorizontal,
+    ChevronDown,
+    Sparkles,
+    Zap,
+    Download
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import type { Template, Category } from '@/types';
 
-function formatPrice(amount: number): string {
-    return new Intl.NumberFormat('ar-SA', {
-        style: 'currency',
-        currency: 'SAR',
-        minimumFractionDigits: 0,
-    }).format(amount);
-}
+
 
 function MarketplaceContent() {
     const searchParams = useSearchParams();
@@ -50,6 +40,17 @@ function MarketplaceContent() {
     const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
     const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
     const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+
+    // Accordion states for collapsible filters
+    const [expandedFilters, setExpandedFilters] = useState({
+        categories: true,
+        type: true,
+        price: false
+    });
+
+    const toggleFilter = (filter: keyof typeof expandedFilters) => {
+        setExpandedFilters(prev => ({ ...prev, [filter]: !prev[filter] }));
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -91,16 +92,7 @@ function MarketplaceContent() {
         fetchData();
     }, [selectedCategory, selectedType, searchQuery, priceRange]);
 
-    const handleAddToCart = (template: Template) => {
-        addItem({
-            templateId: template.id,
-            name: template.name_ar,
-            price: template.discount_price || template.price,
-            thumbnail: template.thumbnail_url || '',
-            type: template.type,
-        });
-        toast.success('تمت الإضافة للسلة بنجاح 🛒');
-    };
+
 
     const clearFilters = () => {
         setSelectedCategory(null);
@@ -128,110 +120,171 @@ function MarketplaceContent() {
 
                 <div className="container mx-auto px-4 py-12">
                     <div className="flex flex-col lg:flex-row gap-12">
-                        {/* Sidebar Filters - Desktop */}
-                        <aside className="hidden lg:block w-72 flex-shrink-0 space-y-8">
-                            <div className="sticky top-24 space-y-8">
-                                <div className="flex items-center justify-between">
-                                    <h2 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2">
-                                        <SlidersHorizontal className="w-5 h-5" />
-                                        الفلاتر
-                                    </h2>
-                                    <button
-                                        onClick={clearFilters}
-                                        className="text-sm font-bold text-primary hover:underline"
-                                    >
-                                        مسح الكل
-                                    </button>
-                                </div>
+                        {/* Sidebar Filters - Desktop - Glassmorphism Design */}
+                        <aside className="hidden lg:block w-72 flex-shrink-0">
+                            <div className="sticky top-24 space-y-4">
+                                {/* Filter Header - Glass Panel */}
+                                <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl p-5 border border-white/20 dark:border-gray-700/50 shadow-xl">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h2 className="text-lg font-black text-gray-900 dark:text-white flex items-center gap-2">
+                                            <Sparkles className="w-5 h-5 text-primary" />
+                                            فلترة ذكية
+                                        </h2>
+                                        <button
+                                            onClick={clearFilters}
+                                            className="text-xs font-bold text-primary hover:text-primary/80 transition-colors"
+                                        >
+                                            مسح الكل
+                                        </button>
+                                    </div>
 
-                                {/* Search */}
-                                <div className="space-y-3">
-                                    <label className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest">البحث</label>
+                                    {/* Search Box - Glassmorphism */}
                                     <div className="relative">
                                         <input
                                             type="text"
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
                                             placeholder="ابحث عن قالب..."
-                                            className="w-full px-4 py-3 pr-10 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/50 transition-all"
+                                            className="w-full px-4 py-3 pr-11 rounded-xl border-0 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm focus:ring-2 focus:ring-primary/50 transition-all text-sm placeholder:text-gray-400"
                                         />
-                                        <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                        <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                     </div>
                                 </div>
 
-                                {/* Categories */}
-                                <div className="space-y-3">
-                                    <label className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest">التصنيف</label>
-                                    <div className="flex flex-col gap-1">
-                                        <button
-                                            onClick={() => setSelectedCategory(null)}
-                                            className={cn(
-                                                "text-right px-4 py-2 rounded-xl text-sm font-bold transition-all",
-                                                !selectedCategory
-                                                    ? "bg-primary text-white shadow-lg shadow-primary/20"
-                                                    : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-                                            )}
-                                        >
-                                            الكل
-                                        </button>
-                                        {categories.map((category) => (
+                                {/* Categories Accordion */}
+                                <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-gray-700/50 shadow-lg overflow-hidden">
+                                    <button
+                                        onClick={() => toggleFilter('categories')}
+                                        className="w-full px-5 py-4 flex items-center justify-between hover:bg-white/30 dark:hover:bg-gray-700/30 transition-colors"
+                                    >
+                                        <span className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                            <Layout className="w-4 h-4 text-primary" />
+                                            التصنيف
+                                        </span>
+                                        <ChevronDown className={cn(
+                                            "w-4 h-4 text-gray-400 transition-transform duration-300",
+                                            expandedFilters.categories && "rotate-180"
+                                        )} />
+                                    </button>
+                                    <div className={cn(
+                                        "overflow-hidden transition-all duration-300",
+                                        expandedFilters.categories ? "max-h-64 opacity-100" : "max-h-0 opacity-0"
+                                    )}>
+                                        <div className="px-3 pb-4 space-y-1 max-h-52 overflow-y-auto">
                                             <button
-                                                key={category.id}
-                                                onClick={() => setSelectedCategory(category.slug)}
+                                                onClick={() => setSelectedCategory(null)}
                                                 className={cn(
-                                                    "text-right px-4 py-2 rounded-xl text-sm font-bold transition-all",
-                                                    selectedCategory === category.slug
-                                                        ? "bg-primary text-white shadow-lg shadow-primary/20"
-                                                        : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                                    "w-full text-right px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
+                                                    !selectedCategory
+                                                        ? "bg-primary text-white shadow-md"
+                                                        : "text-gray-600 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-700/50"
                                                 )}
                                             >
-                                                {category.name_ar}
+                                                جميع التصنيفات
                                             </button>
-                                        ))}
+                                            {categories.map((category) => (
+                                                <button
+                                                    key={category.id}
+                                                    onClick={() => setSelectedCategory(category.slug)}
+                                                    className={cn(
+                                                        "w-full text-right px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
+                                                        selectedCategory === category.slug
+                                                            ? "bg-primary text-white shadow-md"
+                                                            : "text-gray-600 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-700/50"
+                                                    )}
+                                                >
+                                                    {category.name_ar}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
 
-                                {/* Type */}
-                                <div className="space-y-3">
-                                    <label className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest">نوع القالب</label>
-                                    <div className="flex flex-col gap-1">
-                                        <button
-                                            onClick={() => setSelectedType(null)}
-                                            className={cn(
-                                                "text-right px-4 py-2 rounded-xl text-sm font-bold transition-all",
-                                                !selectedType
-                                                    ? "bg-primary text-white shadow-lg shadow-primary/20"
-                                                    : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-                                            )}
-                                        >
-                                            الكل
-                                        </button>
-                                        <button
-                                            onClick={() => setSelectedType('interactive')}
-                                            className={cn(
-                                                "flex items-center justify-between px-4 py-2 rounded-xl text-sm font-bold transition-all",
-                                                selectedType === 'interactive'
-                                                    ? "bg-primary text-white shadow-lg shadow-primary/20"
-                                                    : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-                                            )}
-                                        >
-                                            <span>تفاعلي</span>
-                                            <Zap className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => setSelectedType('downloadable')}
-                                            className={cn(
-                                                "flex items-center justify-between px-4 py-2 rounded-xl text-sm font-bold transition-all",
-                                                selectedType === 'downloadable'
-                                                    ? "bg-primary text-white shadow-lg shadow-primary/20"
-                                                    : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-                                            )}
-                                        >
-                                            <span>قابل للتحميل</span>
-                                            <Download className="w-4 h-4" />
-                                        </button>
+                                {/* Type Accordion */}
+                                <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-gray-700/50 shadow-lg overflow-hidden">
+                                    <button
+                                        onClick={() => toggleFilter('type')}
+                                        className="w-full px-5 py-4 flex items-center justify-between hover:bg-white/30 dark:hover:bg-gray-700/30 transition-colors"
+                                    >
+                                        <span className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                            <SlidersHorizontal className="w-4 h-4 text-primary" />
+                                            نوع القالب
+                                        </span>
+                                        <ChevronDown className={cn(
+                                            "w-4 h-4 text-gray-400 transition-transform duration-300",
+                                            expandedFilters.type && "rotate-180"
+                                        )} />
+                                    </button>
+                                    <div className={cn(
+                                        "overflow-hidden transition-all duration-300",
+                                        expandedFilters.type ? "max-h-48 opacity-100" : "max-h-0 opacity-0"
+                                    )}>
+                                        <div className="px-3 pb-4 space-y-1">
+                                            <button
+                                                onClick={() => setSelectedType(null)}
+                                                className={cn(
+                                                    "w-full text-right px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
+                                                    !selectedType
+                                                        ? "bg-primary text-white shadow-md"
+                                                        : "text-gray-600 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-700/50"
+                                                )}
+                                            >
+                                                جميع الأنواع
+                                            </button>
+                                            <button
+                                                onClick={() => setSelectedType('interactive')}
+                                                className={cn(
+                                                    "w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
+                                                    selectedType === 'interactive'
+                                                        ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-md"
+                                                        : "text-gray-600 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-700/50"
+                                                )}
+                                            >
+                                                <span>تفاعلي</span>
+                                                <Zap className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => setSelectedType('ready')}
+                                                className={cn(
+                                                    "w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
+                                                    selectedType === 'ready'
+                                                        ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md"
+                                                        : "text-gray-600 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-700/50"
+                                                )}
+                                            >
+                                                <span>جاهز للتحميل</span>
+                                                <Download className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
+
+                                {/* Active Filters Badge */}
+                                {(selectedCategory || selectedType || searchQuery) && (
+                                    <div className="bg-primary/5 dark:bg-primary/10 rounded-2xl p-4 border border-primary/20">
+                                        <p className="text-xs text-primary font-bold mb-2">الفلاتر النشطة:</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {searchQuery && (
+                                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
+                                                    بحث: {searchQuery.slice(0, 10)}...
+                                                    <X className="w-3 h-3 cursor-pointer" onClick={() => setSearchQuery('')} />
+                                                </span>
+                                            )}
+                                            {selectedCategory && (
+                                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
+                                                    {categories.find(c => c.slug === selectedCategory)?.name_ar}
+                                                    <X className="w-3 h-3 cursor-pointer" onClick={() => setSelectedCategory(null)} />
+                                                </span>
+                                            )}
+                                            {selectedType && (
+                                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
+                                                    {selectedType === 'interactive' ? 'تفاعلي' : 'جاهز'}
+                                                    <X className="w-3 h-3 cursor-pointer" onClick={() => setSelectedType(null)} />
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </aside>
 
@@ -260,78 +313,7 @@ function MarketplaceContent() {
                             ) : templates.length > 0 ? (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
                                     {templates.map((template) => (
-                                        <div
-                                            key={template.id}
-                                            className="group bg-white dark:bg-gray-800 rounded-3xl overflow-hidden border border-gray-100 dark:border-gray-700 hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500 flex flex-col h-full"
-                                        >
-                                            <Link href={`/marketplace/${template.slug}`} className="relative aspect-[4/3] overflow-hidden bg-gray-100 dark:bg-gray-700">
-                                                {template.thumbnail_url ? (
-                                                    <Image
-                                                        src={template.thumbnail_url}
-                                                        alt={template.name_ar}
-                                                        fill
-                                                        className="object-cover group-hover:scale-110 transition-transform duration-700"
-                                                    />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-gray-300">
-                                                        <Layout className="w-12 h-12" />
-                                                    </div>
-                                                )}
-                                                <div className="absolute top-4 right-4 z-10">
-                                                    <WishlistButton templateId={template.id} />
-                                                </div>
-                                                {template.is_free && (
-                                                    <div className="absolute top-4 left-4">
-                                                        <div className="bg-green-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shadow-lg">
-                                                            مجاني
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </Link>
-
-                                            <div className="p-6 flex-1 flex flex-col">
-                                                <div className="flex-1 space-y-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-[10px] font-black text-primary uppercase tracking-widest bg-primary/5 px-2 py-0.5 rounded-full">
-                                                            {template.category?.name_ar || 'عام'}
-                                                        </span>
-                                                        <div className="flex items-center gap-1 text-amber-500">
-                                                            <Star className="w-3 h-3 fill-current" />
-                                                            <span className="text-xs font-black">{template.average_rating || '5.0'}</span>
-                                                        </div>
-                                                    </div>
-                                                    <h3 className="text-lg font-black text-gray-900 dark:text-white group-hover:text-primary transition-colors line-clamp-1">
-                                                        {template.name_ar}
-                                                    </h3>
-                                                    <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
-                                                        {template.description_ar}
-                                                    </p>
-                                                </div>
-
-                                                <div className="mt-6 pt-6 border-t border-gray-50 dark:border-gray-700 flex items-center justify-between">
-                                                    <div className="flex flex-col">
-                                                        {template.discount_price ? (
-                                                            <>
-                                                                <span className="text-xs text-gray-400 line-through">{formatPrice(template.price)}</span>
-                                                                <span className="text-lg font-black text-primary">{formatPrice(template.discount_price)}</span>
-                                                            </>
-                                                        ) : (
-                                                            <span className="text-lg font-black text-gray-900 dark:text-white">
-                                                                {template.is_free ? 'مجاني' : formatPrice(template.price)}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <Button
-                                                        onClick={() => handleAddToCart(template)}
-                                                        size="sm"
-                                                        className="rounded-full font-black gap-2 shadow-lg shadow-primary/20"
-                                                    >
-                                                        <ShoppingCart className="w-4 h-4" />
-                                                        إضافة
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </div>
+                                        <TemplateCard key={template.id} template={template} variant="marketplace" />
                                     ))}
                                 </div>
                             ) : (

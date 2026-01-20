@@ -8,11 +8,11 @@ import { api } from '@/lib/api';
 import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
-import { WishlistButton } from '@/components/products/WishlistButton';
-import { ProductReviews } from '@/components/products/ProductReviews';
+import { TemplateWishlistButton } from '@/components/templates/TemplateWishlistButton';
+import { TemplateReviews } from '@/components/templates/TemplateReviews';
 import { useCartStore } from '@/stores/cartStore';
 import toast from 'react-hot-toast';
-import type { Product } from '@/types';
+import type { Template } from '@/types';
 
 function formatPrice(amount: number): string {
     return new Intl.NumberFormat('ar-SA', {
@@ -27,8 +27,8 @@ export default function ProductDetailsPage() {
     const slug = params.slug as string;
     const { addItem, items } = useCartStore();
 
-    const [product, setProduct] = useState<Product | null>(null);
-    const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+    const [product, setProduct] = useState<Template | null>(null);
+    const [relatedProducts, setRelatedProducts] = useState<Template[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     const isInCart = product ? items.some((item) => item.templateId === product.id) : false;
@@ -47,7 +47,7 @@ export default function ProductDetailsPage() {
                                 category: response.data.category.slug || response.data.category.id,
                             });
                             const filtered = (relatedRes.data || [])
-                                .filter((p: Product) => p.id !== response.data.id)
+                                .filter((p: Template) => p.id !== response.data.id)
                                 .slice(0, 4);
                             setRelatedProducts(filtered);
                         } catch (e) {
@@ -71,7 +71,7 @@ export default function ProductDetailsPage() {
         if (!product) return;
 
         if (isInCart) {
-            toast.error('المنتج موجود في السلة بالفعل');
+            toast.error('القالب موجود في السلة بالفعل');
             return;
         }
 
@@ -115,8 +115,8 @@ export default function ProductDetailsPage() {
                 <main className="flex-1 flex items-center justify-center">
                     <div className="text-center">
                         <div className="text-6xl mb-4">😕</div>
-                        <h1 className="text-2xl font-bold text-gray-900 mb-2">المنتج غير موجود</h1>
-                        <p className="text-gray-600 mb-6">ربما تم حذف هذا المنتج أو نقله</p>
+                        <h1 className="text-2xl font-bold text-gray-900 mb-2">القالب غير موجود</h1>
+                        <p className="text-gray-600 mb-6">ربما تم حذف هذا القالب أو نقله</p>
                         <Link href="/marketplace">
                             <Button className="bg-primary-600 hover:bg-primary-700 text-white">
                                 العودة للمتجر
@@ -181,9 +181,8 @@ export default function ProductDetailsPage() {
                                 </span>
                             </div>
 
-                            {/* Wishlist Button */}
                             <div className="absolute bottom-4 left-4">
-                                <WishlistButton templateId={product.id} size="lg" variant="button" />
+                                <TemplateWishlistButton templateId={product.id} size="lg" variant="button" />
                             </div>
                         </div>
 
@@ -303,7 +302,7 @@ export default function ProductDetailsPage() {
 
                     {/* Reviews Section */}
                     <div className="border-t dark:border-gray-700 pt-12">
-                        <ProductReviews productSlug={slug} productId={product.id} />
+                        <TemplateReviews templateSlug={slug} templateId={product.id} />
                     </div>
 
                     {/* Related Products Section */}

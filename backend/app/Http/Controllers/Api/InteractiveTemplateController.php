@@ -131,10 +131,24 @@ class InteractiveTemplateController extends Controller
 
     /**
      * Toggle favorite status.
+     * Supports both route model binding (for /templates/{id}/favorite)
+     * and request body (for /wishlist/toggle with template_id)
      */
-    public function toggleFavorite(Request $request, Template $template): JsonResponse
+    public function toggleFavorite(Request $request, ?Template $template = null): JsonResponse
     {
         $user = $request->user();
+        
+        // Get template from route binding OR from request body
+        if (!$template && $request->has('template_id')) {
+            $template = Template::find($request->template_id);
+        }
+        
+        if (!$template) {
+            return response()->json([
+                'success' => false,
+                'message' => 'القالب غير موجود'
+            ], 404);
+        }
 
         $favorite = FavoriteTemplate::where('user_id', $user->id)
             ->where('template_id', $template->id)
@@ -143,38 +157,43 @@ class InteractiveTemplateController extends Controller
         if ($favorite) {
             $favorite->delete();
             $isFavorite = false;
+            $action = 'removed';
         } else {
             FavoriteTemplate::create([
                 'user_id' => $user->id,
                 'template_id' => $template->id,
             ]);
             $isFavorite = true;
+            $action = 'added';
         }
 
         return response()->json([
             'success' => true,
-            'is_favorite' => $isFavorite,
+            'data' => [
+                'is_wishlisted' => $isFavorite,
+                'action' => $action,
+            ],
             'message' => $isFavorite ? 'تمت الإضافة للمفضلة' : 'تمت الإزالة من المفضلة',
         ]);
     }
 
     /**
-     * Get user's favorite templates.
+     * Get user's favorite template IDs.
+     * Returns array of template IDs for wishlistStore.
      */
     public function favorites(Request $request): JsonResponse
     {
         $user = $request->user();
 
-        $templates = Template::with(['category', 'variants'])
-            ->interactive()
-            ->whereHas('favoritedByUsers', function ($query) use ($user) {
-                $query->where('user_id', $user->id);
-            })
-            ->get();
+        // Return just the IDs for the wishlistStore
+        $templateIds = FavoriteTemplate::where('user_id', $user->id)
+            ->pluck('template_id')
+            ->map(fn($id) => (string) $id)
+            ->toArray();
 
         return response()->json([
             'success' => true,
-            'data' => $templates,
+            'data' => $templateIds,
         ]);
     }
 }

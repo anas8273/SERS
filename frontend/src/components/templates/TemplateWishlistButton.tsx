@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { Heart, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-interface WishlistButtonProps {
+interface TemplateWishlistButtonProps {
     templateId: string | number;
     className?: string;
     size?: 'sm' | 'md' | 'lg';
@@ -16,18 +16,18 @@ interface WishlistButtonProps {
 }
 
 /**
- * WishlistButton
+ * TemplateWishlistButton
  * 
  * Heart icon button for adding/removing templates from wishlist.
  * Shows filled heart when template is in wishlist.
  * Requires authentication - redirects to login if not authenticated.
  */
-export function WishlistButton({
+export function TemplateWishlistButton({
     templateId,
     className,
     size = 'md',
     variant = 'icon',
-}: WishlistButtonProps) {
+}: TemplateWishlistButtonProps) {
     const router = useRouter();
     const { isAuthenticated } = useAuthStore();
     const { isWishlisted, toggleWishlist } = useWishlistStore();
@@ -141,4 +141,4 @@ export function WishlistButton({
     );
 }
 
-export default WishlistButton;
+export default TemplateWishlistButton;

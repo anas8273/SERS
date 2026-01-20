@@ -73,6 +73,14 @@ class DatabaseSeeder extends Seeder
         $this->command->info('✅ Sections and Categories seeded');
 
         // ===========================================================================
+        // TEMPLATES
+        // ===========================================================================
+        // Seed sample templates using the TemplateSeeder
+        $this->call(TemplateSeeder::class);
+        
+        $this->command->info('✅ Sample Templates seeded');
+
+        // ===========================================================================
         // SUMMARY
         // ===========================================================================
 

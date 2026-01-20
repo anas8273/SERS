@@ -7,7 +7,6 @@ use App\Http\Controllers\Api\CouponController;
 use App\Http\Controllers\Api\DownloadController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PaymentController;
-use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\RecordController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\StatsController;
@@ -49,7 +48,7 @@ Route::get('/', function () {
         'version' => '1.0.0',
         'endpoints' => [
             'auth' => '/api/auth/*',
-            'products' => '/api/products/*',
+            'templates' => '/api/templates/*',
             'categories' => '/api/categories/*',
             'admin' => '/api/admin/* (requires auth)',
         ],
@@ -75,25 +74,38 @@ Route::prefix('auth')->middleware('throttle:5,1')->group(function () {
 });
 
 // ---------------------------
-// المنتجات (Products) - عامة
+// المنتجات (Products) - إعادة توجيه للقوالب
+// For backward compatibility, redirect to templates
 // ---------------------------
 Route::prefix('products')->group(function () {
-    // قائمة المنتجات مع الفلاتر
-    Route::get('/', [ProductController::class, 'index']);
+    // Redirect all product routes to templates
+    Route::get('/', [TemplateController::class, 'index']);
+    Route::get('search', [TemplateController::class, 'index']); // Search handled via query params
+    Route::get('featured', [TemplateController::class, 'featured']);
+    Route::get('{template}', [TemplateController::class, 'show']);
+    Route::get('{template}/reviews', [ReviewController::class, 'index']);
+});
 
-    // البحث عن المنتجات
-    Route::get('search', [ProductController::class, 'search']);
-
-    // المنتجات المميزة
-    Route::get('featured', [ProductController::class, 'featured']);
-
-    // عرض منتج واحد بالـ slug
-    Route::get('{slug}', [ProductController::class, 'show']);
-
-    // ---------------------------
-    // تقييمات المنتج (Public)
-    // ---------------------------
-    Route::get('{slug}/reviews', [ReviewController::class, 'index']);
+// ---------------------------
+// القوالب (Templates) - الواجهة الرئيسية للفرونت إند
+// Main template routes - unified API for marketplace
+// ---------------------------
+Route::prefix('templates')->group(function () {
+    // قائمة القوالب مع فلترة
+    Route::get('/', [TemplateController::class, 'index']);
+    Route::get('search', [TemplateController::class, 'index']); // Search via query params
+    Route::get('featured', [TemplateController::class, 'featured']);
+    Route::get('sections', [TemplateController::class, 'sections']);
+    Route::get('section/{slug}', [TemplateController::class, 'bySection']);
+    Route::get('category/{slug}', [TemplateController::class, 'byCategory']);
+    
+    // عرض قالب واحد
+    Route::get('{template}', [TemplateController::class, 'show']);
+    Route::get('{template}/reviews', [ReviewController::class, 'index']);
+    Route::get('{template}/download', [TemplateController::class, 'download']);
+    
+    // Favorite toggle (requires auth)
+    Route::post('{template}/favorite', [InteractiveTemplateController::class, 'toggleFavorite'])->middleware('auth:sanctum');
 });
 
 // ---------------------------
@@ -180,6 +192,17 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // تغيير كلمة المرور
         Route::post('password', [UserController::class, 'changePassword']);
+    });
+
+    // ---------------------------
+    // المفضلة (Wishlist)
+    // ---------------------------
+    Route::prefix('wishlist')->group(function () {
+        // Get user's wishlist items
+        Route::get('/', [InteractiveTemplateController::class, 'favorites']);
+        
+        // Toggle favorite
+        Route::post('toggle', [InteractiveTemplateController::class, 'toggleFavorite']);
     });
 
     // ---------------------------
@@ -308,24 +331,9 @@ Route::middleware(['auth:sanctum', 'is_admin'])->prefix('admin')->group(function
     });
 
     // ---------------------------
-    // إدارة المنتجات
+    // إدارة القوالب (Templates) - تم نقلها إلى قسم Admin Templates أدناه
+    // Note: /admin/templates routes are defined in the lower Admin section (line ~669)
     // ---------------------------
-    Route::prefix('products')->group(function () {
-        // قائمة كل المنتجات (بما فيها غير النشطة)
-        Route::get('/', [ProductController::class, 'adminIndex']);
-
-        // إنشاء منتج جديد
-        Route::post('/', [ProductController::class, 'store']);
-
-        // تحديث منتج
-        Route::put('{id}', [ProductController::class, 'update']);
-
-        // حذف منتج
-        Route::delete('{id}', [ProductController::class, 'destroy']);
-
-        // عرض منتج واحد (Admin)
-        Route::get('{id}', [ProductController::class, 'adminShow']);
-    });
 
     // ---------------------------
     // إدارة أكواد الخصم (Coupons)
@@ -664,33 +672,25 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware(['auth:sanctum', 'is_admin'])->prefix('admin')->group(function () {
 
     // ---------------------------
-    // إدارة القوالب التفاعلية
+    // إدارة القوالب (Admin Templates)
+    // Full CRUD with TemplateController
     // ---------------------------
     Route::prefix('templates')->group(function () {
-        // قائمة كل القوالب
-        Route::get('/', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'index']);
+        // قائمة كل القوالب (includes inactive)
+        Route::get('/', [TemplateController::class, 'adminIndex']);
         
-        // إنشاء قالب
-        Route::post('/', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'store']);
+        // إنشاء قالب جديد
+        Route::post('/', [TemplateController::class, 'store']);
         
         // عرض قالب
-        Route::get('{id}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'show']);
+        Route::get('{template}', [TemplateController::class, 'show']);
         
         // تحديث قالب
-        Route::put('{id}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'update']);
+        Route::post('{template}', [TemplateController::class, 'update']); // POST for FormData
+        Route::put('{template}', [TemplateController::class, 'update']);
         
         // حذف قالب
-        Route::delete('{id}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'destroy']);
-        
-        // إدارة الأشكال
-        Route::post('{id}/variants', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'addVariant']);
-        Route::put('{id}/variants/{variantId}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'updateVariant']);
-        Route::delete('{id}/variants/{variantId}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'deleteVariant']);
-        
-        // إدارة الحقول
-        Route::post('{id}/fields', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'addField']);
-        Route::put('{id}/fields/{fieldId}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'updateField']);
-        Route::delete('{id}/fields/{fieldId}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'deleteField']);
+        Route::delete('{template}', [TemplateController::class, 'destroy']);
     });
 
     // ---------------------------
