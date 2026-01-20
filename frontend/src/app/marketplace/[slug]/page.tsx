@@ -22,53 +22,53 @@ function formatPrice(amount: number): string {
     }).format(amount);
 }
 
-export default function ProductDetailsPage() {
+export default function TemplateDetailsPage() {
     const params = useParams();
     const slug = params.slug as string;
     const { addItem, items } = useCartStore();
 
-    const [product, setProduct] = useState<Template | null>(null);
-    const [relatedProducts, setRelatedProducts] = useState<Template[]>([]);
+    const [template, setTemplate] = useState<Template | null>(null);
+    const [relatedTemplates, setRelatedTemplates] = useState<Template[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    const isInCart = product ? items.some((item) => item.templateId === product.id) : false;
+    const isInCart = template ? items.some((item) => item.templateId === template.id) : false;
 
     useEffect(() => {
-        const fetchProduct = async () => {
+        const fetchData = async () => {
             try {
                 const response = await api.getProduct(slug);
                 if (response.success) {
-                    setProduct(response.data);
+                    setTemplate(response.data);
 
-                    // Fetch related products (same category, different product)
+                    // Fetch related templates (same category, different template)
                     if (response.data.category?.id) {
                         try {
                             const relatedRes = await api.getProducts({
                                 category: response.data.category.slug || response.data.category.id,
                             });
                             const filtered = (relatedRes.data || [])
-                                .filter((p: Template) => p.id !== response.data.id)
+                                .filter((t: Template) => t.id !== response.data.id)
                                 .slice(0, 4);
-                            setRelatedProducts(filtered);
+                            setRelatedTemplates(filtered);
                         } catch (e) {
-                            console.error('Failed to fetch related products:', e);
+                            console.error('Failed to fetch related templates:', e);
                         }
                     }
                 }
             } catch (error) {
-                console.error('Failed to fetch product:', error);
+                console.error('Failed to fetch template:', error);
             } finally {
                 setIsLoading(false);
             }
         };
 
         if (slug) {
-            fetchProduct();
+            fetchData();
         }
     }, [slug]);
 
     const handleAddToCart = () => {
-        if (!product) return;
+        if (!template) return;
 
         if (isInCart) {
             toast.error('القالب موجود في السلة بالفعل');
@@ -76,11 +76,11 @@ export default function ProductDetailsPage() {
         }
 
         addItem({
-            templateId: product.id,
-            name: product.name_ar,
-            price: product.discount_price || product.price,
-            thumbnail: product.thumbnail_url || '',
-            type: product.type,
+            templateId: template.id,
+            name: template.name_ar,
+            price: template.discount_price || template.price,
+            thumbnail: template.thumbnail_url || '',
+            type: template.type,
         });
         toast.success('تمت الإضافة للسلة 🛒');
     };
@@ -108,7 +108,7 @@ export default function ProductDetailsPage() {
         );
     }
 
-    if (!product) {
+    if (!template) {
         return (
             <div className="min-h-screen flex flex-col">
                 <Navbar />
@@ -129,9 +129,9 @@ export default function ProductDetailsPage() {
         );
     }
 
-    const hasDiscount = product.discount_price && product.discount_price < product.price;
+    const hasDiscount = template.discount_price && template.discount_price < template.price;
     const discountPercent = hasDiscount
-        ? Math.round(((product.price - (product.discount_price || 0)) / product.price) * 100)
+        ? Math.round(((template.price - (template.discount_price || 0)) / template.price) * 100)
         : 0;
 
     return (
@@ -146,18 +146,18 @@ export default function ProductDetailsPage() {
                         <span>/</span>
                         <Link href="/marketplace" className="hover:text-primary-600 dark:hover:text-primary-400">المتجر</Link>
                         <span>/</span>
-                        <span className="text-gray-900 dark:text-gray-100">{product.name_ar}</span>
+                        <span className="text-gray-900 dark:text-gray-100">{template.name_ar}</span>
                     </nav>
 
-                    {/* Product Details */}
+                    {/* Template Details */}
                     <div className="grid lg:grid-cols-2 gap-12 mb-16">
                         {/* Image */}
                         <div className="relative">
                             <div className="relative aspect-square bg-gray-100 dark:bg-gray-700 rounded-3xl overflow-hidden">
-                                {product.thumbnail_url ? (
+                                {template.thumbnail_url ? (
                                     <Image
-                                        src={product.thumbnail_url}
-                                        alt={product.name_ar}
+                                        src={template.thumbnail_url}
+                                        alt={template.name_ar}
                                         fill
                                         className="object-cover"
                                     />
@@ -173,16 +173,16 @@ export default function ProductDetailsPage() {
                                         خصم {discountPercent}%
                                     </span>
                                 )}
-                                <span className={`absolute top-4 left-4 px-4 py-2 rounded-xl font-medium ${product.type === 'interactive'
+                                <span className={`absolute top-4 left-4 px-4 py-2 rounded-xl font-medium ${template.type === 'interactive'
                                     ? 'bg-blue-500 text-white'
                                     : 'bg-gray-700 dark:bg-gray-900 text-white'
                                     }`}>
-                                    {product.type === 'interactive' ? '🔄 تفاعلي' : '📥 قابل للتحميل'}
+                                    {template.type === 'interactive' ? '🔄 تفاعلي' : '📥 قابل للتحميل'}
                                 </span>
                             </div>
 
                             <div className="absolute bottom-4 left-4">
-                                <TemplateWishlistButton templateId={product.id} size="lg" variant="button" />
+                                <TemplateWishlistButton templateId={template.id} size="lg" variant="button" />
                             </div>
                         </div>
 
@@ -190,21 +190,21 @@ export default function ProductDetailsPage() {
                         <div className="space-y-6">
                             <div>
                                 <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                                    {product.name_ar}
+                                    {template.name_ar}
                                 </h1>
                                 <div className="flex items-center gap-4">
                                     <div className="flex items-center gap-1">
                                         <span className="text-yellow-400 text-xl">⭐</span>
                                         <span className="font-semibold text-lg text-gray-900 dark:text-gray-100">
-                                            {Number(product.average_rating || 0).toFixed(1)}
+                                            {Number(template.average_rating || 0).toFixed(1)}
                                         </span>
                                         <span className="text-gray-500 dark:text-gray-400">
-                                            ({product.reviews_count || 0} تقييم)
+                                            ({template.reviews_count || 0} تقييم)
                                         </span>
                                     </div>
                                     <span className="text-gray-300 dark:text-gray-600">|</span>
                                     <span className="text-gray-500 dark:text-gray-400">
-                                        {product.downloads_count || 0} عملية شراء
+                                        {template.downloads_count || 0} عملية شراء
                                     </span>
                                 </div>
                             </div>
@@ -212,24 +212,24 @@ export default function ProductDetailsPage() {
                             {/* Price */}
                             <div className="flex items-center gap-4">
                                 <span className="text-4xl font-bold text-primary-600 dark:text-primary-400">
-                                    {formatPrice(product.discount_price || product.price)}
+                                    {formatPrice(template.discount_price || template.price)}
                                 </span>
                                 {hasDiscount && (
                                     <span className="text-2xl text-gray-400 line-through">
-                                        {formatPrice(product.price)}
+                                        {formatPrice(template.price)}
                                     </span>
                                 )}
                             </div>
 
                             {/* Description */}
                             <div className="prose prose-lg text-gray-600 dark:text-gray-300">
-                                <p>{product.description_ar}</p>
+                                <p>{template.description_ar}</p>
                             </div>
 
                             {/* Tags */}
-                            {product.tags && product.tags.length > 0 && (
+                            {template.tags && template.tags.length > 0 && (
                                 <div className="flex flex-wrap gap-2">
-                                    {product.tags.map((tag, i) => (
+                                    {template.tags.map((tag: string, i: number) => (
                                         <span
                                             key={i}
                                             className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-full text-sm"
@@ -244,20 +244,20 @@ export default function ProductDetailsPage() {
                             <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-6 space-y-3 dark:border dark:border-gray-700">
                                 <div className="flex justify-between">
                                     <span className="text-gray-600 dark:text-gray-400">التصنيف</span>
-                                    <span className="font-medium text-gray-900 dark:text-gray-200">{product.category?.name_ar || 'عام'}</span>
+                                    <span className="font-medium text-gray-900 dark:text-gray-200">{template.category?.name_ar || 'عام'}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-gray-600 dark:text-gray-400">المرحلة التعليمية</span>
                                     <span className="font-medium text-gray-900 dark:text-gray-200">
-                                        {product.educational_stage === 'kindergarten' ? 'رياض الأطفال' :
-                                            product.educational_stage === 'primary' ? 'ابتدائي' :
-                                                product.educational_stage === 'intermediate' ? 'متوسط' : 'عام'}
+                                        {template.educational_stage === 'kindergarten' ? 'رياض الأطفال' :
+                                            template.educational_stage === 'primary' ? 'ابتدائي' :
+                                                template.educational_stage === 'intermediate' ? 'متوسط' : 'عام'}
                                     </span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-gray-600 dark:text-gray-400">نوع المنتج</span>
+                                    <span className="text-gray-600 dark:text-gray-400">نوع القالب</span>
                                     <span className="font-medium text-gray-900 dark:text-gray-200">
-                                        {product.type === 'interactive' ? 'تفاعلي (يعمل أونلاين)' : 'ملف قابل للتحميل'}
+                                        {template.type === 'interactive' ? 'تفاعلي (يعمل أونلاين)' : 'ملف قابل للتحميل'}
                                     </span>
                                 </div>
                             </div>
@@ -302,27 +302,27 @@ export default function ProductDetailsPage() {
 
                     {/* Reviews Section */}
                     <div className="border-t dark:border-gray-700 pt-12">
-                        <TemplateReviews templateSlug={slug} templateId={product.id} />
+                        <TemplateReviews templateSlug={slug} templateId={template.id} />
                     </div>
 
-                    {/* Related Products Section */}
-                    {relatedProducts.length > 0 && (
+                    {/* Related Templates Section */}
+                    {relatedTemplates.length > 0 && (
                         <div className="border-t dark:border-gray-700 pt-12 mt-12">
                             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-                                منتجات مشابهة 🎯
+                                قوالب مشابهة 🎯
                             </h2>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                                {relatedProducts.map((relatedProduct) => (
+                                {relatedTemplates.map((relatedTemplate: Template) => (
                                     <Link
-                                        key={relatedProduct.id}
-                                        href={`/marketplace/${relatedProduct.slug}`}
+                                        key={relatedTemplate.id}
+                                        href={`/marketplace/${relatedTemplate.slug}`}
                                         className="group bg-white dark:bg-gray-800 rounded-xl overflow-hidden border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg transition-all duration-300"
                                     >
                                         <div className="relative aspect-[4/3] bg-gray-100 dark:bg-gray-700">
-                                            {relatedProduct.thumbnail_url ? (
+                                            {relatedTemplate.thumbnail_url ? (
                                                 <Image
-                                                    src={relatedProduct.thumbnail_url}
-                                                    alt={relatedProduct.name_ar}
+                                                    src={relatedTemplate.thumbnail_url}
+                                                    alt={relatedTemplate.name_ar}
                                                     fill
                                                     className="object-cover group-hover:scale-105 transition-transform duration-300"
                                                 />
@@ -332,15 +332,15 @@ export default function ProductDetailsPage() {
                                         </div>
                                         <div className="p-4">
                                             <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-1 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
-                                                {relatedProduct.name_ar}
+                                                {relatedTemplate.name_ar}
                                             </h3>
                                             <div className="flex items-center justify-between mt-2">
                                                 <span className="text-primary-600 dark:text-primary-400 font-bold">
-                                                    {formatPrice(relatedProduct.discount_price || relatedProduct.price)}
+                                                    {formatPrice(relatedTemplate.discount_price || relatedTemplate.price)}
                                                 </span>
                                                 <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
                                                     <span className="text-yellow-400">⭐</span>
-                                                    <span>{Number(relatedProduct.average_rating || 0).toFixed(1)}</span>
+                                                    <span>{Number(relatedTemplate.average_rating || 0).toFixed(1)}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -356,3 +356,4 @@ export default function ProductDetailsPage() {
         </div>
     );
 }
+

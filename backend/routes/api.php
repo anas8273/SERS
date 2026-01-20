@@ -25,6 +25,8 @@ use App\Http\Controllers\Api\ContentLibraryController;
 use App\Http\Controllers\Api\ResourceController;
 use App\Http\Controllers\Api\TemplateController;
 use App\Http\Controllers\Api\SectionController;
+use App\Http\Controllers\Api\EducationalServiceController;
+use App\Http\Controllers\Api\ReferralController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -36,6 +38,10 @@ use Illuminate\Support\Facades\Route;
 | Protected Routes   - Requires auth:sanctum
 | Admin Routes       - Requires auth:sanctum + is_admin
 |
+| Database Structure:
+| - MySQL: Users, Categories, Orders, Ready Templates, Payments
+| - Firebase Firestore: Interactive Templates, Educational Services
+|
 */
 
 // ===========================================================================
@@ -45,11 +51,18 @@ Route::get('/', function () {
     return response()->json([
         'status' => 'ok',
         'service' => 'SERS API',
-        'version' => '1.0.0',
+        'version' => '2.0.0',
+        'description' => 'نظام السجلات التعليمية الذكي - حقل الخدمات التعليمية',
+        'database' => [
+            'mysql' => 'Users, Categories, Orders, Ready Templates',
+            'firebase' => 'Interactive Templates, Educational Services',
+        ],
         'endpoints' => [
             'auth' => '/api/auth/*',
             'templates' => '/api/templates/*',
             'categories' => '/api/categories/*',
+            'services' => '/api/services/{type}/*',
+            'ai' => '/api/ai/*',
             'admin' => '/api/admin/* (requires auth)',
         ],
     ]);
@@ -63,13 +76,8 @@ Route::get('/', function () {
 // المصادقة (Authentication)
 // ---------------------------
 Route::prefix('auth')->middleware('throttle:5,1')->group(function () {
-    // تسجيل مستخدم جديد
     Route::post('register', [AuthController::class, 'register']);
-
-    // تسجيل الدخول بالبريد وكلمة المرور
     Route::post('login', [AuthController::class, 'login']);
-
-    // تسجيل الدخول عبر Firebase (Google/Social)
     Route::post('social', [AuthController::class, 'socialLogin']);
 });
 
@@ -80,7 +88,7 @@ Route::prefix('auth')->middleware('throttle:5,1')->group(function () {
 Route::prefix('products')->group(function () {
     // Redirect all product routes to templates
     Route::get('/', [TemplateController::class, 'index']);
-    Route::get('search', [TemplateController::class, 'index']); // Search handled via query params
+    Route::get('search', [TemplateController::class, 'index']); // Search via query params
     Route::get('featured', [TemplateController::class, 'featured']);
     Route::get('{template}', [TemplateController::class, 'show']);
     Route::get('{template}/reviews', [ReviewController::class, 'index']);
@@ -112,10 +120,7 @@ Route::prefix('templates')->group(function () {
 // التصنيفات (Categories) - عامة
 // ---------------------------
 Route::prefix('categories')->group(function () {
-    // قائمة التصنيفات
     Route::get('/', [CategoryController::class, 'index']);
-
-    // عرض تصنيف واحد بالـ slug
     Route::get('{slug}', [CategoryController::class, 'show']);
 });
 
@@ -123,7 +128,6 @@ Route::prefix('categories')->group(function () {
 // أكواد الخصم (Coupons) - التحقق العام
 // ---------------------------
 Route::prefix('coupons')->group(function () {
-    // التحقق من صلاحية كود الخصم
     Route::post('validate', [CouponController::class, 'validate']);
 });
 
@@ -131,40 +135,9 @@ Route::prefix('coupons')->group(function () {
 // الأقسام (Sections) - عامة
 // ---------------------------
 Route::prefix('sections')->group(function () {
-    // قائمة الأقسام
     Route::get('/', [SectionController::class, 'index']);
-    
-    // عرض قسم واحد
     Route::get('{section}', [SectionController::class, 'show']);
-    
-    // عرض قسم بالـ slug
     Route::get('slug/{slug}', [SectionController::class, 'bySlug']);
-});
-
-// ---------------------------
-// القوالب (Templates) - عامة
-// ---------------------------
-Route::prefix('templates')->group(function () {
-    // قائمة الأقسام مع الفئات
-    Route::get('sections', [TemplateController::class, 'sections']);
-    
-    // قائمة القوالب
-    Route::get('/', [TemplateController::class, 'index']);
-    
-    // القوالب المميزة
-    Route::get('featured', [TemplateController::class, 'featured']);
-    
-    // القوالب حسب القسم
-    Route::get('section/{slug}', [TemplateController::class, 'bySection']);
-    
-    // القوالب حسب الفئة
-    Route::get('category/{slug}', [TemplateController::class, 'byCategory']);
-    
-    // عرض قالب واحد
-    Route::get('{template}', [TemplateController::class, 'show']);
-    
-    // تحميل قالب جاهز
-    Route::get('{template}/download', [TemplateController::class, 'download']);
 });
 
 // ===========================================================================
@@ -176,10 +149,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // المصادقة المحمية
     // ---------------------------
     Route::prefix('auth')->group(function () {
-        // تسجيل الخروج
         Route::post('logout', [AuthController::class, 'logout']);
-
-        // بيانات المستخدم الحالي
         Route::get('me', [AuthController::class, 'me']);
     });
 
@@ -187,10 +157,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // الملف الشخصي (User Profile)
     // ---------------------------
     Route::prefix('user')->group(function () {
-        // تحديث الملف الشخصي
         Route::post('profile', [UserController::class, 'updateProfile']);
-
-        // تغيير كلمة المرور
         Route::post('password', [UserController::class, 'changePassword']);
     });
 
@@ -198,10 +165,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // المفضلة (Wishlist)
     // ---------------------------
     Route::prefix('wishlist')->group(function () {
-        // Get user's wishlist items
         Route::get('/', [InteractiveTemplateController::class, 'favorites']);
-        
-        // Toggle favorite
         Route::post('toggle', [InteractiveTemplateController::class, 'toggleFavorite']);
     });
 
@@ -209,16 +173,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // الطلبات (Orders)
     // ---------------------------
     Route::prefix('orders')->group(function () {
-        // قائمة طلبات المستخدم
         Route::get('/', [OrderController::class, 'index']);
-
-        // إنشاء طلب جديد
         Route::post('/', [OrderController::class, 'store']);
-
-        // عرض طلب واحد
         Route::get('{id}', [OrderController::class, 'show']);
-
-        // دفع قيمة الطلب (محاكاة)
         Route::post('{id}/pay', [OrderController::class, 'pay']);
     });
 
@@ -226,7 +183,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // الدفع (Payments)
     // ---------------------------
     Route::prefix('payments')->group(function () {
-        // إنشاء نية دفع Stripe
         Route::post('create-intent', [PaymentController::class, 'createPaymentIntent']);
     });
 
@@ -234,13 +190,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // السجلات التفاعلية (Records)
     // ---------------------------
     Route::prefix('records')->group(function () {
-        // قائمة سجلات المستخدم
         Route::get('/', [RecordController::class, 'index']);
-
-        // عرض سجل واحد
         Route::get('{recordId}', [RecordController::class, 'show']);
-
-        // تحديث بيانات السجل
         Route::put('{recordId}', [RecordController::class, 'update']);
     });
 
@@ -248,17 +199,20 @@ Route::middleware('auth:sanctum')->group(function () {
     // الذكاء الاصطناعي (AI)
     // ---------------------------
     Route::prefix('ai')->group(function () {
-        // طلب اقتراح من الذكاء الاصطناعي لحقل واحد
         Route::post('suggest', [AIController::class, 'suggest']);
-
-        // توليد بيانات شاملة لجميع حقول القالب
         Route::post('fill-all', [AIController::class, 'fillAll']);
-
-        // توليد معاينة للقالب
-        Route::post('generate-preview', [AIController::class, 'generatePreview']);
-
-        // قبول أو رفض اقتراح
-        Route::post('accept', [AIController::class, 'acceptSuggestion']);
+        Route::post('suggest-analysis', [AIController::class, 'suggestAnalysis']);
+        Route::post('suggest-plan', [AIController::class, 'suggestPlan']);
+        Route::post('suggest-certificate', [AIController::class, 'suggestCertificate']);
+        Route::post('chat', [AIController::class, 'chat']);
+        Route::get('conversations', [AIController::class, 'conversations']);
+        Route::get('conversations/{id}', [AIController::class, 'conversation']);
+        Route::delete('conversations/{id}', [AIController::class, 'deleteConversation']);
+        Route::post('generate-performance-report', [AIController::class, 'generatePerformanceReport']);
+        Route::post('generate-achievement-doc', [AIController::class, 'generateAchievementDoc']);
+        Route::post('generate-curriculum', [AIController::class, 'generateCurriculumDistribution']);
+        Route::post('recommendations', [AIController::class, 'getRecommendations']);
+        Route::post('quick-suggestions', [AIController::class, 'quickSuggestions']);
     });
 
     // ---------------------------
@@ -267,261 +221,88 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('search', [AIController::class, 'search']);
 
     // ---------------------------
-    // المفضلة (Wishlist)
-    // ---------------------------
-    Route::prefix('wishlists')->group(function () {
-        // قائمة المفضلة
-        Route::get('/', [WishlistController::class, 'index']);
-        
-        // معرفات المنتجات في المفضلة
-        Route::get('ids', [WishlistController::class, 'ids']);
-        
-        // إضافة/إزالة من المفضلة (Toggle)
-        Route::post('toggle', [WishlistController::class, 'toggle']);
-        
-        // التحقق من وجود منتج في المفضلة
-        Route::get('check/{productId}', [WishlistController::class, 'check']);
-        
-        // إزالة منتج من المفضلة
-        Route::delete('{productId}', [WishlistController::class, 'destroy']);
-        
-        // مسح كل المفضلة
-        Route::delete('/', [WishlistController::class, 'clear']);
-    });
-
-    // ---------------------------
     // التقييمات (Reviews) - المحمية
     // ---------------------------
     Route::prefix('products/{slug}')->group(function () {
-        // التحقق من إمكانية التقييم
         Route::get('can-review', [ReviewController::class, 'canReview']);
-        
-        // تقييم المستخدم لهذا المنتج
         Route::get('my-review', [ReviewController::class, 'myReview']);
-        
-        // إضافة تقييم
         Route::post('reviews', [ReviewController::class, 'store']);
     });
-
-    // تحديث/حذف تقييم
     Route::put('reviews/{id}', [ReviewController::class, 'update']);
     Route::delete('reviews/{id}', [ReviewController::class, 'destroy']);
-});
 
-// ===========================================================================
-// ADMIN ROUTES (تتطلب مصادقة + صلاحيات مدير)
-// ===========================================================================
-Route::middleware(['auth:sanctum', 'is_admin'])->prefix('admin')->group(function () {
+    // ===========================================================================
+    // EDUCATIONAL SERVICES (Firebase Firestore)
+    // ===========================================================================
+    Route::prefix('services/{serviceType}')->group(function () {
+        Route::get('/', [EducationalServiceController::class, 'index']);
+        Route::post('/', [EducationalServiceController::class, 'store']);
+        Route::get('statistics', [EducationalServiceController::class, 'statistics']);
+        Route::get('{id}', [EducationalServiceController::class, 'show']);
+        Route::put('{id}', [EducationalServiceController::class, 'update']);
+        Route::delete('{id}', [EducationalServiceController::class, 'destroy']);
+        Route::post('{id}/export', [EducationalServiceController::class, 'export']);
+    });
 
-    // ---------------------------
-    // الإحصائيات (Dashboard Stats)
-    // ---------------------------
-    Route::prefix('stats')->group(function () {
-        Route::get('/', [StatsController::class, 'index']);
-        Route::get('chart', [StatsController::class, 'chart']);
+    // Specific Service Types
+    Route::prefix('certificates')->group(function () {
+        Route::get('/', fn($r) => app(EducationalServiceController::class)->index($r, 'certificates'));
+        Route::post('/', fn($r) => app(EducationalServiceController::class)->store($r, 'certificates'));
+        Route::get('{id}', fn($r, $id) => app(EducationalServiceController::class)->show('certificates', $id));
+        Route::put('{id}', fn($r, $id) => app(EducationalServiceController::class)->update($r, 'certificates', $id));
+        Route::delete('{id}', fn($r, $id) => app(EducationalServiceController::class)->destroy('certificates', $id));
+    });
+
+    Route::prefix('plans')->group(function () {
+        Route::get('/', fn($r) => app(EducationalServiceController::class)->index($r, 'plans'));
+        Route::post('/', fn($r) => app(EducationalServiceController::class)->store($r, 'plans'));
+        Route::get('{id}', fn($r, $id) => app(EducationalServiceController::class)->show('plans', $id));
+        Route::put('{id}', fn($r, $id) => app(EducationalServiceController::class)->update($r, 'plans', $id));
+        Route::delete('{id}', fn($r, $id) => app(EducationalServiceController::class)->destroy('plans', $id));
+    });
+
+    Route::prefix('achievements')->group(function () {
+        Route::get('/', fn($r) => app(EducationalServiceController::class)->index($r, 'achievements'));
+        Route::post('/', fn($r) => app(EducationalServiceController::class)->store($r, 'achievements'));
+        Route::get('{id}', fn($r, $id) => app(EducationalServiceController::class)->show('achievements', $id));
+        Route::put('{id}', fn($r, $id) => app(EducationalServiceController::class)->update($r, 'achievements', $id));
+        Route::delete('{id}', fn($r, $id) => app(EducationalServiceController::class)->destroy('achievements', $id));
+    });
+
+    Route::prefix('performances')->group(function () {
+        Route::get('/', fn($r) => app(EducationalServiceController::class)->index($r, 'performances'));
+        Route::post('/', fn($r) => app(EducationalServiceController::class)->store($r, 'performances'));
+        Route::get('{id}', fn($r, $id) => app(EducationalServiceController::class)->show('performances', $id));
+        Route::put('{id}', fn($r, $id) => app(EducationalServiceController::class)->update($r, 'performances', $id));
+        Route::delete('{id}', fn($r, $id) => app(EducationalServiceController::class)->destroy('performances', $id));
+    });
+
+    Route::prefix('tests')->group(function () {
+        Route::get('/', fn($r) => app(EducationalServiceController::class)->index($r, 'tests'));
+        Route::post('/', fn($r) => app(EducationalServiceController::class)->store($r, 'tests'));
+        Route::get('{id}', fn($r, $id) => app(EducationalServiceController::class)->show('tests', $id));
+        Route::put('{id}', fn($r, $id) => app(EducationalServiceController::class)->update($r, 'tests', $id));
+        Route::delete('{id}', fn($r, $id) => app(EducationalServiceController::class)->destroy('tests', $id));
     });
 
     // ---------------------------
-    // إدارة الطلبات (Orders)
+    // الإحالات (Referrals)
     // ---------------------------
-    Route::prefix('orders')->group(function () {
-        Route::get('/', [AdminOrderController::class, 'index']);
-        Route::get('{id}', [AdminOrderController::class, 'show']);
-        Route::patch('{id}/status', [AdminOrderController::class, 'updateStatus']);
+    Route::prefix('referrals')->group(function () {
+        Route::get('/', [ReferralController::class, 'index']);
+        Route::get('code', [ReferralController::class, 'getCode']);
+        Route::post('apply', [ReferralController::class, 'apply']);
+        Route::get('stats', [ReferralController::class, 'stats']);
+        Route::get('rewards', [ReferralController::class, 'rewards']);
+        Route::post('claim/{rewardId}', [ReferralController::class, 'claimReward']);
     });
-
-    // ---------------------------
-    // إدارة القوالب (Templates) - تم نقلها إلى قسم Admin Templates أدناه
-    // Note: /admin/templates routes are defined in the lower Admin section (line ~669)
-    // ---------------------------
-
-    // ---------------------------
-    // إدارة أكواد الخصم (Coupons)
-    // ---------------------------
-    Route::prefix('coupons')->group(function () {
-        // قائمة أكواد الخصم
-        Route::get('/', [CouponController::class, 'index']);
-
-        // إنشاء كود خصم جديد
-        Route::post('/', [CouponController::class, 'store']);
-
-        // تحديث كود خصم
-        Route::put('{id}', [CouponController::class, 'update']);
-
-        // حذف كود خصم
-        Route::delete('{id}', [CouponController::class, 'destroy']);
-    });
-
-    // ---------------------------
-    // إدارة التقييمات (Reviews)
-    // ---------------------------
-    Route::prefix('reviews')->group(function () {
-        // قائمة كل التقييمات
-        Route::get('/', [ReviewController::class, 'adminIndex']);
-
-        // الموافقة على تقييم
-        Route::post('{id}/approve', [ReviewController::class, 'approve']);
-
-        // رفض تقييم
-        Route::post('{id}/reject', [ReviewController::class, 'reject']);
-
-        // حذف تقييم
-        Route::delete('{id}', [ReviewController::class, 'adminDestroy']);
-    });
-
-    // ---------------------------
-    // إدارة التصنيفات (Categories)
-    // ---------------------------
-    Route::prefix('categories')->group(function () {
-        // قائمة كل التصنيفات
-        Route::get('/', [CategoryController::class, 'adminIndex']);
-
-        // إنشاء تصنيف جديد
-        Route::post('/', [CategoryController::class, 'store']);
-
-        // تحديث تصنيف
-        Route::put('{id}', [CategoryController::class, 'update']);
-
-        // حذف تصنيف
-        Route::delete('{id}', [CategoryController::class, 'destroy']);
-    });
-
-    // ---------------------------
-    // إدارة المستخدمين (Users)
-    // ---------------------------
-    Route::prefix('users')->group(function () {
-        // قائمة كل المستخدمين
-        Route::get('/', [UserController::class, 'index']);
-
-        // تفاصيل مستخدم
-        Route::get('{id}', [UserController::class, 'show']);
-
-        // تفعيل/تعطيل مستخدم
-        Route::post('{id}/toggle-status', [UserController::class, 'toggleStatus']);
-
-        // ترقية/تخفيض صلاحيات
-        Route::post('{id}/toggle-role', [UserController::class, 'toggleRole']);
-
-        // تحديث بيانات مستخدم
-        Route::put('{id}', [UserController::class, 'update']);
-
-        // حذف مستخدم
-        Route::delete('{id}', [UserController::class, 'destroy']);
-    });
-
-    // ---------------------------
-    // إعدادات النظام (Settings)
-    // ---------------------------
-    Route::prefix('settings')->group(function () {
-        // جلب إعدادات النظام
-        Route::get('/', [\App\Http\Controllers\Api\SettingsController::class, 'index']);
-        
-        // مسح ذاكرة التخزين المؤقت
-        Route::post('clear-cache', [\App\Http\Controllers\Api\SettingsController::class, 'clearCache']);
-        
-        // سجلات النظام
-        Route::get('logs', [\App\Http\Controllers\Api\SettingsController::class, 'logs']);
-        
-        // وضع الصيانة
-        Route::post('maintenance', [\App\Http\Controllers\Api\SettingsController::class, 'toggleMaintenance']);
-        
-        // معلومات التخزين
-        Route::get('storage', [\App\Http\Controllers\Api\SettingsController::class, 'storage']);
-    });
-
-    // ---------------------------
-    // سجل النشاطات (Activity Logs)
-    // ---------------------------
-    Route::prefix('activity-logs')->group(function () {
-        // قائمة النشاطات
-        Route::get('/', [\App\Http\Controllers\Api\ActivityLogController::class, 'index']);
-        
-        // ملخص النشاطات
-        Route::get('summary', [\App\Http\Controllers\Api\ActivityLogController::class, 'summary']);
-    });
-});
-
-// ===========================================================================
-// PROTECTED DOWNLOADS (تتطلب مصادقة + ملكية الطلب)
-// ===========================================================================
-Route::middleware('auth:sanctum')->prefix('downloads')->group(function () {
-    Route::get('{orderItemId}', [DownloadController::class, 'download']);
-    Route::get('{orderItemId}/info', [DownloadController::class, 'info']);
-});
-
-// ===========================================================================
-// WEBHOOKS (بدون مصادقة - تستخدم توقيعات خاصة)
-// ===========================================================================
-Route::post('webhooks/stripe', [PaymentController::class, 'handleStripeWebhook']);
-
-// ===========================================================================
-// INTERACTIVE TEMPLATES ROUTES (القوالب التفاعلية)
-// ===========================================================================
-
-// ---------------------------
-// القوالب التفاعلية - عامة
-// ---------------------------
-Route::prefix('templates')->group(function () {
-    // قائمة القوالب
-    Route::get('/', [InteractiveTemplateController::class, 'index']);
-    
-    // القوالب الشائعة
-    Route::get('popular', [InteractiveTemplateController::class, 'popular']);
-    
-    // القوالب المجانية
-    Route::get('free', [InteractiveTemplateController::class, 'free']);
-    
-    // القوالب حسب التصنيف
-    Route::get('category/{categoryId}', [InteractiveTemplateController::class, 'byCategory']);
-    
-    // عرض قالب واحد
-    Route::get('{interactiveTemplate}', [InteractiveTemplateController::class, 'show']);
-});
-
-// ---------------------------
-// مكتبة الموارد - عامة
-// ---------------------------
-Route::prefix('resources')->group(function () {
-    // قائمة الموارد
-    Route::get('/', [ResourceController::class, 'index']);
-    
-    // الموارد الشائعة
-    Route::get('popular', [ResourceController::class, 'popular']);
-    
-    // الموارد حسب النوع
-    Route::get('type/{type}', [ResourceController::class, 'byType']);
-    
-    // عرض مورد واحد
-    Route::get('{resource}', [ResourceController::class, 'show']);
-    
-    // تحميل مورد
-    Route::get('{resource}/download', [ResourceController::class, 'download']);
-});
-
-// ---------------------------
-// الطلبات الخاصة - عامة (للعرض فقط)
-// ---------------------------
-Route::prefix('custom-requests')->group(function () {
-    // قائمة الطلبات الخاصة
-    Route::get('/', [CustomRequestController::class, 'index']);
-    
-    // عرض طلب واحد
-    Route::get('{customRequest}', [CustomRequestController::class, 'show']);
-});
-
-// ===========================================================================
-// PROTECTED INTERACTIVE TEMPLATES ROUTES (تتطلب مصادقة)
-// ===========================================================================
-Route::middleware('auth:sanctum')->group(function () {
 
     // ---------------------------
     // القوالب التفاعلية - محمية
     // ---------------------------
     Route::prefix('templates')->group(function () {
-        // إضافة/إزالة من المفضلة
+        // Shared favorites routes handled above in 'wishlist', but also mapped here for compat
         Route::post('{interactiveTemplate}/favorite', [InteractiveTemplateController::class, 'toggleFavorite']);
-        
-        // قائمة المفضلة
         Route::get('user/favorites', [InteractiveTemplateController::class, 'favorites']);
     });
 
@@ -529,113 +310,59 @@ Route::middleware('auth:sanctum')->group(function () {
     // بيانات المستخدم للقوالب
     // ---------------------------
     Route::prefix('user-templates')->group(function () {
-        // قائمة بيانات المستخدم
         Route::get('/', [UserTemplateDataController::class, 'index']);
-        
-        // إنشاء بيانات جديدة
         Route::post('/', [UserTemplateDataController::class, 'store']);
-        
-        // عرض بيانات واحدة
         Route::get('{userTemplateData}', [UserTemplateDataController::class, 'show']);
-        
-        // تحديث البيانات
         Route::put('{userTemplateData}', [UserTemplateDataController::class, 'update']);
-        
-        // حذف البيانات
         Route::delete('{userTemplateData}', [UserTemplateDataController::class, 'destroy']);
-        
-        // سجل التغييرات
-        Route::get('{userTemplateData}/versions', [UserTemplateDataController::class, 'versions']);
-        
-        // استعادة نسخة سابقة
-        Route::post('{userTemplateData}/restore/{versionNumber}', [UserTemplateDataController::class, 'restoreVersion']);
     });
 
     // ---------------------------
-    // التصدير
+    // التصدير (Export)
     // ---------------------------
     Route::prefix('export')->group(function () {
-        // معاينة
-        Route::get('{userTemplateData}/preview', [ExportController::class, 'preview']);
-        
-        // تصدير كصورة
-        Route::post('{userTemplateData}/image', [ExportController::class, 'exportImage']);
-        
-        // تصدير كـ PDF
-        Route::post('{userTemplateData}/pdf', [ExportController::class, 'exportPdf']);
+        Route::post('pdf', [ExportController::class, 'toPdf']);
+        Route::post('image', [ExportController::class, 'toImage']);
+        Route::post('word', [ExportController::class, 'toWord']);
+        Route::get('download/{filename}', [ExportController::class, 'download']);
     });
 
     // ---------------------------
-    // توليد الباركود
+    // رمز QR
     // ---------------------------
     Route::prefix('qrcode')->group(function () {
-        // توليد من رابط
-        Route::post('url', [QRCodeController::class, 'generateFromUrl']);
-        
-        // توليد من ملف
-        Route::post('file', [QRCodeController::class, 'generateFromFile']);
-        
-        // توليد من نص
-        Route::post('text', [QRCodeController::class, 'generateFromText']);
+        Route::post('generate', [QRCodeController::class, 'generate']);
+        Route::get('verify/{code}', [QRCodeController::class, 'verify']);
     });
 
     // ---------------------------
-    // الطلبات الخاصة - محمية
+    // الطلبات المخصصة
     // ---------------------------
     Route::prefix('custom-requests')->group(function () {
-        // إنشاء طلب جديد
         Route::post('/', [CustomRequestController::class, 'store']);
-        
-        // طلباتي
-        Route::get('my', [CustomRequestController::class, 'myRequests']);
-        
-        // التصويت
-        Route::post('{customRequest}/vote', [CustomRequestController::class, 'vote']);
-        
-        // إلغاء طلب
-        Route::delete('{customRequest}', [CustomRequestController::class, 'cancel']);
+        Route::get('my-requests', [CustomRequestController::class, 'myRequests']);
+        Route::post('{customRequest}/cancel', [CustomRequestController::class, 'cancel']);
     });
 
     // ---------------------------
     // الإشعارات
     // ---------------------------
     Route::prefix('notifications')->group(function () {
-        // قائمة الإشعارات
         Route::get('/', [NotificationController::class, 'index']);
-        
-        // عدد غير المقروءة
         Route::get('unread-count', [NotificationController::class, 'unreadCount']);
-        
-        // تحديد كمقروء
-        Route::post('{notification}/read', [NotificationController::class, 'markAsRead']);
-        
-        // تحديد الكل كمقروء
+        Route::post('{id}/read', [NotificationController::class, 'markAsRead']);
         Route::post('read-all', [NotificationController::class, 'markAllAsRead']);
-        
-        // حذف إشعار
-        Route::delete('{notification}', [NotificationController::class, 'destroy']);
-        
-        // حذف المقروءة
-        Route::delete('read', [NotificationController::class, 'deleteAllRead']);
+        Route::delete('{id}', [NotificationController::class, 'destroy']);
     });
 
     // ---------------------------
     // الشواهد
     // ---------------------------
     Route::prefix('evidences')->group(function () {
-        // قائمة الشواهد
         Route::get('/', [EvidenceController::class, 'index']);
-        
-        // إنشاء شاهد
         Route::post('/', [EvidenceController::class, 'store']);
-        
-        // عرض شاهد
         Route::get('{evidence}', [EvidenceController::class, 'show']);
-        
-        // تحديث شاهد
         Route::put('{evidence}', [EvidenceController::class, 'update']);
-        
-        // حذف شاهد
         Route::delete('{evidence}', [EvidenceController::class, 'destroy']);
     });
 
@@ -643,43 +370,97 @@ Route::middleware('auth:sanctum')->group(function () {
     // مكتبة المحتوى
     // ---------------------------
     Route::prefix('content-library')->group(function () {
-        // قائمة المحتوى
         Route::get('/', [ContentLibraryController::class, 'index']);
+        Route::get('categories', [ContentLibraryController::class, 'categories']);
+        Route::get('{id}', [ContentLibraryController::class, 'show']);
+        Route::post('{id}/use', [ContentLibraryController::class, 'use']);
         
-        // إنشاء محتوى
-        Route::post('/', [ContentLibraryController::class, 'store']);
-        
-        // عرض محتوى
-        Route::get('{contentLibrary}', [ContentLibraryController::class, 'show']);
-        
-        // تحديث محتوى
-        Route::put('{contentLibrary}', [ContentLibraryController::class, 'update']);
-        
-        // حذف محتوى
-        Route::delete('{contentLibrary}', [ContentLibraryController::class, 'destroy']);
-        
-        // إضافة/إزالة من المفضلة
-        Route::post('{contentLibrary}/favorite', [ContentLibraryController::class, 'toggleFavorite']);
-        
-        // تسجيل استخدام
-        Route::post('{contentLibrary}/use', [ContentLibraryController::class, 'use']);
+        // Extended CRUD for admin fallback or specific perms? 
+        // Admin routes are below, this is user facing (if any)
+    });
+
+    // ---------------------------
+    // الموارد
+    // ---------------------------
+    Route::prefix('resources')->group(function () {
+        Route::get('/', [ResourceController::class, 'index']);
+        Route::post('/', [ResourceController::class, 'store']);
+        Route::get('{resource}', [ResourceController::class, 'show']);
+        Route::put('{resource}', [ResourceController::class, 'update']);
+        Route::delete('{resource}', [ResourceController::class, 'destroy']);
+        Route::post('{resource}/share', [ResourceController::class, 'share']);
+    });
+
+    // ---------------------------
+    // التنزيلات
+    // ---------------------------
+    Route::prefix('downloads')->group(function () {
+        Route::get('/', [DownloadController::class, 'index']);
+        Route::get('{id}', [DownloadController::class, 'download']);
+    });
+
+    // ---------------------------
+    // الإحصائيات
+    // ---------------------------
+    Route::prefix('stats')->group(function () {
+        Route::get('dashboard', [StatsController::class, 'dashboard']);
+        Route::get('usage', [StatsController::class, 'usage']);
     });
 });
 
 // ===========================================================================
-// ADMIN INTERACTIVE TEMPLATES ROUTES (تتطلب صلاحيات مدير)
+// PUBLIC CUSTOM REQUESTS ROUTES
+// ===========================================================================
+Route::prefix('custom-requests')->group(function () {
+    Route::get('/', [CustomRequestController::class, 'index']);
+    Route::get('{customRequest}', [CustomRequestController::class, 'show']);
+});
+
+// ===========================================================================
+// ADMIN ROUTES (تتطلب مصادقة + صلاحيات الأدمن)
 // ===========================================================================
 Route::middleware(['auth:sanctum', 'is_admin'])->prefix('admin')->group(function () {
 
     // ---------------------------
-    // إدارة القوالب (Admin Templates)
-    // Full CRUD with TemplateController
+    // إحصائيات الأدمن
+    // ---------------------------
+    Route::prefix('stats')->group(function () {
+        Route::get('overview', [StatsController::class, 'adminOverview']);
+        Route::get('sales', [StatsController::class, 'salesStats']);
+        Route::get('users', [StatsController::class, 'usersStats']);
+        Route::get('templates', [StatsController::class, 'templatesStats']);
+    });
+
+    // ---------------------------
+    // إدارة المستخدمين
+    // ---------------------------
+    Route::prefix('users')->group(function () {
+        Route::get('/', [UserController::class, 'index']);
+        Route::get('{id}', [UserController::class, 'show']);
+        Route::put('{id}', [UserController::class, 'update']);
+        Route::delete('{id}', [UserController::class, 'destroy']);
+        Route::post('{id}/toggle-status', [UserController::class, 'toggleStatus']);
+        Route::post('{id}/toggle-admin', [UserController::class, 'toggleAdmin']);
+    });
+
+    // ---------------------------
+    // إدارة الطلبات
+    // ---------------------------
+    Route::prefix('orders')->group(function () {
+        Route::get('/', [AdminOrderController::class, 'index']);
+        Route::get('{id}', [AdminOrderController::class, 'show']);
+        Route::put('{id}/status', [AdminOrderController::class, 'updateStatus']);
+        Route::get('export', [AdminOrderController::class, 'export']);
+    });
+
+    // ---------------------------
+    // إدارة القوالب (Unified Templates)
     // ---------------------------
     Route::prefix('templates')->group(function () {
-        // قائمة كل القوالب (includes inactive)
+        // قائمة كل القوالب
         Route::get('/', [TemplateController::class, 'adminIndex']);
         
-        // إنشاء قالب جديد
+        // إنشاء قالب
         Route::post('/', [TemplateController::class, 'store']);
         
         // عرض قالب
@@ -691,48 +472,80 @@ Route::middleware(['auth:sanctum', 'is_admin'])->prefix('admin')->group(function
         
         // حذف قالب
         Route::delete('{template}', [TemplateController::class, 'destroy']);
+        
+        // Status/Featured toggles
+        Route::post('{template}/toggle-status', [TemplateController::class, 'toggleStatus']);
+        Route::post('{template}/toggle-featured', [TemplateController::class, 'toggleFeatured']);
     });
 
     // ---------------------------
-    // إدارة الطلبات الخاصة
+    // إدارة التصنيفات
+    // ---------------------------
+    Route::prefix('categories')->group(function () {
+        Route::get('/', [CategoryController::class, 'adminIndex']);
+        Route::post('/', [CategoryController::class, 'store']);
+        Route::get('{id}', [CategoryController::class, 'adminShow']);
+        Route::put('{id}', [CategoryController::class, 'update']);
+        Route::delete('{id}', [CategoryController::class, 'destroy']);
+    });
+
+    // ---------------------------
+    // إدارة الأقسام
+    // ---------------------------
+    Route::prefix('sections')->group(function () {
+        Route::get('/', [SectionController::class, 'adminIndex']);
+        Route::post('/', [SectionController::class, 'store']);
+        Route::get('{id}', [SectionController::class, 'adminShow']);
+        Route::put('{id}', [SectionController::class, 'update']);
+        Route::delete('{id}', [SectionController::class, 'destroy']);
+    });
+
+    // ---------------------------
+    // إدارة القوالب التفاعلية (Interactive Specifics if needed)
+    // ---------------------------
+    Route::prefix('interactive-templates')->group(function () {
+        Route::post('{id}/variants', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'addVariant']);
+        Route::put('{id}/variants/{variantId}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'updateVariant']);
+        Route::delete('{id}/variants/{variantId}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'deleteVariant']);
+        
+        Route::post('{id}/fields', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'addField']);
+        Route::put('{id}/fields/{fieldId}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'updateField']);
+        Route::delete('{id}/fields/{fieldId}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'deleteField']);
+    });
+
+    // ---------------------------
+    // إدارة الطلبات المخصصة
     // ---------------------------
     Route::prefix('custom-requests')->group(function () {
-        // قائمة كل الطلبات
-        Route::get('/', [\App\Http\Controllers\Api\Admin\CustomRequestController::class, 'index']);
-        
-        // تحديث حالة الطلب
-        Route::patch('{id}/status', [\App\Http\Controllers\Api\Admin\CustomRequestController::class, 'updateStatus']);
-        
-        // ربط قالب بالطلب
-        Route::post('{id}/assign-template', [\App\Http\Controllers\Api\Admin\CustomRequestController::class, 'assignTemplate']);
+        Route::get('/', [CustomRequestController::class, 'adminIndex']);
+        Route::get('{id}', [CustomRequestController::class, 'adminShow']);
+        Route::put('{id}/status', [CustomRequestController::class, 'updateStatus']);
+        Route::post('{id}/assign', [CustomRequestController::class, 'assign']);
+        Route::post('{id}/complete', [CustomRequestController::class, 'complete']);
     });
 
     // ---------------------------
-    // إدارة الموارد
-    // ---------------------------
-    Route::prefix('resources')->group(function () {
-        // قائمة كل الموارد
-        Route::get('/', [\App\Http\Controllers\Api\Admin\ResourceController::class, 'index']);
-        
-        // إنشاء مورد
-        Route::post('/', [\App\Http\Controllers\Api\Admin\ResourceController::class, 'store']);
-        
-        // تحديث مورد
-        Route::put('{id}', [\App\Http\Controllers\Api\Admin\ResourceController::class, 'update']);
-        
-        // حذف مورد
-        Route::delete('{id}', [\App\Http\Controllers\Api\Admin\ResourceController::class, 'destroy']);
-    });
-
-    // ---------------------------
-    // إرسال الإشعارات
+    // إدارة الإشعارات
     // ---------------------------
     Route::prefix('notifications')->group(function () {
-        // إرسال إشعار لمستخدم
-        Route::post('send', [\App\Http\Controllers\Api\Admin\NotificationController::class, 'send']);
-        
-        // إرسال إشعار للجميع
-        Route::post('broadcast', [\App\Http\Controllers\Api\Admin\NotificationController::class, 'broadcast']);
+        Route::post('send', [NotificationController::class, 'send']);
+        Route::post('broadcast', [NotificationController::class, 'broadcast']);
+    });
+
+    // ---------------------------
+    // إدارة مكتبة المحتوى
+    // ---------------------------
+    Route::prefix('content-library')->group(function () {
+        Route::post('/', [ContentLibraryController::class, 'store']);
+        Route::put('{id}', [ContentLibraryController::class, 'update']);
+        Route::delete('{id}', [ContentLibraryController::class, 'destroy']);
+    });
+
+    // ---------------------------
+    // إعدادات النظام
+    // ---------------------------
+    Route::prefix('settings')->group(function () {
+        Route::get('/', [StatsController::class, 'getSettings']);
+        Route::put('/', [StatsController::class, 'updateSettings']);
     });
 });
-

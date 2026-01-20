@@ -431,5 +431,37 @@ class TemplateController extends Controller
             'message' => 'تم حذف القالب بنجاح'
         ]);
     }
+
+    /**
+     * Admin: Toggle template active status.
+     */
+    public function toggleStatus(Template $template): JsonResponse
+    {
+        $template->update([
+            'is_active' => !$template->is_active
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => $template->is_active ? 'تم تفعيل القالب' : 'تم إلغاء تفعيل القالب',
+            'data' => $template->fresh()
+        ]);
+    }
+
+    /**
+     * Admin: Toggle template featured status.
+     */
+    public function toggleFeatured(Template $template): JsonResponse
+    {
+        $template->update([
+            'is_featured' => !$template->is_featured
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => $template->is_featured ? 'تم تمييز القالب' : 'تم إلغاء تمييز القالب',
+            'data' => $template->fresh()
+        ]);
+    }
 }
 

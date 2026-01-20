@@ -7,7 +7,7 @@ import { MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 interface SearchResult {
     id: string;
-    type: 'user' | 'product' | 'order';
+    type: 'user' | 'template' | 'order';
     title: string;
     subtitle: string;
     icon: string;
@@ -17,7 +17,7 @@ interface SearchResult {
 /**
  * GlobalSearch Component
  * 
- * A unified search bar that searches across Users, Products, and Orders
+ * A unified search bar that searches across Users, Templates, and Orders
  * with keyboard navigation and real-time results.
  */
 export default function GlobalSearch() {
@@ -62,16 +62,16 @@ export default function GlobalSearch() {
                 });
             }
 
-            // Process products
+            // Process templates
             if (productsRes.status === 'fulfilled' && productsRes.value.data) {
-                productsRes.value.data.slice(0, 4).forEach((product: any) => {
+                productsRes.value.data.slice(0, 4).forEach((template: any) => {
                     combined.push({
-                        id: product.id,
-                        type: 'product',
-                        title: product.name_ar,
-                        subtitle: product.category?.name_ar || 'بدون تصنيف',
+                        id: template.id,
+                        type: 'template',
+                        title: template.name_ar,
+                        subtitle: template.category?.name_ar || 'بدون تصنيف',
                         icon: '📋',
-                        href: `/admin/templates/${product.id}/edit`,
+                        href: `/admin/templates/${template.id}/edit`,
                     });
                 });
             }
@@ -153,7 +153,7 @@ export default function GlobalSearch() {
     const getTypeLabel = (type: string) => {
         switch (type) {
             case 'user': return 'مستخدم';
-            case 'product': return 'منتج';
+            case 'template': return 'قالب';
             case 'order': return 'طلب';
             default: return type;
         }
@@ -162,7 +162,7 @@ export default function GlobalSearch() {
     const getTypeBgColor = (type: string) => {
         switch (type) {
             case 'user': return 'bg-purple-100 text-purple-700';
-            case 'product': return 'bg-blue-100 text-blue-700';
+            case 'template': return 'bg-blue-100 text-blue-700';
             case 'order': return 'bg-green-100 text-green-700';
             default: return 'bg-gray-100 text-gray-700';
         }
@@ -198,7 +198,7 @@ export default function GlobalSearch() {
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
                                 onKeyDown={handleKeyDown}
-                                placeholder="ابحث عن المستخدمين، المنتجات، أو الطلبات..."
+                                placeholder="ابحث عن المستخدمين، القوالب، أو الطلبات..."
                                 className="flex-1 text-lg outline-none placeholder:text-gray-400 bg-transparent text-gray-900 dark:text-white"
                                 dir="rtl"
                             />
@@ -227,7 +227,7 @@ export default function GlobalSearch() {
                                     <p className="text-sm">ابدأ بكتابة للبحث في:</p>
                                     <div className="flex justify-center gap-4 mt-3">
                                         <span className="px-2 py-1 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 rounded text-xs">👤 المستخدمين</span>
-                                        <span className="px-2 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded text-xs">📦 المنتجات</span>
+                                        <span className="px-2 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded text-xs">📦 القوالب</span>
                                         <span className="px-2 py-1 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded text-xs">🛒 الطلبات</span>
                                     </div>
                                 </div>

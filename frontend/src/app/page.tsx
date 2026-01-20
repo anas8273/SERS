@@ -8,6 +8,7 @@ import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
 import { TemplateCardSkeleton } from '@/components/ui/skeletons';
+import { ServicesSection, AISection } from '@/components/services';
 import { 
     Star, 
     ArrowLeft, 
@@ -263,6 +264,12 @@ export default function HomePage() {
                         </div>
                     </div>
                 </section>
+
+                {/* Services Section */}
+                <ServicesSection />
+
+                {/* AI Section */}
+                <AISection />
 
                 {/* Features Grid */}
                 <section className="py-24 bg-gray-50 dark:bg-gray-900/50">
