@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { api } from '@/lib/api';
@@ -11,8 +11,26 @@ import { Button } from '@/components/ui/button';
 import { WishlistButton } from '@/components/products/WishlistButton';
 import { ProductReviews } from '@/components/products/ProductReviews';
 import { useCartStore } from '@/stores/cartStore';
+import { useAuth } from '@/hooks/useAuth';
 import toast from 'react-hot-toast';
 import type { Product } from '@/types';
+import {
+    Download,
+    Edit3,
+    Sparkles,
+    FileText,
+    Zap,
+    CheckCircle,
+    ShoppingCart,
+    CreditCard,
+    ArrowLeft,
+    Star,
+    Users,
+    Clock,
+    Shield,
+    MessageSquare,
+    Loader2,
+} from 'lucide-react';
 
 function formatPrice(amount: number): string {
     return new Intl.NumberFormat('ar-SA', {
@@ -22,14 +40,20 @@ function formatPrice(amount: number): string {
     }).format(amount);
 }
 
+type TemplateMode = 'ready' | 'interactive';
+
 export default function ProductDetailsPage() {
     const params = useParams();
+    const router = useRouter();
     const slug = params.slug as string;
     const { addItem, items } = useCartStore();
+    const { user, isAuthenticated } = useAuth();
 
     const [product, setProduct] = useState<Product | null>(null);
     const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [selectedMode, setSelectedMode] = useState<TemplateMode>('interactive');
+    const [isProcessing, setIsProcessing] = useState(false);
 
     const isInCart = product ? items.some((item) => item.templateId === product.id) : false;
 
@@ -80,25 +104,77 @@ export default function ProductDetailsPage() {
             name: product.name_ar,
             price: product.discount_price || product.price,
             thumbnail: product.thumbnail_url || '',
-            type: product.type,
+            type: selectedMode === 'interactive' ? 'interactive' : 'ready',
         });
         toast.success('تمت الإضافة للسلة 🛒');
     };
 
+    const handleProceed = async () => {
+        if (!product) return;
+
+        if (!isAuthenticated) {
+            toast.error('يجب تسجيل الدخول أولاً');
+            router.push('/login');
+            return;
+        }
+
+        setIsProcessing(true);
+
+        try {
+            if (selectedMode === 'ready') {
+                // الوضع الجاهز: إضافة للسلة ثم الانتقال للدفع
+                if (!isInCart) {
+                    addItem({
+                        templateId: product.id,
+                        name: product.name_ar,
+                        price: product.discount_price || product.price,
+                        thumbnail: product.thumbnail_url || '',
+                        type: 'ready',
+                    });
+                }
+                toast.success('تم إضافة القالب الجاهز للسلة');
+                router.push('/checkout');
+            } else {
+                // الوضع التفاعلي: الانتقال لصفحة المحرر
+                if (product.is_free) {
+                    // إذا كان مجاني، انتقل مباشرة للمحرر
+                    router.push(`/editor/${product.slug}`);
+                } else {
+                    // إذا كان مدفوع، تحقق من الشراء أو أضف للسلة
+                    if (!isInCart) {
+                        addItem({
+                            templateId: product.id,
+                            name: product.name_ar,
+                            price: product.discount_price || product.price,
+                            thumbnail: product.thumbnail_url || '',
+                            type: 'interactive',
+                        });
+                    }
+                    toast.success('تم إضافة القالب التفاعلي للسلة');
+                    router.push('/checkout');
+                }
+            }
+        } catch (error) {
+            toast.error('حدث خطأ، يرجى المحاولة مرة أخرى');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
     if (isLoading) {
         return (
-            <div className="min-h-screen flex flex-col">
+            <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
                 <Navbar />
                 <main className="flex-1 max-w-7xl mx-auto px-4 py-8 w-full">
                     <div className="animate-pulse">
-                        <div className="h-8 bg-gray-200 rounded w-48 mb-8"></div>
+                        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-48 mb-8"></div>
                         <div className="grid lg:grid-cols-2 gap-12">
-                            <div className="aspect-square bg-gray-200 rounded-2xl"></div>
+                            <div className="aspect-square bg-gray-200 dark:bg-gray-700 rounded-2xl"></div>
                             <div className="space-y-4">
-                                <div className="h-10 bg-gray-200 rounded w-3/4"></div>
-                                <div className="h-6 bg-gray-200 rounded w-1/2"></div>
-                                <div className="h-32 bg-gray-200 rounded"></div>
-                                <div className="h-12 bg-gray-200 rounded w-32"></div>
+                                <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                                <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                                <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
                             </div>
                         </div>
                     </div>
@@ -110,15 +186,15 @@ export default function ProductDetailsPage() {
 
     if (!product) {
         return (
-            <div className="min-h-screen flex flex-col">
+            <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
                 <Navbar />
                 <main className="flex-1 flex items-center justify-center">
                     <div className="text-center">
                         <div className="text-6xl mb-4">😕</div>
-                        <h1 className="text-2xl font-bold text-gray-900 mb-2">المنتج غير موجود</h1>
-                        <p className="text-gray-600 mb-6">ربما تم حذف هذا المنتج أو نقله</p>
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">القالب غير موجود</h1>
+                        <p className="text-gray-600 dark:text-gray-400 mb-6">ربما تم حذف هذا القالب أو نقله</p>
                         <Link href="/marketplace">
-                            <Button className="bg-primary-600 hover:bg-primary-700 text-white">
+                            <Button className="bg-primary hover:bg-primary/90 text-white">
                                 العودة للمتجر
                             </Button>
                         </Link>
@@ -135,16 +211,16 @@ export default function ProductDetailsPage() {
         : 0;
 
     return (
-        <div className="min-h-screen flex flex-col">
+        <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950" dir="rtl">
             <Navbar />
 
             <main className="flex-1">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                     {/* Breadcrumb */}
                     <nav className="mb-8 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                        <Link href="/" className="hover:text-primary-600 dark:hover:text-primary-400">الرئيسية</Link>
+                        <Link href="/" className="hover:text-primary transition-colors">الرئيسية</Link>
                         <span>/</span>
-                        <Link href="/marketplace" className="hover:text-primary-600 dark:hover:text-primary-400">المتجر</Link>
+                        <Link href="/marketplace" className="hover:text-primary transition-colors">سوق القوالب</Link>
                         <span>/</span>
                         <span className="text-gray-900 dark:text-gray-100">{product.name_ar}</span>
                     </nav>
@@ -153,7 +229,7 @@ export default function ProductDetailsPage() {
                     <div className="grid lg:grid-cols-2 gap-12 mb-16">
                         {/* Image */}
                         <div className="relative">
-                            <div className="relative aspect-square bg-gray-100 dark:bg-gray-700 rounded-3xl overflow-hidden">
+                            <div className="relative aspect-square bg-gray-100 dark:bg-gray-800 rounded-3xl overflow-hidden shadow-xl">
                                 {product.thumbnail_url ? (
                                     <Image
                                         src={product.thumbnail_url}
@@ -162,23 +238,22 @@ export default function ProductDetailsPage() {
                                         className="object-cover"
                                     />
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary-100 to-primary-200 dark:from-gray-700 dark:to-gray-600">
-                                        <span className="text-9xl">📚</span>
+                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/20">
+                                        <FileText className="w-24 h-24 text-primary/40" />
                                     </div>
                                 )}
 
                                 {/* Badges */}
                                 {hasDiscount && (
-                                    <span className="absolute top-4 right-4 px-4 py-2 bg-red-500 text-white font-bold rounded-xl">
+                                    <span className="absolute top-4 right-4 px-4 py-2 bg-red-500 text-white font-bold rounded-xl shadow-lg">
                                         خصم {discountPercent}%
                                     </span>
                                 )}
-                                <span className={`absolute top-4 left-4 px-4 py-2 rounded-xl font-medium ${product.type === 'interactive'
-                                    ? 'bg-blue-500 text-white'
-                                    : 'bg-gray-700 dark:bg-gray-900 text-white'
-                                    }`}>
-                                    {product.type === 'interactive' ? '🔄 تفاعلي' : '📥 قابل للتحميل'}
-                                </span>
+                                {product.is_free && (
+                                    <span className="absolute top-4 left-4 px-4 py-2 bg-green-500 text-white font-bold rounded-xl shadow-lg">
+                                        مجاني
+                                    </span>
+                                )}
                             </div>
 
                             {/* Wishlist Button */}
@@ -190,13 +265,13 @@ export default function ProductDetailsPage() {
                         {/* Info */}
                         <div className="space-y-6">
                             <div>
-                                <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                                <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-3">
                                     {product.name_ar}
                                 </h1>
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-4 flex-wrap">
                                     <div className="flex items-center gap-1">
-                                        <span className="text-yellow-400 text-xl">⭐</span>
-                                        <span className="font-semibold text-lg text-gray-900 dark:text-gray-100">
+                                        <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+                                        <span className="font-semibold text-lg text-gray-900 dark:text-white">
                                             {Number(product.average_rating || 0).toFixed(1)}
                                         </span>
                                         <span className="text-gray-500 dark:text-gray-400">
@@ -204,16 +279,17 @@ export default function ProductDetailsPage() {
                                         </span>
                                     </div>
                                     <span className="text-gray-300 dark:text-gray-600">|</span>
-                                    <span className="text-gray-500 dark:text-gray-400">
-                                        {product.downloads_count || 0} عملية شراء
+                                    <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                                        <Users className="w-4 h-4" />
+                                        {product.downloads_count || 0} مستخدم
                                     </span>
                                 </div>
                             </div>
 
                             {/* Price */}
                             <div className="flex items-center gap-4">
-                                <span className="text-4xl font-bold text-primary-600 dark:text-primary-400">
-                                    {formatPrice(product.discount_price || product.price)}
+                                <span className="text-4xl font-bold text-primary">
+                                    {product.is_free ? 'مجاني' : formatPrice(product.discount_price || product.price)}
                                 </span>
                                 {hasDiscount && (
                                     <span className="text-2xl text-gray-400 line-through">
@@ -227,27 +303,159 @@ export default function ProductDetailsPage() {
                                 <p>{product.description_ar}</p>
                             </div>
 
-                            {/* Tags */}
-                            {product.tags && product.tags.length > 0 && (
-                                <div className="flex flex-wrap gap-2">
-                                    {product.tags.map((tag, i) => (
-                                        <span
-                                            key={i}
-                                            className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-full text-sm"
-                                        >
-                                            #{tag}
-                                        </span>
-                                    ))}
+                            {/* ========== اختيار نوع القالب ========== */}
+                            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                    <Sparkles className="w-5 h-5 text-primary" />
+                                    اختر طريقة الاستخدام
+                                </h3>
+                                
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {/* خيار التفاعلي */}
+                                    <button
+                                        onClick={() => setSelectedMode('interactive')}
+                                        className={`relative p-5 rounded-xl border-2 transition-all duration-300 text-right ${
+                                            selectedMode === 'interactive'
+                                                ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
+                                                : 'border-gray-200 dark:border-gray-600 hover:border-primary/50'
+                                        }`}
+                                    >
+                                        {selectedMode === 'interactive' && (
+                                            <div className="absolute top-3 left-3">
+                                                <CheckCircle className="w-6 h-6 text-primary fill-primary/20" />
+                                            </div>
+                                        )}
+                                        <div className="flex items-start gap-3">
+                                            <div className={`p-3 rounded-xl ${
+                                                selectedMode === 'interactive' 
+                                                    ? 'bg-primary text-white' 
+                                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                                            }`}>
+                                                <Edit3 className="w-6 h-6" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <h4 className="font-bold text-gray-900 dark:text-white mb-1">
+                                                    تفاعلي
+                                                </h4>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                                                    عبّئ البيانات بنفسك مع مساعدة الذكاء الاصطناعي
+                                                </p>
+                                                <div className="flex flex-wrap gap-2">
+                                                    <span className="inline-flex items-center gap-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full">
+                                                        <Zap className="w-3 h-3" />
+                                                        اقتراحات ذكية
+                                                    </span>
+                                                    <span className="inline-flex items-center gap-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-2 py-1 rounded-full">
+                                                        <Edit3 className="w-3 h-3" />
+                                                        تخصيص كامل
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </button>
+
+                                    {/* خيار الجاهز */}
+                                    <button
+                                        onClick={() => setSelectedMode('ready')}
+                                        className={`relative p-5 rounded-xl border-2 transition-all duration-300 text-right ${
+                                            selectedMode === 'ready'
+                                                ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
+                                                : 'border-gray-200 dark:border-gray-600 hover:border-primary/50'
+                                        }`}
+                                    >
+                                        {selectedMode === 'ready' && (
+                                            <div className="absolute top-3 left-3">
+                                                <CheckCircle className="w-6 h-6 text-primary fill-primary/20" />
+                                            </div>
+                                        )}
+                                        <div className="flex items-start gap-3">
+                                            <div className={`p-3 rounded-xl ${
+                                                selectedMode === 'ready' 
+                                                    ? 'bg-primary text-white' 
+                                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                                            }`}>
+                                                <Download className="w-6 h-6" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <h4 className="font-bold text-gray-900 dark:text-white mb-1">
+                                                    جاهز للتحميل
+                                                </h4>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                                                    حمّل القالب كملف PDF جاهز للطباعة
+                                                </p>
+                                                <div className="flex flex-wrap gap-2">
+                                                    <span className="inline-flex items-center gap-1 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 px-2 py-1 rounded-full">
+                                                        <FileText className="w-3 h-3" />
+                                                        PDF جاهز
+                                                    </span>
+                                                    <span className="inline-flex items-center gap-1 text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-2 py-1 rounded-full">
+                                                        <Clock className="w-3 h-3" />
+                                                        فوري
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </button>
                                 </div>
-                            )}
+                            </div>
+
+                            {/* زر المتابعة */}
+                            <div className="space-y-4">
+                                <Button
+                                    onClick={handleProceed}
+                                    disabled={isProcessing}
+                                    size="lg"
+                                    className="w-full py-6 text-lg font-bold bg-primary hover:bg-primary/90 text-white shadow-xl shadow-primary/20"
+                                >
+                                    {isProcessing ? (
+                                        <>
+                                            <Loader2 className="w-5 h-5 ml-2 animate-spin" />
+                                            جاري المعالجة...
+                                        </>
+                                    ) : selectedMode === 'interactive' ? (
+                                        <>
+                                            <Edit3 className="w-5 h-5 ml-2" />
+                                            {product.is_free ? 'ابدأ التعديل الآن' : 'اشترِ وابدأ التعديل'}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Download className="w-5 h-5 ml-2" />
+                                            {product.is_free ? 'حمّل الآن مجاناً' : 'اشترِ وحمّل'}
+                                        </>
+                                    )}
+                                </Button>
+
+                                {/* أو أضف للسلة */}
+                                {!product.is_free && (
+                                    <Button
+                                        onClick={handleAddToCart}
+                                        disabled={isInCart}
+                                        variant="outline"
+                                        size="lg"
+                                        className="w-full py-4"
+                                    >
+                                        {isInCart ? (
+                                            <>
+                                                <CheckCircle className="w-5 h-5 ml-2" />
+                                                موجود في السلة
+                                            </>
+                                        ) : (
+                                            <>
+                                                <ShoppingCart className="w-5 h-5 ml-2" />
+                                                أضف للسلة
+                                            </>
+                                        )}
+                                    </Button>
+                                )}
+                            </div>
 
                             {/* Meta Info */}
-                            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-6 space-y-3 dark:border dark:border-gray-700">
-                                <div className="flex justify-between">
+                            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-5 space-y-3 border border-gray-100 dark:border-gray-700">
+                                <div className="flex justify-between items-center">
                                     <span className="text-gray-600 dark:text-gray-400">التصنيف</span>
                                     <span className="font-medium text-gray-900 dark:text-gray-200">{product.category?.name_ar || 'عام'}</span>
                                 </div>
-                                <div className="flex justify-between">
+                                <div className="flex justify-between items-center">
                                     <span className="text-gray-600 dark:text-gray-400">المرحلة التعليمية</span>
                                     <span className="font-medium text-gray-900 dark:text-gray-200">
                                         {product.educational_stage === 'kindergarten' ? 'رياض الأطفال' :
@@ -255,46 +463,20 @@ export default function ProductDetailsPage() {
                                                 product.educational_stage === 'intermediate' ? 'متوسط' : 'عام'}
                                     </span>
                                 </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600 dark:text-gray-400">نوع المنتج</span>
-                                    <span className="font-medium text-gray-900 dark:text-gray-200">
-                                        {product.type === 'interactive' ? 'تفاعلي (يعمل أونلاين)' : 'ملف قابل للتحميل'}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Add to Cart */}
-                            <div className="flex gap-4">
-                                <Button
-                                    onClick={handleAddToCart}
-                                    disabled={isInCart}
-                                    size="lg"
-                                    className={`flex-1 py-4 text-lg font-semibold ${isInCart
-                                        ? 'bg-gray-400 cursor-not-allowed'
-                                        : 'bg-primary-600 hover:bg-primary-700'
-                                        } text-white`}
-                                >
-                                    {isInCart ? '✓ موجود في السلة' : '🛒 أضف للسلة'}
-                                </Button>
-                                <Link href="/cart" className={isInCart ? '' : 'hidden'}>
-                                    <Button size="lg" variant="outline" className="py-4 dark:text-gray-100 dark:border-gray-600 dark:hover:bg-gray-800">
-                                        عرض السلة
-                                    </Button>
-                                </Link>
                             </div>
 
                             {/* Trust Badges */}
-                            <div className="flex items-center gap-6 text-sm text-gray-500 dark:text-gray-400 pt-4">
+                            <div className="flex items-center gap-6 text-sm text-gray-500 dark:text-gray-400 pt-4 flex-wrap">
                                 <div className="flex items-center gap-2">
-                                    <span>🔒</span>
+                                    <Shield className="w-4 h-4 text-green-500" />
                                     <span>دفع آمن</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span>⚡</span>
+                                    <Zap className="w-4 h-4 text-yellow-500" />
                                     <span>وصول فوري</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span>💬</span>
+                                    <MessageSquare className="w-4 h-4 text-blue-500" />
                                     <span>دعم سريع</span>
                                 </div>
                             </div>
@@ -309,15 +491,16 @@ export default function ProductDetailsPage() {
                     {/* Related Products Section */}
                     {relatedProducts.length > 0 && (
                         <div className="border-t dark:border-gray-700 pt-12 mt-12">
-                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-                                منتجات مشابهة 🎯
+                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+                                <Sparkles className="w-6 h-6 text-primary" />
+                                قوالب مشابهة
                             </h2>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                                 {relatedProducts.map((relatedProduct) => (
                                     <Link
                                         key={relatedProduct.id}
                                         href={`/marketplace/${relatedProduct.slug}`}
-                                        className="group bg-white dark:bg-gray-800 rounded-xl overflow-hidden border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg transition-all duration-300"
+                                        className="group bg-white dark:bg-gray-800 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-xl transition-all duration-300"
                                     >
                                         <div className="relative aspect-[4/3] bg-gray-100 dark:bg-gray-700">
                                             {relatedProduct.thumbnail_url ? (
@@ -328,19 +511,21 @@ export default function ProductDetailsPage() {
                                                     className="object-cover group-hover:scale-105 transition-transform duration-300"
                                                 />
                                             ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-4xl">📚</div>
+                                                <div className="w-full h-full flex items-center justify-center">
+                                                    <FileText className="w-12 h-12 text-gray-300" />
+                                                </div>
                                             )}
                                         </div>
                                         <div className="p-4">
-                                            <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-1 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                                            <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-1 group-hover:text-primary transition-colors">
                                                 {relatedProduct.name_ar}
                                             </h3>
                                             <div className="flex items-center justify-between mt-2">
-                                                <span className="text-primary-600 dark:text-primary-400 font-bold">
-                                                    {formatPrice(relatedProduct.discount_price || relatedProduct.price)}
+                                                <span className="text-primary font-bold">
+                                                    {relatedProduct.is_free ? 'مجاني' : formatPrice(relatedProduct.discount_price || relatedProduct.price)}
                                                 </span>
                                                 <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
-                                                    <span className="text-yellow-400">⭐</span>
+                                                    <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
                                                     <span>{Number(relatedProduct.average_rating || 0).toFixed(1)}</span>
                                                 </div>
                                             </div>
