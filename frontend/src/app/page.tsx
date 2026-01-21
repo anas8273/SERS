@@ -9,13 +9,13 @@ import { Footer } from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
 import { TemplateCardSkeleton } from '@/components/ui/skeletons';
 import { ServicesSection, AISection } from '@/components/services';
-import { 
-    Star, 
-    ArrowLeft, 
-    Zap, 
-    ShieldCheck, 
-    Layout, 
-    Users, 
+import {
+    Star,
+    ArrowLeft,
+    Zap,
+    ShieldCheck,
+    Layout,
+    Users,
     Sparkles,
     BookOpen,
     GraduationCap,
@@ -44,8 +44,11 @@ export default function HomePage() {
                     api.getFeaturedProducts().catch(() => ({ data: [] })),
                     api.getCategories().catch(() => ({ data: [] })),
                 ]);
-                setFeaturedTemplates(templatesRes.data?.slice(0, 8) || []);
-                setCategories(categoriesRes.data?.slice(0, 6) || []);
+                // Handle both paginated {data: [...]} and direct array responses
+                const templatesData = templatesRes.data?.data || templatesRes.data || [];
+                const categoriesData = categoriesRes.data?.data || categoriesRes.data || [];
+                setFeaturedTemplates(Array.isArray(templatesData) ? templatesData.slice(0, 8) : []);
+                setCategories(Array.isArray(categoriesData) ? categoriesData.slice(0, 6) : []);
             } catch (error) {
                 console.error('Failed to fetch data:', error);
             } finally {
@@ -81,7 +84,7 @@ export default function HomePage() {
                             </h1>
 
                             <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed animate-slide-up" style={{ animationDelay: '0.1s' }}>
-                                اكتشف مئات القوالب التعليمية التفاعلية المدعومة بالذكاء الاصطناعي. 
+                                اكتشف مئات القوالب التعليمية التفاعلية المدعومة بالذكاء الاصطناعي.
                                 صممت خصيصاً لتوفير وقتك وإبهار طلابك.
                             </p>
 
@@ -141,9 +144,9 @@ export default function HomePage() {
                                 >
                                     <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary/5 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors duration-500">
                                         {category.slug.includes('baby') || category.slug.includes('kindergarten') ? <Baby className="w-8 h-8" /> :
-                                         category.slug.includes('school') || category.slug.includes('primary') ? <BookOpen className="w-8 h-8" /> :
-                                         category.slug.includes('high') || category.slug.includes('grad') ? <GraduationCap className="w-8 h-8" /> :
-                                         <Palette className="w-8 h-8" />}
+                                            category.slug.includes('school') || category.slug.includes('primary') ? <BookOpen className="w-8 h-8" /> :
+                                                category.slug.includes('high') || category.slug.includes('grad') ? <GraduationCap className="w-8 h-8" /> :
+                                                    <Palette className="w-8 h-8" />}
                                     </div>
                                     <h3 className="font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors">
                                         {category.name_ar}
@@ -280,17 +283,17 @@ export default function HomePage() {
                         </div>
 
                         <div className="grid md:grid-cols-3 gap-8">
-                            <FeatureCard 
+                            <FeatureCard
                                 icon={<Zap className="w-8 h-8" />}
                                 title="سرعة فائقة"
                                 description="صمم سجلاتك في دقائق معدودة بدلاً من ساعات العمل الطويلة."
                             />
-                            <FeatureCard 
+                            <FeatureCard
                                 icon={<Sparkles className="w-8 h-8" />}
                                 title="ذكاء اصطناعي"
                                 description="استخدم مساعدنا الذكي لتوليد المحتوى واقتراح الأفكار الإبداعية."
                             />
-                            <FeatureCard 
+                            <FeatureCard
                                 icon={<ShieldCheck className="w-8 h-8" />}
                                 title="جودة مضمونة"
                                 description="جميع القوالب مراجعة من قبل خبراء تربويين لضمان فعاليتها."

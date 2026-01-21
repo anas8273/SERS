@@ -1,5 +1,6 @@
 <?php
 // routes/api.php
+// Last verified clean: 2026-01-20 - No merge conflicts
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
