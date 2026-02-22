@@ -11,12 +11,13 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import type {
   TemplateCanvas, DynamicFormConfig, DynamicFormField, AIPromptConfig,
-  CanvasElement, CanvasVariant, UserRecord, Template,
+  CanvasElement, UserRecord, Template,
 } from '@/types';
 
 // ============================================================
 // DYNAMIC EDITOR - Single route for ALL templates
 // Fetches form structure + canvas data from Firestore
+// DOM-based live preview for pixel-perfect PDF export
 // ============================================================
 
 export default function DynamicEditorPage() {
@@ -56,8 +57,9 @@ export default function DynamicEditorPage() {
   const [progress, setProgress] = useState(0);
   const [undoStack, setUndoStack] = useState<Record<string, any>[]>([]);
   const [redoStack, setRedoStack] = useState<Record<string, any>[]>([]);
+  const [exportSuccess, setExportSuccess] = useState(false);
 
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<NodeJS.Timeout | null>(null);
 
   // ============================================================
@@ -70,9 +72,13 @@ export default function DynamicEditorPage() {
         setError(null);
 
         // 1. Fetch template metadata from MySQL (via Laravel API)
-        const metaResponse = await api.getTemplate(templateId);
-        if (metaResponse?.data) {
-          setTemplateMeta(metaResponse.data);
+        try {
+          const metaResponse = await api.getTemplate(templateId);
+          if (metaResponse?.data) {
+            setTemplateMeta(metaResponse.data);
+          }
+        } catch (e) {
+          console.log('Template metadata not available from API');
         }
 
         // 2. Fetch dynamic data from Firestore (parallel)
@@ -161,87 +167,10 @@ export default function DynamicEditorPage() {
   }, [fieldValues, selectedVariant, currentRecordId, formConfig]);
 
   // ============================================================
-  // CANVAS RENDERING
-  // ============================================================
-  const renderCanvas = useCallback(() => {
-    if (!canvasRef.current || !canvas) return;
-    const ctx = canvasRef.current.getContext('2d');
-    if (!ctx) return;
-
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-
-    // Use variant background if selected
-    const variant = canvas.variants?.find(v => v.id === selectedVariant);
-    const bgUrl = variant?.background_url || canvas.background_url;
-
-    img.onload = () => {
-      const cw = canvasRef.current!.width;
-      const ch = canvasRef.current!.height;
-      ctx.clearRect(0, 0, cw, ch);
-      ctx.drawImage(img, 0, 0, cw, ch);
-
-      // Draw each element with its value
-      const elements = canvas.elements || [];
-      elements.forEach(el => {
-        if (!el.is_visible) return;
-        const value = fieldValues[el.field_id] || '';
-        if (!value) return;
-
-        const x = (el.x / 100) * cw;
-        const y = (el.y / 100) * ch;
-        const w = (el.width / 100) * cw;
-        const h = (el.height / 100) * ch;
-
-        ctx.save();
-        if (el.rotation) {
-          ctx.translate(x + w / 2, y + h / 2);
-          ctx.rotate((el.rotation * Math.PI) / 180);
-          ctx.translate(-(x + w / 2), -(y + h / 2));
-        }
-
-        ctx.font = `${el.font_weight} ${el.font_size}px ${el.font_family}`;
-        ctx.fillStyle = el.color;
-        ctx.textAlign = el.text_align as CanvasTextAlign;
-        ctx.textBaseline = 'top';
-
-        // Handle multi-line text
-        const lines = String(value).split('\n');
-        const lineHeight = el.font_size * 1.4;
-        const textX = el.text_align === 'center' ? x + w / 2 : el.text_align === 'right' ? x + w : x;
-
-        lines.slice(0, el.max_lines || 10).forEach((line, i) => {
-          ctx.fillText(line, textX, y + i * lineHeight, w);
-        });
-
-        ctx.restore();
-      });
-    };
-
-    img.onerror = () => {
-      // Draw placeholder if image fails
-      const cw = canvasRef.current!.width;
-      const ch = canvasRef.current!.height;
-      ctx.fillStyle = '#f3f4f6';
-      ctx.fillRect(0, 0, cw, ch);
-      ctx.fillStyle = '#9ca3af';
-      ctx.font = '16px Cairo';
-      ctx.textAlign = 'center';
-      ctx.fillText('لم يتم تحميل خلفية القالب', cw / 2, ch / 2);
-    };
-
-    img.src = bgUrl;
-  }, [canvas, fieldValues, selectedVariant]);
-
-  useEffect(() => {
-    renderCanvas();
-  }, [renderCanvas, zoom]);
-
-  // ============================================================
   // FIELD CHANGE HANDLER
   // ============================================================
   const handleFieldChange = (fieldId: string, value: any) => {
-    setUndoStack(prev => [...prev, { ...fieldValues }]);
+    setUndoStack(prev => [...prev.slice(-20), { ...fieldValues }]);
     setRedoStack([]);
     setFieldValues(prev => ({ ...prev, [fieldId]: value }));
   };
@@ -271,7 +200,6 @@ export default function DynamicEditorPage() {
       const fieldPrompt = aiConfig.field_prompts.find(p => p.field_id === field.id);
       if (!fieldPrompt) return;
 
-      // Build context from other fields
       const context: Record<string, string> = {};
       (fieldPrompt.context_fields || []).forEach(fid => {
         if (fieldValues[fid]) context[fid] = fieldValues[fid];
@@ -332,7 +260,7 @@ export default function DynamicEditorPage() {
   };
 
   // ============================================================
-  // SAVE & EXPORT
+  // SAVE
   // ============================================================
   const handleSave = async () => {
     if (!user) return;
@@ -361,35 +289,72 @@ export default function DynamicEditorPage() {
     }
   };
 
+  // ============================================================
+  // EXPORT (Client-side with html2canvas + jspdf)
+  // ============================================================
   const handleExport = async (format: 'pdf' | 'image') => {
+    if (!previewRef.current) return;
     setExporting(true);
+    setExportSuccess(false);
+
     try {
       // Save first
       await handleSave();
 
-      // Export via canvas
-      if (canvasRef.current) {
-        if (format === 'image') {
-          const dataUrl = canvasRef.current.toDataURL('image/png');
-          const link = document.createElement('a');
-          link.download = `${templateMeta?.name_ar || 'template'}.png`;
-          link.href = dataUrl;
-          link.click();
-        } else {
-          // For PDF, we use the API
-          const response = await api.exportTemplate(currentRecordId || '', format);
-          if (response?.data?.url) {
-            window.open(response.data.url, '_blank');
-          }
-        }
+      // Dynamic import for client-side only
+      const html2canvas = (await import('html2canvas')).default;
 
-        // Update record status
-        if (currentRecordId) {
-          await updateUserRecord(currentRecordId, { status: 'exported' });
-        }
+      const previewEl = previewRef.current;
+      const canvasWidth = canvas?.canvas_width || 794;
+      const canvasHeight = canvas?.canvas_height || 1123;
+
+      // Render the preview div to canvas at original resolution
+      const renderedCanvas = await html2canvas(previewEl, {
+        scale: 2, // 2x for high quality
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        width: canvasWidth,
+        height: canvasHeight,
+        windowWidth: canvasWidth,
+        windowHeight: canvasHeight,
+      });
+
+      if (format === 'image') {
+        // Export as PNG
+        const dataUrl = renderedCanvas.toDataURL('image/png', 1.0);
+        const link = document.createElement('a');
+        link.download = `${templateMeta?.name_ar || 'template'}_${Date.now()}.png`;
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // Export as PDF using jspdf
+        const jsPDF = (await import('jspdf')).default;
+
+        const isLandscape = canvasWidth > canvasHeight;
+        const pdf = new jsPDF({
+          orientation: isLandscape ? 'landscape' : 'portrait',
+          unit: 'px',
+          format: [canvasWidth, canvasHeight],
+        });
+
+        const imgData = renderedCanvas.toDataURL('image/png', 1.0);
+        pdf.addImage(imgData, 'PNG', 0, 0, canvasWidth, canvasHeight);
+        pdf.save(`${templateMeta?.name_ar || 'template'}_${Date.now()}.pdf`);
       }
+
+      // Update record status
+      if (currentRecordId) {
+        await updateUserRecord(currentRecordId, { status: 'exported' });
+      }
+
+      setExportSuccess(true);
+      setTimeout(() => setExportSuccess(false), 3000);
     } catch (err) {
       console.error('Export failed:', err);
+      alert('حدث خطأ أثناء التصدير. حاول مرة أخرى.');
     } finally {
       setExporting(false);
     }
@@ -419,7 +384,7 @@ export default function DynamicEditorPage() {
   const renderField = (field: DynamicFormField) => {
     if (!isFieldVisible(field)) return null;
     const value = fieldValues[field.id] || '';
-    const commonClasses = 'w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm';
+    const commonClasses = 'w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm bg-white dark:bg-gray-700';
 
     switch (field.type) {
       case 'text':
@@ -548,7 +513,7 @@ export default function DynamicEditorPage() {
                 field.type === 'image' ? (
                   <img src={value} alt="" className="max-h-32 mx-auto rounded" />
                 ) : (
-                  <span className="text-green-600 text-sm">تم رفع الملف</span>
+                  <span className="text-green-600 text-sm">تم رفع الملف ✓</span>
                 )
               ) : (
                 <div className="text-gray-400">
@@ -617,7 +582,6 @@ export default function DynamicEditorPage() {
   const getGroupedFields = () => {
     if (!formConfig) return {};
     const groups: Record<string, DynamicFormField[]> = {};
-    const fieldGroups = formConfig.field_groups || [];
 
     formConfig.fields.forEach(field => {
       const groupId = field.group || 'default';
@@ -625,7 +589,6 @@ export default function DynamicEditorPage() {
       groups[groupId].push(field);
     });
 
-    // Sort fields within each group
     Object.values(groups).forEach(fields => {
       fields.sort((a, b) => a.sort_order - b.sort_order);
     });
@@ -640,6 +603,15 @@ export default function DynamicEditorPage() {
   };
 
   // ============================================================
+  // GET BACKGROUND URL
+  // ============================================================
+  const getBackgroundUrl = () => {
+    if (!canvas) return '';
+    const variant = canvas.variants?.find(v => v.id === selectedVariant);
+    return variant?.background_url || canvas.background_url;
+  };
+
+  // ============================================================
   // LOADING STATE
   // ============================================================
   if (loading) {
@@ -647,7 +619,8 @@ export default function DynamicEditorPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50" dir="rtl">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">جاري تحميل المحرر...</p>
+          <p className="text-gray-600 font-medium">جاري تحميل المحرر...</p>
+          <p className="text-sm text-gray-400 mt-1">يتم جلب بيانات القالب من Firestore</p>
         </div>
       </div>
     );
@@ -664,18 +637,24 @@ export default function DynamicEditorPage() {
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">خطأ</h2>
           <p className="text-gray-600 mb-6">{error}</p>
-          <Link href="/marketplace" className="px-6 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-all">
-            العودة للمتجر
-          </Link>
+          <div className="flex gap-3 justify-center">
+            <Link href="/marketplace" className="px-6 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-all">
+              العودة للمتجر
+            </Link>
+            <button onClick={() => window.location.reload()} className="px-6 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all">
+              إعادة المحاولة
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   const groupedFields = getGroupedFields();
+  const bgUrl = getBackgroundUrl();
 
   // ============================================================
-  // MAIN RENDER
+  // MAIN RENDER - Split Screen
   // ============================================================
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
@@ -701,49 +680,79 @@ export default function DynamicEditorPage() {
             {/* Progress */}
             <div className="hidden md:flex items-center gap-2 ml-4">
               <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-l from-blue-500 to-blue-600 rounded-full transition-all" style={{ width: `${progress}%` }} />
+                <div className="h-full bg-gradient-to-l from-blue-500 to-blue-600 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
               </div>
-              <span className="text-xs text-gray-500">{progress}%</span>
+              <span className="text-xs text-gray-500 font-medium">{progress}%</span>
             </div>
 
             {/* Undo/Redo */}
-            <button onClick={handleUndo} disabled={undoStack.length === 0} className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-30" title="تراجع">
+            <button onClick={handleUndo} disabled={undoStack.length === 0} className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-30 transition-all" title="تراجع (Ctrl+Z)">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
             </button>
-            <button onClick={handleRedo} disabled={redoStack.length === 0} className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-30" title="إعادة">
+            <button onClick={handleRedo} disabled={redoStack.length === 0} className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-30 transition-all" title="إعادة (Ctrl+Y)">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10H11a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" /></svg>
             </button>
 
             <div className="w-px h-6 bg-gray-200 mx-1" />
 
+            {/* Zoom */}
+            <div className="hidden md:flex items-center gap-1">
+              <button onClick={() => setZoom(Math.max(50, zoom - 10))} className="p-1 text-gray-500 hover:text-gray-700 text-xs">−</button>
+              <span className="text-xs text-gray-500 min-w-[35px] text-center">{zoom}%</span>
+              <button onClick={() => setZoom(Math.min(200, zoom + 10))} className="p-1 text-gray-500 hover:text-gray-700 text-xs">+</button>
+            </div>
+
+            <div className="w-px h-6 bg-gray-200 mx-1" />
+
             {/* AI */}
-            <button onClick={() => setShowAIChat(!showAIChat)} className={`p-2 rounded-lg transition-all ${showAIChat ? 'bg-purple-100 text-purple-600' : 'text-gray-500 hover:text-gray-700'}`} title="المساعد الذكي">
+            <button onClick={() => { setActiveTab('ai'); setShowAIChat(!showAIChat); }} className={`p-2 rounded-lg transition-all ${showAIChat ? 'bg-purple-100 text-purple-600' : 'text-gray-500 hover:text-gray-700'}`} title="المساعد الذكي">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
             </button>
 
             {/* Save */}
             <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all text-sm font-medium disabled:opacity-50">
-              {saving ? 'جاري الحفظ...' : 'حفظ'}
+              {saving ? 'جاري الحفظ...' : '💾 حفظ'}
             </button>
 
             {/* Export */}
             <div className="relative group">
-              <button className="px-4 py-2 bg-gradient-to-l from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg transition-all text-sm font-medium">
-                تصدير ▾
+              <button
+                disabled={exporting}
+                className="px-4 py-2 bg-gradient-to-l from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg transition-all text-sm font-medium disabled:opacity-50"
+              >
+                {exporting ? (
+                  <span className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    جاري التصدير...
+                  </span>
+                ) : exportSuccess ? (
+                  '✅ تم التصدير!'
+                ) : (
+                  'تصدير ▾'
+                )}
               </button>
-              <div className="absolute left-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-100 py-2 w-40 hidden group-hover:block z-50">
-                <button onClick={() => handleExport('pdf')} className="w-full px-4 py-2 text-right text-sm hover:bg-gray-50 transition-colors">تصدير PDF</button>
-                <button onClick={() => handleExport('image')} className="w-full px-4 py-2 text-right text-sm hover:bg-gray-50 transition-colors">تصدير صورة</button>
-                <button onClick={() => window.print()} className="w-full px-4 py-2 text-right text-sm hover:bg-gray-50 transition-colors">طباعة</button>
-              </div>
+              {!exporting && !exportSuccess && (
+                <div className="absolute left-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-100 py-2 w-44 hidden group-hover:block z-50">
+                  <button onClick={() => handleExport('pdf')} className="w-full px-4 py-2.5 text-right text-sm hover:bg-gray-50 transition-colors flex items-center gap-2">
+                    <span>📄</span> تصدير PDF
+                  </button>
+                  <button onClick={() => handleExport('image')} className="w-full px-4 py-2.5 text-right text-sm hover:bg-gray-50 transition-colors flex items-center gap-2">
+                    <span>🖼️</span> تصدير صورة PNG
+                  </button>
+                  <hr className="my-1" />
+                  <button onClick={() => window.print()} className="w-full px-4 py-2.5 text-right text-sm hover:bg-gray-50 transition-colors flex items-center gap-2">
+                    <span>🖨️</span> طباعة
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main Content - Split Screen */}
       <div className="flex h-[calc(100vh-64px)]">
-        {/* Left Panel: Form Fields */}
+        {/* RIGHT SIDE: Dynamic Form */}
         <div className="w-[400px] bg-white border-l border-gray-200 overflow-y-auto flex-shrink-0">
           {/* Tabs */}
           <div className="flex border-b border-gray-200 sticky top-0 bg-white z-10">
@@ -829,35 +838,41 @@ export default function DynamicEditorPage() {
             {activeTab === 'design' && canvas && (
               <div className="space-y-4">
                 <h3 className="text-sm font-bold text-gray-700">اختر التصميم</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {canvas.variants?.map(variant => (
-                    <button
-                      key={variant.id}
-                      onClick={() => setSelectedVariant(variant.id)}
-                      className={`rounded-xl overflow-hidden border-2 transition-all ${selectedVariant === variant.id ? 'border-blue-500 shadow-lg' : 'border-gray-200 hover:border-blue-300'}`}
-                    >
-                      <div className="aspect-[3/4] bg-gray-100 relative">
-                        {variant.preview_url && (
-                          <img src={variant.preview_url} alt={variant.name_ar} className="w-full h-full object-cover" />
-                        )}
-                        {selectedVariant === variant.id && (
-                          <div className="absolute top-2 left-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                        )}
-                      </div>
-                      <p className="text-xs text-center py-2 font-medium">{variant.name_ar}</p>
-                    </button>
-                  ))}
-                </div>
+                {canvas.variants && canvas.variants.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    {canvas.variants.map(variant => (
+                      <button
+                        key={variant.id}
+                        onClick={() => setSelectedVariant(variant.id)}
+                        className={`rounded-xl overflow-hidden border-2 transition-all ${selectedVariant === variant.id ? 'border-blue-500 shadow-lg' : 'border-gray-200 hover:border-blue-300'}`}
+                      >
+                        <div className="aspect-[3/4] bg-gray-100 relative">
+                          {variant.preview_url && (
+                            <img src={variant.preview_url} alt={variant.name_ar} className="w-full h-full object-cover" />
+                          )}
+                          {selectedVariant === variant.id && (
+                            <div className="absolute top-2 left-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-center py-2 font-medium">{variant.name_ar}</p>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-400">
+                    <p className="text-sm">لا توجد تصاميم بديلة لهذا القالب</p>
+                  </div>
+                )}
 
-                {/* Zoom */}
+                {/* Zoom Control */}
                 <div className="pt-4 border-t">
                   <h3 className="text-sm font-bold text-gray-700 mb-2">التكبير</h3>
                   <div className="flex items-center gap-3">
-                    <button onClick={() => setZoom(Math.max(50, zoom - 10))} className="p-1 rounded bg-gray-100 hover:bg-gray-200">−</button>
+                    <button onClick={() => setZoom(Math.max(50, zoom - 10))} className="p-1.5 rounded bg-gray-100 hover:bg-gray-200 text-sm">−</button>
                     <input
                       type="range"
                       min={50}
@@ -866,7 +881,7 @@ export default function DynamicEditorPage() {
                       onChange={e => setZoom(Number(e.target.value))}
                       className="flex-1"
                     />
-                    <button onClick={() => setZoom(Math.min(200, zoom + 10))} className="p-1 rounded bg-gray-100 hover:bg-gray-200">+</button>
+                    <button onClick={() => setZoom(Math.min(200, zoom + 10))} className="p-1.5 rounded bg-gray-100 hover:bg-gray-200 text-sm">+</button>
                     <span className="text-xs text-gray-500 w-10">{zoom}%</span>
                   </div>
                 </div>
@@ -914,7 +929,6 @@ export default function DynamicEditorPage() {
                 {/* Chat Input */}
                 <div className="flex gap-2">
                   <input
-                    type="text"
                     value={aiInput}
                     onChange={e => setAIInput(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleAIChat()}
@@ -937,7 +951,7 @@ export default function DynamicEditorPage() {
                   {['ساعدني في ملء البيانات', 'اقترح محتوى مناسب', 'راجع البيانات المدخلة'].map(action => (
                     <button
                       key={action}
-                      onClick={() => { setAIInput(action); handleAIChat(); }}
+                      onClick={() => { setAIInput(action); }}
                       className="px-3 py-1.5 bg-purple-50 text-purple-600 rounded-lg text-xs hover:bg-purple-100 transition-all"
                     >
                       {action}
@@ -949,18 +963,79 @@ export default function DynamicEditorPage() {
           </div>
         </div>
 
-        {/* Right Panel: Canvas Preview */}
+        {/* LEFT SIDE: Live Preview (DOM-based for PDF export) */}
         <div className="flex-1 overflow-auto p-6 flex items-start justify-center bg-gray-100">
           <div
             className="bg-white rounded-2xl shadow-xl overflow-hidden"
             style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
           >
-            <canvas
-              ref={canvasRef}
-              width={canvas?.canvas_width || 800}
-              height={canvas?.canvas_height || 1131}
-              className="block"
-            />
+            {/* This div is the actual preview that gets exported */}
+            <div
+              ref={previewRef}
+              className="relative"
+              style={{
+                width: canvas?.canvas_width || 794,
+                height: canvas?.canvas_height || 1123,
+              }}
+            >
+              {/* Background Image */}
+              {bgUrl && (
+                <img
+                  src={bgUrl}
+                  alt="Template Background"
+                  className="absolute inset-0 w-full h-full object-cover"
+                  crossOrigin="anonymous"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              )}
+
+              {/* Fallback background */}
+              {!bgUrl && (
+                <div className="absolute inset-0 bg-gray-50 flex items-center justify-center">
+                  <p className="text-gray-400 text-lg">لم يتم تحميل خلفية القالب</p>
+                </div>
+              )}
+
+              {/* Overlay text elements at X/Y coordinates */}
+              {canvas?.elements?.map((element) => {
+                if (!element.is_visible) return null;
+                const value = fieldValues[element.field_id] || '';
+                if (!value && !element.label) return null;
+
+                const displayText = value || '';
+                const cw = canvas.canvas_width || 794;
+                const ch = canvas.canvas_height || 1123;
+
+                return (
+                  <div
+                    key={element.id}
+                    className="absolute overflow-hidden"
+                    style={{
+                      left: `${element.x}%`,
+                      top: `${element.y}%`,
+                      width: `${element.width}%`,
+                      height: `${element.height}%`,
+                      fontSize: `${element.font_size}px`,
+                      fontFamily: element.font_family || 'Cairo',
+                      fontWeight: element.font_weight || 'normal',
+                      color: element.color || '#000000',
+                      textAlign: element.text_align || 'center',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: element.text_align === 'center' ? 'center' : element.text_align === 'right' ? 'flex-end' : 'flex-start',
+                      lineHeight: '1.4',
+                      transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined,
+                      whiteSpace: (element.max_lines || 1) === 1 ? 'nowrap' : 'pre-wrap',
+                      direction: 'rtl',
+                    }}
+                  >
+                    {displayText}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
