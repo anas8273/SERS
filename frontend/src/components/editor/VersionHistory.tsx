@@ -3,25 +3,35 @@
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import {
   History,
   Clock,
   RotateCcw,
   Eye,
-  ChevronRight,
-  X,
+  Download,
+  Trash2,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  Calendar,
+  User,
+  FileText,
+  Sparkles,
+  ArrowRight,
+  X
 } from 'lucide-react';
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,221 +42,412 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { formatDistanceToNow } from 'date-fns';
+import { ar } from 'date-fns/locale';
 
 interface Version {
-  id: number;
+  id: string;
   version_number: number;
-  data: any;
-  change_summary: string;
+  title: string;
+  data: Record<string, any>;
   created_at: string;
+  is_current: boolean;
+  changes_summary?: string;
+  user_name?: string;
 }
 
 interface VersionHistoryProps {
-  userTemplateDataId: number;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onRestore: (data: any) => void;
+  isOpen: boolean;
+  onClose: () => void;
+  recordId: string;
+  templateTitle?: string;
+  onRestore?: (versionData: Record<string, any>) => void;
 }
 
-export default function VersionHistory({
-  userTemplateDataId,
-  open,
-  onOpenChange,
-  onRestore,
+export function VersionHistory({ 
+  isOpen, 
+  onClose, 
+  recordId, 
+  templateTitle,
+  onRestore 
 }: VersionHistoryProps) {
   const [versions, setVersions] = useState<Version[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState<Version | null>(null);
   const [showRestoreDialog, setShowRestoreDialog] = useState(false);
-  const [restoring, setRestoring] = useState(false);
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
 
   useEffect(() => {
-    if (open && userTemplateDataId) {
-      fetchVersions();
+    if (isOpen && recordId) {
+      fetchVersionHistory();
     }
-  }, [open, userTemplateDataId]);
+  }, [isOpen, recordId]);
 
-  const fetchVersions = async () => {
-    setLoading(true);
+  const fetchVersionHistory = async () => {
+    setIsLoading(true);
     try {
-      const response = await api.get(`/user-templates/${userTemplateDataId}/versions`);
-      setVersions(response.data.data || []);
-    } catch (error) {
-      console.error('Error fetching versions:', error);
-      toast.error('حدث خطأ في تحميل سجل التغييرات');
+      const response = await api.getVersionHistory(recordId);
+      if (response.success && response.data) {
+        setVersions(response.data);
+      }
+    } catch (error: any) {
+      console.error('Version History Error:', error);
+      toast.error('فشل في تحميل تاريخ الإصدارات');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const handleRestore = async () => {
-    if (!selectedVersion) return;
-
-    setRestoring(true);
+  const handleRestore = async (version: Version) => {
+    setIsRestoring(true);
     try {
-      await api.post(`/user-templates/${userTemplateDataId}/versions/${selectedVersion.id}/restore`);
-      onRestore(selectedVersion.data);
-      toast.success(`تم استعادة النسخة ${selectedVersion.version_number}`);
-      setShowRestoreDialog(false);
-      onOpenChange(false);
-    } catch (error) {
-      toast.error('حدث خطأ في استعادة النسخة');
+      const response = await api.restoreVersion(recordId, version.id);
+      if (response.success) {
+        toast.success(`تم استرداد الإصدار ${version.version_number} بنجاح ✨`);
+        
+        // Call the onRestore callback with the version data
+        if (onRestore) {
+          onRestore(version.data);
+        }
+        
+        // Refresh version history
+        await fetchVersionHistory();
+        setShowRestoreDialog(false);
+        setSelectedVersion(null);
+      }
+    } catch (error: any) {
+      console.error('Restore Version Error:', error);
+      toast.error('فشل في استرداد الإصدار');
     } finally {
-      setRestoring(false);
+      setIsRestoring(false);
+    }
+  };
+
+  const handleExportVersion = async (version: Version) => {
+    try {
+      const response = await api.exportTemplate(recordId, 'pdf');
+      if (response.success && response.data?.url) {
+        const link = document.createElement('a');
+        link.href = response.data.url;
+        link.download = `${templateTitle || 'template'}-v${version.version_number}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        
+        toast.success('تم تصدير الإصدار بنجاح');
+      }
+    } catch (error: any) {
+      console.error('Export Version Error:', error);
+      toast.error('فشل في تصدير الإصدار');
     }
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('ar-SA', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    try {
+      const date = new Date(dateString);
+      return formatDistanceToNow(date, { addSuffix: true, locale: ar });
+    } catch (error) {
+      return dateString;
+    }
   };
 
-  const formatRelativeTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
+  const getVersionIcon = (version: Version) => {
+    if (version.is_current) {
+      return <CheckCircle2 className="w-4 h-4 text-green-500" />;
+    }
+    return <Clock className="w-4 h-4 text-gray-400" />;
+  };
 
-    if (diffMins < 1) return 'الآن';
-    if (diffMins < 60) return `منذ ${diffMins} دقيقة`;
-    if (diffHours < 24) return `منذ ${diffHours} ساعة`;
-    if (diffDays < 7) return `منذ ${diffDays} يوم`;
-    return formatDate(dateString);
+  const getVersionBadge = (version: Version) => {
+    if (version.is_current) {
+      return (
+        <Badge className="bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400">
+          <CheckCircle2 className="w-3 h-3 mr-1" />
+          الحالي
+        </Badge>
+      );
+    }
+    
+    return (
+      <Badge variant="outline" className="text-gray-500">
+        الإصدار {version.version_number}
+      </Badge>
+    );
+  };
+
+  const renderVersionPreview = (version: Version) => {
+    const data = version.data || {};
+    const fields = Object.entries(data).slice(0, 5); // Show first 5 fields
+    
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="font-bold text-gray-900 dark:text-white">
+            {version.title || `الإصدار ${version.version_number}`}
+          </h4>
+          {getVersionBadge(version)}
+        </div>
+        
+        <div className="space-y-2">
+          {fields.map(([key, value]) => (
+            <div key={key} className="text-sm">
+              <span className="font-medium text-gray-600 dark:text-gray-400">
+                {key}:
+              </span>
+              <span className="text-gray-900 dark:text-white mr-2">
+                {typeof value === 'string' 
+                  ? value.length > 50 
+                    ? `${value.substring(0, 50)}...` 
+                    : value
+                  : JSON.stringify(value)
+                }
+              </span>
+            </div>
+          ))}
+          
+          {Object.keys(data).length > 5 && (
+            <p className="text-xs text-gray-500">
+              +{Object.keys(data).length - 5} حقول أخرى
+            </p>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-[400px] sm:w-[540px]">
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <History className="w-5 h-5" />
-              سجل التغييرات
-            </SheetTitle>
-            <SheetDescription>
-              استعرض التغييرات السابقة واستعد أي نسخة
-            </SheetDescription>
-          </SheetHeader>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh]" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3 text-xl">
+              <div className="w-10 h-10 bg-primary/10 rounded-2xl flex items-center justify-center">
+                <History className="w-6 h-6 text-primary" />
+              </div>
+              تاريخ الإصدارات
+            </DialogTitle>
+            <DialogDescription>
+              تصفح واسترد الإصدارات السابقة من {templateTitle || 'القالب'}
+            </DialogDescription>
+          </DialogHeader>
 
-          <ScrollArea className="h-[calc(100vh-120px)] mt-6 pr-4">
-            {loading ? (
-              <div className="space-y-4">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="flex gap-4">
-                    <Skeleton className="w-12 h-12 rounded-full" />
-                    <div className="flex-1 space-y-2">
-                      <Skeleton className="h-5 w-1/2" />
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-3 w-24" />
-                    </div>
-                  </div>
-                ))}
+          <div className="space-y-4">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center space-y-3">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
+                  <p className="text-sm text-gray-500">جاري تحميل تاريخ الإصدارات...</p>
+                </div>
               </div>
             ) : versions.length === 0 ? (
-              <div className="text-center py-12">
-                <History className="w-12 h-12 mx-auto text-gray-300 mb-4" />
-                <h3 className="font-semibold mb-2">لا توجد نسخ سابقة</h3>
-                <p className="text-sm text-gray-500">
-                  سيتم حفظ التغييرات تلقائياً عند التعديل
-                </p>
+              <div className="text-center py-12 space-y-4">
+                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto">
+                  <History className="w-8 h-8 text-gray-400" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 dark:text-white mb-2">
+                    لا توجد إصدارات سابقة
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    سيتم حفظ الإصدارات تلقائياً عند إجراء تغييرات على القالب
+                  </p>
+                </div>
               </div>
             ) : (
-              <div className="relative">
-                {/* Timeline line */}
-                <div className="absolute right-6 top-0 bottom-0 w-0.5 bg-gray-200 dark:bg-gray-700" />
-
-                <div className="space-y-6">
+              <ScrollArea className="h-96">
+                <div className="space-y-3">
                   {versions.map((version, index) => (
-                    <div key={version.id} className="relative flex gap-4">
-                      {/* Timeline dot */}
-                      <div
-                        className={`relative z-10 w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ${
-                          index === 0
-                            ? 'bg-primary'
-                            : 'bg-gray-300 dark:bg-gray-600'
-                        }`}
-                      >
-                        {version.version_number}
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1 pb-6">
-                        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold">
-                                  النسخة {version.version_number}
+                    <Card 
+                      key={version.id} 
+                      className={`transition-all duration-200 hover:shadow-md ${
+                        version.is_current 
+                          ? 'border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-900/10' 
+                          : 'border-gray-200 dark:border-gray-700'
+                      }`}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-3 flex-1">
+                            {getVersionIcon(version)}
+                            
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <h4 className="font-bold text-gray-900 dark:text-white">
+                                  {version.title || `الإصدار ${version.version_number}`}
+                                </h4>
+                                {getVersionBadge(version)}
+                              </div>
+                              
+                              <div className="flex items-center gap-4 text-xs text-gray-500">
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  {formatDate(version.created_at)}
                                 </span>
-                                {index === 0 && (
-                                  <Badge className="bg-green-500">الحالية</Badge>
+                                {version.user_name && (
+                                  <span className="flex items-center gap-1">
+                                    <User className="w-3 h-3" />
+                                    {version.user_name}
+                                  </span>
                                 )}
                               </div>
-                              {version.change_summary && (
-                                <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                                  {version.change_summary}
+                              
+                              {version.changes_summary && (
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                  {version.changes_summary}
                                 </p>
                               )}
                             </div>
                           </div>
-
-                          <div className="flex items-center justify-between mt-3">
-                            <div className="flex items-center gap-1 text-xs text-gray-500">
-                              <Clock className="w-3 h-3" />
-                              {formatRelativeTime(version.created_at)}
-                            </div>
-
-                            {index !== 0 && (
+                          
+                          <div className="flex items-center gap-1 mr-3">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedVersion(version);
+                                setShowPreviewDialog(true);
+                              }}
+                              className="h-8 w-8 p-0 rounded-lg"
+                              title="معاينة"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleExportVersion(version)}
+                              className="h-8 w-8 p-0 rounded-lg"
+                              title="تصدير"
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
+                            
+                            {!version.is_current && (
                               <Button
-                                variant="outline"
+                                variant="ghost"
                                 size="sm"
                                 onClick={() => {
                                   setSelectedVersion(version);
                                   setShowRestoreDialog(true);
                                 }}
+                                className="h-8 w-8 p-0 rounded-lg text-primary hover:text-primary"
+                                title="استرداد"
                               >
-                                <RotateCcw className="w-4 h-4 ml-1" />
-                                استعادة
+                                <RotateCcw className="w-4 h-4" />
                               </Button>
                             )}
                           </div>
                         </div>
-                      </div>
-                    </div>
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
-              </div>
+              </ScrollArea>
             )}
-          </ScrollArea>
-        </SheetContent>
-      </Sheet>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
+            <Button
+              variant="outline"
+              onClick={fetchVersionHistory}
+              disabled={isLoading}
+              className="gap-2 rounded-xl"
+            >
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RotateCcw className="w-4 h-4" />
+              )}
+              تحديث
+            </Button>
+            
+            <Button
+              variant="ghost"
+              onClick={onClose}
+              className="rounded-xl"
+            >
+              إغلاق
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Restore Confirmation Dialog */}
       <AlertDialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent dir="rtl">
           <AlertDialogHeader>
-            <AlertDialogTitle>استعادة النسخة السابقة</AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-amber-500" />
+              تأكيد الاسترداد
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              هل أنت متأكد من استعادة النسخة {selectedVersion?.version_number}؟
-              سيتم استبدال البيانات الحالية بهذه النسخة.
+              هل أنت متأكد من استرداد الإصدار {selectedVersion?.version_number}؟
+              <br />
+              سيتم استبدال البيانات الحالية بالبيانات من هذا الإصدار.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>إلغاء</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRestore} disabled={restoring}>
-              {restoring ? 'جاري الاستعادة...' : 'استعادة'}
+            <AlertDialogAction
+              onClick={() => selectedVersion && handleRestore(selectedVersion)}
+              disabled={isRestoring}
+              className="gap-2"
+            >
+              {isRestoring ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RotateCcw className="w-4 h-4" />
+              )}
+              استرداد
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Preview Dialog */}
+      <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
+        <DialogContent className="sm:max-w-lg" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="w-5 h-5 text-primary" />
+              معاينة الإصدار
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedVersion && (
+            <div className="space-y-4">
+              {renderVersionPreview(selectedVersion)}
+              
+              <div className="flex justify-end gap-2 pt-4 border-t border-gray-100 dark:border-gray-800">
+                {!selectedVersion.is_current && (
+                  <Button
+                    onClick={() => {
+                      setShowPreviewDialog(false);
+                      setShowRestoreDialog(true);
+                    }}
+                    className="gap-2 rounded-xl"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    استرداد هذا الإصدار
+                  </Button>
+                )}
+                
+                <Button
+                  variant="outline"
+                  onClick={() => setShowPreviewDialog(false)}
+                  className="rounded-xl"
+                >
+                  إغلاق
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
+
+export default VersionHistory;

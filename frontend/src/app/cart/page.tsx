@@ -88,7 +88,7 @@ export default function CartPage() {
                         <div>
                             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">سلة التسوق 🛒</h1>
                             <p className="text-gray-600 dark:text-gray-400 mt-1">
-                                {items.length} منتج في السلة
+                                {items.length} قالب في السلة
                             </p>
                         </div>
                         {items.length > 0 && (
@@ -108,7 +108,7 @@ export default function CartPage() {
                         <EmptyState
                             icon={<span className="text-6xl">🛒</span>}
                             title="السلة فارغة"
-                            description="لم تضف أي منتجات للسلة بعد. اكتشف منتجاتنا وابدأ التسوق!"
+                            description="لم تضف أي قوالب للسلة بعد. اكتشف قوالبنا وابدأ التسوق!"
                             action={
                                 <Link href="/marketplace">
                                     <Button className="bg-primary-600 hover:bg-primary-700 text-white">

@@ -41,6 +41,7 @@ return new class extends Migration
 
             // Pricing
             $table->decimal('price', 10, 2)->default(0)->comment('Template price (0 = free)');
+            $table->decimal('discount_price', 10, 2)->nullable()->comment('Discounted price (null = no discount)');
             $table->boolean('is_free')->default(false)->comment('Quick check for free templates');
 
             // Display

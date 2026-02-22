@@ -5,7 +5,7 @@ namespace Tests\Unit;
 
 use App\Models\Order;
 use App\Models\Outbox;
-use App\Models\Product;
+use App\Models\Template;
 use App\Models\User;
 use App\Services\PurchaseService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -26,13 +26,13 @@ class PurchaseServiceTest extends TestCase
     public function test_can_create_order(): void
     {
         $user = User::factory()->create();
-        $product = Product::factory()->create([
+        $template = Template::factory()->create([
             'type' => 'interactive',
             'price' => 50.00,
         ]);
 
         $order = $this->purchaseService->createOrder($user, [
-            ['product_id' => $product->id],
+            ['template_id' => $template->id],
         ]);
 
         $this->assertInstanceOf(Order::class, $order);
@@ -44,14 +44,13 @@ class PurchaseServiceTest extends TestCase
     public function test_completing_payment_creates_outbox_event(): void
     {
         $user = User::factory()->create();
-        $product = Product::factory()->create([
+        $template = Template::factory()->create([
             'type' => 'interactive',
             'price' => 50.00,
-            'template_structure' => ['field1' => 'text', 'field2' => 'textarea'],
         ]);
 
         $order = $this->purchaseService->createOrder($user, [
-            ['product_id' => $product->id],
+            ['template_id' => $template->id],
         ]);
 
         $this->purchaseService->completePayment(
@@ -72,16 +71,16 @@ class PurchaseServiceTest extends TestCase
         $this->assertEquals('pending', $outboxEvent->status);
     }
 
-    public function test_downloadable_products_do_not_create_outbox_event(): void
+    public function test_ready_templates_do_not_create_outbox_event(): void
     {
         $user = User::factory()->create();
-        $product = Product::factory()->create([
-            'type' => 'downloadable',
+        $template = Template::factory()->create([
+            'type' => 'ready',
             'price' => 30.00,
         ]);
 
         $order = $this->purchaseService->createOrder($user, [
-            ['product_id' => $product->id],
+            ['template_id' => $template->id],
         ]);
 
         $this->purchaseService->completePayment(
@@ -90,7 +89,7 @@ class PurchaseServiceTest extends TestCase
             'stripe'
         );
 
-        // لا يجب إنشاء حدث في صندوق الصادر للمنتجات القابلة للتحميل
+        // لا يجب إنشاء حدث في صندوق الصادر للقوالب الجاهزة للتحميل
         $outboxEvent = Outbox::where('aggregate_id', $order->id)->first();
         $this->assertNull($outboxEvent);
     }

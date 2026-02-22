@@ -6,6 +6,8 @@ import { doc, onSnapshot, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { api } from '@/lib/api';
 import { SmartFieldInput } from './SmartFieldInput';
+import { QRCodeGenerator } from './QRCodeGenerator';
+import { VersionHistory } from './VersionHistory';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -135,6 +137,8 @@ export function TemplateEditor({
   const [aiLoading, setAiLoading] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const [showQRGenerator, setShowQRGenerator] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
 
   // Calculate completion percentage
   const requiredFields = template?.fields.filter(f => f.is_required) || [];
@@ -275,15 +279,15 @@ export function TemplateEditor({
 
     setAiLoading(true);
     try {
-      const response = await api.post('/ai/fill-all', {
-        template_id: template.id,
+      const response = await api.getAIFillAll({
+        template_id: parseInt(template.id),
         title: title,
         current_values: formData,
       });
 
-      if (response.success && response.data?.values) {
+      if (response.success && response.data?.suggestions) {
         const newData = { ...formData };
-        Object.entries(response.data.values).forEach(([key, value]) => {
+        Object.entries(response.data.suggestions).forEach(([key, value]) => {
           if (value && typeof value === 'string') {
             newData[key] = value;
           }
@@ -295,9 +299,10 @@ export function TemplateEditor({
           saveToFirestore(newData);
         }
 
-        toast.success('تم ملء جميع الحقول بنجاح');
+        toast.success('تم ملء جميع الحقول بنجاح ✨');
       }
     } catch (error) {
+      console.error('AI Fill All Error:', error);
       toast.error('حدث خطأ في الذكاء الاصطناعي');
     } finally {
       setAiLoading(false);
@@ -354,6 +359,30 @@ export function TemplateEditor({
 
             {/* Right side */}
             <div className="flex items-center gap-2">
+              {/* QR Code Generator Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowQRGenerator(true)}
+                className="gap-2 font-bold"
+              >
+                <QrCode className="w-4 h-4" />
+                QR
+              </Button>
+
+              {/* Version History Button */}
+              {recordId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowVersionHistory(true)}
+                  className="gap-2 font-bold"
+                >
+                  <History className="w-4 h-4" />
+                  الإصدارات
+                </Button>
+              )}
+
               {/* AI Fill All Button */}
               <Button
                 variant="outline"
@@ -599,6 +628,31 @@ export function TemplateEditor({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* QR Code Generator */}
+      <QRCodeGenerator
+        isOpen={showQRGenerator}
+        onClose={() => setShowQRGenerator(false)}
+        templateId={template.id}
+        templateTitle={title || template.name_ar}
+      />
+
+      {/* Version History */}
+      {recordId && (
+        <VersionHistory
+          isOpen={showVersionHistory}
+          onClose={() => setShowVersionHistory(false)}
+          recordId={recordId}
+          templateTitle={title || template.name_ar}
+          onRestore={(versionData) => {
+            setFormData(versionData);
+            setHasChanges(true);
+            if (versionData.title) {
+              setTitle(versionData.title);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

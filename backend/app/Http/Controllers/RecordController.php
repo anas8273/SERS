@@ -23,20 +23,20 @@ class RecordController extends Controller
         // الحصول على السجلات من Firestore
         $records = $this->firestoreService->getUserRecords($request->user()->id);
 
-        // إضافة معلومات المنتج من MySQL
-        $recordsWithProducts = collect($records)->map(function ($record) {
+        // إضافة معلومات القالب من MySQL
+        $recordsWithTemplates = collect($records)->map(function ($record) {
             $orderItem = OrderItem::where('firestore_record_id', $record['id'])
-                ->with('product:id,name_ar,name_en,thumbnail_url')
+                ->with('template:id,name_ar,name_en,thumbnail_url')
                 ->first();
 
             return array_merge($record, [
-                'product' => $orderItem?->product,
+                'template' => $orderItem?->template,
             ]);
         });
 
         return response()->json([
             'success' => true,
-            'data' => $recordsWithProducts,
+            'data' => $recordsWithTemplates,
         ]);
     }
 

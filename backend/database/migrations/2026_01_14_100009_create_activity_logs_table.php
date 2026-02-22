@@ -13,7 +13,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->uuid('user_id')->nullable();
             $table->string('action', 50); // create, update, delete, login, logout
-            $table->string('entity_type', 50); // user, product, order, category
+            $table->string('entity_type', 50); // user, template, order, category
             $table->uuid('entity_id')->nullable();
             $table->string('description');
             $table->json('old_values')->nullable();

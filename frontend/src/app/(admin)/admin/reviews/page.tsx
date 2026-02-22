@@ -79,7 +79,7 @@ export default function AdminReviewsPage() {
                     <table className="w-full text-sm text-right">
                         <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300">
                             <tr>
-                                <th className="p-4">المنتج</th>
+                                <th className="p-4">القالب</th>
                                 <th className="p-4">المستخدم</th>
                                 <th className="p-4">التقييم</th>
                                 <th className="p-4">التعليق</th>
@@ -95,7 +95,7 @@ export default function AdminReviewsPage() {
                             ) : (
                                 reviews.map((review) => (
                                     <tr key={review.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                        <td className="p-4 font-medium text-gray-900 dark:text-gray-100">{review.product?.name_ar || 'منتج محذوف'}</td>
+                                        <td className="p-4 font-medium text-gray-900 dark:text-gray-100">{review.product?.name_ar || 'قالب محذوف'}</td>
                                         <td className="p-4 text-gray-600 dark:text-gray-400">{review.user?.name || 'مستخدم'}</td>
                                         <td className="p-4 text-yellow-500">{'⭐'.repeat(review.rating)}</td>
                                         <td className="p-4 max-w-xs truncate text-gray-600 dark:text-gray-300" title={review.comment}>

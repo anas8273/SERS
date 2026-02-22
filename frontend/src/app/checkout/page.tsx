@@ -103,7 +103,7 @@ export default function CheckoutPage() {
                     {/* Header */}
                     <div className="mb-8">
                         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">إتمام الشراء 💳</h1>
-                        <p className="text-gray-600 dark:text-gray-400 mt-1">خطوة واحدة للحصول على منتجاتك</p>
+                        <p className="text-gray-600 dark:text-gray-400 mt-1">خطوة واحدة للحصول على قوالبك</p>
                     </div>
 
                     <div className="grid lg:grid-cols-2 gap-8">

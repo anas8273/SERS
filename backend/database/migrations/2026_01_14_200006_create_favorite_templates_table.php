@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Favorite Templates Migration
  * 
- * Creates the favorite_templates table for storing user's favorite templates.
+ * Creates the favorite_templates table for storing bookmarked templates for quick access (User Reference).
+ * This differs from wishlists which indicate purchase intent - favorites are for easy reference and organization.
  * Updated to use UUID and reference the unified templates table.
  */
 return new class extends Migration

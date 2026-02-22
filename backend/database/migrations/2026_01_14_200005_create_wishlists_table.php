@@ -8,8 +8,8 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Wishlists Migration
  * 
- * Creates the wishlists table for storing user template favorites.
- * Each user can add templates to their wishlist for later purchase.
+ * Creates the wishlists table for storing templates intended for future acquisition or purchase (Purchase Intent).
+ * Each user can add templates to their wishlist for later purchase consideration.
  * Updated to use templates instead of products.
  * 
  * Relationships:

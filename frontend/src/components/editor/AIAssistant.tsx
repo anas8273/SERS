@@ -49,13 +49,20 @@ export function AIAssistant({
         try {
             // If we have a recordId and fieldName, use the specific endpoint
             if (recordId && fieldName) {
-                const response = await api.getAISuggestion(recordId, fieldName, context || {});
+                const response = await api.getAISuggestion({
+                    template_id: parseInt(recordId),
+                    field_name: fieldName,
+                    title: '',
+                    current_values: context || {}
+                });
                 setSuggestion(response.data.suggestion);
             } else {
                 // Otherwise use the general suggestion endpoint
-                const response = await api.getAISuggestion('general', 'content', { 
-                    prompt: prompt || 'اكتب محتوى تعليمي إبداعي',
-                    ...context 
+                const response = await api.getAISuggestion({
+                    template_id: undefined,
+                    field_name: 'content',
+                    title: prompt || 'اكتب محتوى تعليمي إبداعي',
+                    current_values: context || {}
                 });
                 setSuggestion(response.data.suggestion);
             }
@@ -144,18 +151,19 @@ export function AIAssistant({
                                 setError(null);
                                 try {
                                     const response = await api.getAIFillAll({
-                                        template_id: Number(template.id),
+                                        template_id: parseInt(template.id),
                                         title: formData?.title || '',
                                         current_values: formData || {}
                                     });
-                                    if (response.success && onSuggestion) {
+                                    if (response.success && response.data?.suggestions && onSuggestion) {
                                         Object.entries(response.data.suggestions).forEach(([key, val]) => {
                                             onSuggestion(key, val as string);
                                         });
                                         toast.success('تم توليد جميع البيانات بنجاح ✨');
                                         onClose?.();
                                     }
-                                } catch (err) {
+                                } catch (err: any) {
+                                    console.error('AI Fill All Error:', err);
                                     setError('حدث خطأ أثناء توليد البيانات. يرجى التأكد من اتصالك بالإنترنت والمحاولة مرة أخرى.');
                                 } finally {
                                     setIsLoading(false);

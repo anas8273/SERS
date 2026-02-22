@@ -41,7 +41,7 @@ export default function HomePage() {
         const fetchData = async () => {
             try {
                 const [templatesRes, categoriesRes] = await Promise.all([
-                    api.getFeaturedProducts().catch(() => ({ data: [] })),
+                    api.getFeaturedTemplates().catch(() => ({ data: [] })),
                     api.getCategories().catch(() => ({ data: [] })),
                 ]);
                 // Handle both paginated {data: [...]} and direct array responses

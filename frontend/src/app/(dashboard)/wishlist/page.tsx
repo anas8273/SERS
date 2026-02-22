@@ -100,7 +100,7 @@ export default function WishlistPage() {
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">المفضلة ❤️</h1>
                         <p className="text-gray-500 dark:text-gray-400 mt-1">
-                            {wishlistItems.length} منتج في قائمة المفضلة
+                            {wishlistItems.length} قالب في قائمة المفضلة
                         </p>
                     </div>
                     <Link href="/marketplace">
@@ -121,7 +121,7 @@ export default function WishlistPage() {
                     <EmptyState
                         icon={<span className="text-6xl">❤️</span>}
                         title="المفضلة فارغة"
-                        description="لم تضف أي منتجات للمفضلة بعد. اكتشف منتجاتنا وأضف ما يعجبك!"
+                        description="لم تضف أي قوالب للمفضلة بعد. اكتشف قوالبنا وأضف ما يعجبك!"
                         action={
                             <Link href="/marketplace">
                                 <Button className="bg-primary-600 hover:bg-primary-700 text-white">
@@ -187,7 +187,7 @@ export default function WishlistPage() {
                                             <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium mt-1 ${template.type === 'interactive'
                                                 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
                                                 : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                                            }`}>
+                                                }`}>
                                                 {template.type === 'interactive' ? 'تفاعلي' : 'ملف جاهز'}
                                             </span>
                                         </div>

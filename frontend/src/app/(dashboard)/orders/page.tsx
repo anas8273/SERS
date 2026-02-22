@@ -144,7 +144,7 @@ export default function OrdersPage() {
                                 لا توجد طلبات حتى الآن
                             </h3>
                             <p className="text-gray-500 dark:text-gray-400 mb-6">
-                                ابدأ بتصفح المتجر واكتشف المنتجات التعليمية الرائعة
+                                ابدأ بتصفح المتجر واكتشف القوالب التعليمية الرائعة
                             </p>
                             <Link href="/marketplace">
                                 <Button className="bg-primary-600 hover:bg-primary-700 text-white">
@@ -177,7 +177,7 @@ export default function OrdersPage() {
                                     {/* Order Items */}
                                     <div className="p-6">
                                         <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-4">
-                                            المنتجات ({order.items?.length || 0})
+                                            القوالب ({order.items?.length || 0})
                                         </h4>
                                         <div className="space-y-3">
                                             {order.items?.map((item) => (

@@ -249,7 +249,7 @@ export default function AdminOrdersPage() {
                                 <tr>
                                     <th className="text-right py-4 px-6 font-semibold text-gray-600 dark:text-gray-300">رقم الطلب</th>
                                     <th className="text-right py-4 px-4 font-semibold text-gray-600 dark:text-gray-300">العميل</th>
-                                    <th className="text-right py-4 px-4 font-semibold text-gray-600 dark:text-gray-300">المنتجات</th>
+                                    <th className="text-right py-4 px-4 font-semibold text-gray-600 dark:text-gray-300">القوالب</th>
                                     <th className="text-right py-4 px-4 font-semibold text-gray-600 dark:text-gray-300">الإجمالي</th>
                                     <th className="text-right py-4 px-4 font-semibold text-gray-600 dark:text-gray-300">الحالة</th>
                                     <th className="text-right py-4 px-4 font-semibold text-gray-600 dark:text-gray-300">التاريخ</th>
@@ -271,7 +271,7 @@ export default function AdminOrdersPage() {
                                             </div>
                                         </td>
                                         <td className="py-4 px-4 text-gray-600 dark:text-gray-300">
-                                            {order.items?.length || 0} منتج
+                                            {order.items?.length || 0} قالب
                                         </td>
                                         <td className="py-4 px-4">
                                             <span className="font-bold text-gray-900 dark:text-gray-100">{formatPrice(order.total)}</span>
@@ -332,7 +332,7 @@ export default function AdminOrdersPage() {
                             </div>
 
                             <div className="pt-4">
-                                <h4 className="font-semibold mb-2 text-gray-900 dark:text-gray-100">المنتجات:</h4>
+                                <h4 className="font-semibold mb-2 text-gray-900 dark:text-gray-100">القوالب:</h4>
                                 <ul className="space-y-2">
                                     {selectedOrder.items?.map((item, i) => (
                                         <li key={i} className="flex justify-between text-sm py-2 border-b dark:border-gray-700">

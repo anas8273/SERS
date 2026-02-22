@@ -41,9 +41,9 @@ export default function GlobalSearch() {
         setIsLoading(true);
         try {
             // Search users and products in parallel
-            const [usersRes, productsRes] = await Promise.allSettled([
+            const [usersRes, templatesRes] = await Promise.allSettled([
                 api.getAdminUsers(1, searchQuery),
-                api.getAdminProducts({ search: searchQuery }),
+                api.getAdminTemplates({ search: searchQuery }),
             ]);
 
             const combined: SearchResult[] = [];
@@ -63,8 +63,8 @@ export default function GlobalSearch() {
             }
 
             // Process templates
-            if (productsRes.status === 'fulfilled' && productsRes.value.data) {
-                productsRes.value.data.slice(0, 4).forEach((template: any) => {
+            if (templatesRes.status === 'fulfilled' && templatesRes.value.data) {
+                templatesRes.value.data.slice(0, 4).forEach((template: any) => {
                     combined.push({
                         id: template.id,
                         type: 'template',

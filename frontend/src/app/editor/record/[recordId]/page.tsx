@@ -23,7 +23,7 @@ interface TemplateField {
 interface RecordData {
     id: string;
     user_id: string;
-    product_id: string;
+    template_id: string;
     template_structure: {
         fields: TemplateField[];
     };

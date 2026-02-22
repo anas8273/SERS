@@ -44,7 +44,7 @@ export default function VersionHistoryPanel({
   const fetchVersions = async () => {
     try {
       setLoading(true);
-      const response = await api.getVersionHistory(userTemplateDataId);
+      const response = await api.getVersionHistory(userTemplateDataId.toString());
       if (response.success) {
         setVersions(response.data);
       }

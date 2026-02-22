@@ -26,7 +26,7 @@ export default function AdminTemplatesPage() {
     const fetchTemplates = async () => {
         try {
             const [templatesRes, categoriesRes] = await Promise.all([
-                api.getAdminProducts(), // API already maps to /admin/templates
+                api.getAdminTemplates(), // API already maps to /admin/templates
                 api.getCategories(),
             ]);
             setTemplates(templatesRes.data || []);
@@ -45,7 +45,7 @@ export default function AdminTemplatesPage() {
 
     const handleDelete = async (id: string) => {
         try {
-            const response = await api.deleteProduct(id); // API already maps to /admin/templates
+            const response = await api.deleteTemplate(id); // API already maps to /admin/templates
             if (response.success) {
                 toast.success('تم حذف القالب بنجاح ✅');
                 setTemplates(templates.filter((t) => t.id !== id));

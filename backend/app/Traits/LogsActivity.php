@@ -11,7 +11,7 @@ use App\Models\ActivityLog;
  * Add to any controller to easily log user activities.
  * 
  * Usage:
- * $this->logActivity('create', 'product', $product->id, 'Created product: ' . $product->name_ar);
+ * $this->logActivity('create', 'template', $template->id, 'Created template: ' . $template->name_ar);
  */
 trait LogsActivity
 {

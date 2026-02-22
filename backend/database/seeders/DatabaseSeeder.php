@@ -26,41 +26,47 @@ class DatabaseSeeder extends Seeder
         // ===========================================================================
 
         // Admin User
-        $admin = User::create([
-            'name' => 'مدير النظام',
-            'email' => 'admin@sers.com',
-            'password' => Hash::make('password'),
-            'phone' => '+966500000001',
-            'role' => 'admin',
-            'is_active' => true,
-            'wallet_balance' => 0,
-            'email_verified_at' => now(),
-        ]);
+        $admin = User::updateOrCreate(
+            ['email' => 'admin@sers.com'],
+            [
+                'name' => 'مدير النظام',
+                'password' => Hash::make('password'),
+                'phone' => '+966500000001',
+                'role' => 'admin',
+                'is_active' => true,
+                'wallet_balance' => 0,
+                'email_verified_at' => now(),
+            ]
+        );
 
         $this->command->info('✅ Admin user created: admin@sers.com / password');
 
         // Regular Users
-        $user1 = User::create([
-            'name' => 'سارة أحمد',
-            'email' => 'user@sers.com',
-            'password' => Hash::make('password'),
-            'phone' => '+966500000002',
-            'role' => 'user',
-            'is_active' => true,
-            'wallet_balance' => 100.00,
-            'email_verified_at' => now(),
-        ]);
+        $user1 = User::updateOrCreate(
+            ['email' => 'user@sers.com'],
+            [
+                'name' => 'سارة أحمد',
+                'password' => Hash::make('password'),
+                'phone' => '+966500000002',
+                'role' => 'user',
+                'is_active' => true,
+                'wallet_balance' => 100.00,
+                'email_verified_at' => now(),
+            ]
+        );
 
-        $user2 = User::create([
-            'name' => 'محمد علي',
-            'email' => 'teacher@sers.com',
-            'password' => Hash::make('password'),
-            'phone' => '+966500000003',
-            'role' => 'user',
-            'is_active' => true,
-            'wallet_balance' => 50.00,
-            'email_verified_at' => now(),
-        ]);
+        $user2 = User::updateOrCreate(
+            ['email' => 'teacher@sers.com'],
+            [
+                'name' => 'محمد علي',
+                'password' => Hash::make('password'),
+                'phone' => '+966500000003',
+                'role' => 'user',
+                'is_active' => true,
+                'wallet_balance' => 50.00,
+                'email_verified_at' => now(),
+            ]
+        );
 
         $this->command->info('✅ 2 Regular users created');
 

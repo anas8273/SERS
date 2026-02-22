@@ -38,18 +38,18 @@ class FirestoreService
      * Create a new user record in Firestore.
      * 
      * @param string $userId User UUID
-     * @param string $productId Product UUID
-     * @param array $templateStructure Initial template structure from product
+     * @param string $templateId Template UUID
+     * @param array $templateStructure Initial template structure from template
      * @return string The created document ID
      */
-    public function createUserRecord(string $userId, string $productId, array $templateStructure): string
+    public function createUserRecord(string $userId, string $templateId, array $templateStructure): string
     {
         try {
             $collection = $this->getFirestore()->collection('user_records');
             
             $documentData = [
                 'user_id' => $userId,
-                'product_id' => $productId,
+                'template_id' => $templateId,
                 'template_structure' => $templateStructure,
                 'user_data' => [], // Empty user data initially
                 'status' => 'active',
@@ -62,7 +62,7 @@ class FirestoreService
             Log::info("Firestore: Created user record", [
                 'document_id' => $documentRef->id(),
                 'user_id' => $userId,
-                'product_id' => $productId,
+                'template_id' => $templateId,
             ]);
 
             return $documentRef->id();
@@ -70,7 +70,7 @@ class FirestoreService
         } catch (\Throwable $e) {
             Log::error("Firestore: Failed to create user record", [
                 'user_id' => $userId,
-                'product_id' => $productId,
+                'template_id' => $templateId,
                 'error' => $e->getMessage(),
             ]);
             throw $e;

@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Model;
  * 
  * @property string $id UUID primary key
  * @property string $event_type Event type (e.g., order.completed, record.created)
- * @property string $aggregate_type Entity type (e.g., Order, Product)
+ * @property string $aggregate_type Entity type (e.g., Order, Template)
  * @property string $aggregate_id Related entity UUID
  * @property array $payload Event data to be synchronized
  * @property string $status Processing status (pending|processing|completed|failed)

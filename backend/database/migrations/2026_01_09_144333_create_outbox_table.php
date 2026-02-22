@@ -21,7 +21,7 @@ return new class extends Migration
 
             // Event Information
             $table->string('event_type', 100)->comment('Event type (e.g., order.completed, record.created)');
-            $table->string('aggregate_type', 50)->comment('Entity type (e.g., Order, Product, UserLibrary)');
+            $table->string('aggregate_type', 50)->comment('Entity type (e.g., Order, Template, UserLibrary)');
             $table->uuid('aggregate_id')->comment('Related entity UUID');
             $table->json('payload')->comment('Event data to be synchronized to Firestore');
 

@@ -182,9 +182,7 @@ export default function TemplatePage() {
   if (showEditor) {
     return (
       <InteractiveEditor
-        template={template}
-        variant={selectedVariant!}
-        onClose={() => setShowEditor(false)}
+        templateSlug={params.id as string}
       />
     );
   }

@@ -30,13 +30,16 @@ class SectionsAndCategoriesSeeder extends Seeder
         ];
 
         foreach ($sections as $sectionData) {
-            Section::create($sectionData);
+            Section::updateOrCreate(
+                ['slug' => $sectionData['slug']],
+                $sectionData
+            );
         }
 
         // الفئات الفرعية
         $categories = [
             // ملفات الإنجاز
-            ['section_slug' => 'achievement-files', 'name_ar' => 'ملف إنجاز المعلم', 'name_en' => 'Teacher Achievement File', 'slug' => 'teacher-achievement', 'sort_order' => 1],
+            ['section_slug' => 'achievement-files', 'name_ar' => 'ملف إنجاز المستخدم', 'name_en' => 'User Achievement File', 'slug' => 'user-achievement', 'sort_order' => 1],
             ['section_slug' => 'achievement-files', 'name_ar' => 'ملف إنجاز مدير المدرسة', 'name_en' => 'Principal Achievement File', 'slug' => 'principal-achievement', 'sort_order' => 2],
             ['section_slug' => 'achievement-files', 'name_ar' => 'ملف إنجاز المساعد الإداري', 'name_en' => 'Admin Assistant Achievement', 'slug' => 'admin-achievement', 'sort_order' => 3],
             ['section_slug' => 'achievement-files', 'name_ar' => 'ملف إنجاز رياض الأطفال', 'name_en' => 'Kindergarten Achievement', 'slug' => 'kindergarten-achievement', 'sort_order' => 4],
@@ -73,7 +76,7 @@ class SectionsAndCategoriesSeeder extends Seeder
             ['section_slug' => 'presentations', 'name_ar' => 'عروض إدارية', 'name_en' => 'Administrative Presentations', 'slug' => 'admin-presentations', 'sort_order' => 2],
 
             // السيرة الذاتية
-            ['section_slug' => 'cv', 'name_ar' => 'سيرة ذاتية للمعلم', 'name_en' => 'Teacher CV', 'slug' => 'teacher-cv', 'sort_order' => 1],
+            ['section_slug' => 'cv', 'name_ar' => 'سيرة ذاتية للمستخدم', 'name_en' => 'User CV', 'slug' => 'user-cv', 'sort_order' => 1],
             ['section_slug' => 'cv', 'name_ar' => 'سيرة ذاتية للإداري', 'name_en' => 'Admin CV', 'slug' => 'admin-cv', 'sort_order' => 2],
 
             // البطاقات
@@ -97,14 +100,17 @@ class SectionsAndCategoriesSeeder extends Seeder
         foreach ($categories as $categoryData) {
             $section = Section::where('slug', $categoryData['section_slug'])->first();
             if ($section) {
-                Category::create([
-                    'section_id' => $section->id,
-                    'name_ar' => $categoryData['name_ar'],
-                    'name_en' => $categoryData['name_en'],
-                    'slug' => $categoryData['slug'],
-                    'sort_order' => $categoryData['sort_order'],
-                    'is_active' => true,
-                ]);
+                Category::updateOrCreate(
+                    ['slug' => $categoryData['slug']],
+                    [
+                        'section_id' => $section->id,
+                        'name_ar' => $categoryData['name_ar'],
+                        'name_en' => $categoryData['name_en'],
+                        'slug' => $categoryData['slug'],
+                        'sort_order' => $categoryData['sort_order'],
+                        'is_active' => true,
+                    ]
+                );
             }
         }
     }

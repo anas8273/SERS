@@ -18,7 +18,10 @@ import {
     LogOut, 
     Menu, 
     X,
-    LayoutTemplate
+    LayoutTemplate,
+    Briefcase,
+    FolderOpen,
+    Bot
 } from 'lucide-react';
 
 export function Navbar() {
@@ -55,11 +58,11 @@ export function Navbar() {
     };
 
     const navItems = [
-        { label: 'الرئيسية', href: '/' },
-        { label: 'سوق القوالب', href: '/marketplace' },
-        { label: 'الخدمات', href: '/services' },
-        { label: 'من نحن', href: '/about' },
-        { label: 'تواصل معنا', href: '/contact' },
+        { label: 'الرئيسية', href: '/', icon: null },
+        { label: 'سوق القوالب', href: '/marketplace', icon: FolderOpen },
+        { label: 'الخدمات التعليمية', href: '/services', icon: Briefcase },
+        { label: 'المساعد الذكي', href: '/ai-assistant', icon: Bot },
+        { label: 'من نحن', href: '/about', icon: null },
     ];
 
     const cartCount = mounted ? getItemCount() : 0;
@@ -100,12 +103,13 @@ export function Navbar() {
                                 key={item.href}
                                 href={item.href}
                                 className={cn(
-                                    "text-sm font-medium transition-colors hover:text-primary",
+                                    "flex items-center gap-1.5 text-sm font-medium transition-colors hover:text-primary",
                                     pathname === item.href
                                         ? "text-primary"
                                         : "text-gray-600 dark:text-gray-300"
                                 )}
                             >
+                                {item.icon && <item.icon className="w-4 h-4" />}
                                 {item.label}
                             </Link>
                         ))}

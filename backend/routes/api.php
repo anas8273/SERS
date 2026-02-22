@@ -28,6 +28,8 @@ use App\Http\Controllers\Api\TemplateController;
 use App\Http\Controllers\Api\SectionController;
 use App\Http\Controllers\Api\EducationalServiceController;
 use App\Http\Controllers\Api\ReferralController;
+use App\Http\Controllers\Api\AdminSchemaController;
+use App\Http\Controllers\Api\VersionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -83,11 +85,11 @@ Route::prefix('auth')->middleware('throttle:5,1')->group(function () {
 });
 
 // ---------------------------
-// المنتجات (Products) - إعادة توجيه للقوالب
+// القوالب (Templates) - إعادة توجيه للتوافق مع الإصدارات السابقة
 // For backward compatibility, redirect to templates
 // ---------------------------
 Route::prefix('products')->group(function () {
-    // Redirect all product routes to templates
+    // Redirect all legacy product routes to templates
     Route::get('/', [TemplateController::class, 'index']);
     Route::get('search', [TemplateController::class, 'index']); // Search via query params
     Route::get('featured', [TemplateController::class, 'featured']);
@@ -197,6 +199,16 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // ---------------------------
+    // تصدير القوالب (Export) - PDF & Image
+    // ---------------------------
+    Route::prefix('export')->group(function () {
+        Route::post('pdf', [ExportController::class, 'toPdf']);
+        Route::post('image', [ExportController::class, 'toImage']);
+        Route::post('word', [ExportController::class, 'toWord']);
+        Route::get('download/{filename}', [ExportController::class, 'download']);
+    });
+
+    // ---------------------------
     // الذكاء الاصطناعي (AI)
     // ---------------------------
     Route::prefix('ai')->group(function () {
@@ -214,6 +226,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('generate-curriculum', [AIController::class, 'generateCurriculumDistribution']);
         Route::post('recommendations', [AIController::class, 'getRecommendations']);
         Route::post('quick-suggestions', [AIController::class, 'quickSuggestions']);
+        
+        // Dynamic Contextual AI Prompts
+        Route::post('contextual-suggest', [AIController::class, 'contextualSuggest']);
+        Route::post('bulk-suggest', [AIController::class, 'bulkSuggest']);
+        Route::post('analyze-content', [AIController::class, 'analyzeContent']);
     });
 
     // ---------------------------
@@ -224,7 +241,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // ---------------------------
     // التقييمات (Reviews) - المحمية
     // ---------------------------
-    Route::prefix('products/{slug}')->group(function () {
+    Route::prefix('templates/{slug}')->group(function () {
         Route::get('can-review', [ReviewController::class, 'canReview']);
         Route::get('my-review', [ReviewController::class, 'myReview']);
         Route::post('reviews', [ReviewController::class, 'store']);
@@ -316,6 +333,21 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('{userTemplateData}', [UserTemplateDataController::class, 'show']);
         Route::put('{userTemplateData}', [UserTemplateDataController::class, 'update']);
         Route::delete('{userTemplateData}', [UserTemplateDataController::class, 'destroy']);
+        
+        // Version Control Routes
+        Route::get('{recordId}/versions', [VersionController::class, 'getVersionHistory']);
+        Route::post('{recordId}/versions', [VersionController::class, 'createVersion']);
+        Route::post('{recordId}/versions/{versionId}/restore', [VersionController::class, 'restoreVersion']);
+        Route::get('{recordId}/versions/{version1Id}/compare/{version2Id}', [VersionController::class, 'compareVersions']);
+        Route::delete('{recordId}/versions/cleanup', [VersionController::class, 'cleanupOldVersions']);
+        
+        // Analysis Routes
+        Route::post('{recordId}/analyze', [VersionController::class, 'analyzeRecord']);
+        Route::post('batch-analyze', [VersionController::class, 'batchAnalyze']);
+        
+        // PDF Generation Routes (Payment Wall Protected)
+        Route::post('{recordId}/pdf', [VersionController::class, 'generatePDF'])->middleware('payment.wall');
+        Route::post('{recordId}/cross-template-pdf/{targetTemplateId}', [VersionController::class, 'generateCrossTemplatePDF'])->middleware('payment.wall');
     });
 
     // ---------------------------
@@ -477,6 +509,14 @@ Route::middleware(['auth:sanctum', 'is_admin'])->prefix('admin')->group(function
         // Status/Featured toggles
         Route::post('{template}/toggle-status', [TemplateController::class, 'toggleStatus']);
         Route::post('{template}/toggle-featured', [TemplateController::class, 'toggleFeatured']);
+        
+        // Schema Builder Routes (NO-CODE)
+        Route::get('{templateId}/schema', [AdminSchemaController::class, 'getTemplateSchema']);
+        Route::put('{templateId}/schema', [AdminSchemaController::class, 'updateTemplateSchema']);
+        Route::post('{templateId}/fields', [AdminSchemaController::class, 'addField']);
+        Route::delete('{templateId}/fields/{fieldId}', [AdminSchemaController::class, 'removeField']);
+        Route::post('{templateId}/fields/reorder', [AdminSchemaController::class, 'reorderFields']);
+        Route::post('{templateId}/fields/{fieldId}/toggle-ai', [AdminSchemaController::class, 'toggleFieldAI']);
     });
 
     // ---------------------------
@@ -505,13 +545,13 @@ Route::middleware(['auth:sanctum', 'is_admin'])->prefix('admin')->group(function
     // إدارة القوالب التفاعلية (Interactive Specifics if needed)
     // ---------------------------
     Route::prefix('interactive-templates')->group(function () {
-        Route::post('{id}/variants', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'addVariant']);
-        Route::put('{id}/variants/{variantId}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'updateVariant']);
-        Route::delete('{id}/variants/{variantId}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'deleteVariant']);
+        Route::post('{id}/variants', [InteractiveTemplateController::class, 'addVariant']);
+        Route::put('{id}/variants/{variantId}', [InteractiveTemplateController::class, 'updateVariant']);
+        Route::delete('{id}/variants/{variantId}', [InteractiveTemplateController::class, 'deleteVariant']);
         
-        Route::post('{id}/fields', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'addField']);
-        Route::put('{id}/fields/{fieldId}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'updateField']);
-        Route::delete('{id}/fields/{fieldId}', [\App\Http\Controllers\Api\Admin\InteractiveTemplateController::class, 'deleteField']);
+        Route::post('{id}/fields', [InteractiveTemplateController::class, 'addField']);
+        Route::put('{id}/fields/{fieldId}', [InteractiveTemplateController::class, 'updateField']);
+        Route::delete('{id}/fields/{fieldId}', [InteractiveTemplateController::class, 'deleteField']);
     });
 
     // ---------------------------

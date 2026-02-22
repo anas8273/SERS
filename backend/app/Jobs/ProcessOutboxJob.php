@@ -59,11 +59,11 @@ class ProcessOutboxJob implements ShouldQueue
         $payload = $this->outboxEvent->payload;
         
         foreach ($payload['items'] as $item) {
-            if ($item['product_type'] === 'interactive') {
+            if ($item['template_type'] === 'interactive') {
                 // إنشاء سجل في Firestore
                 $recordId = $firestoreService->createUserRecord(
                     $payload['user_id'],
-                    $item['product_id'],
+                    $item['template_id'],
                     $item['template_structure']
                 );
 

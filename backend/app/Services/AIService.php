@@ -392,7 +392,7 @@ PROMPT;
 
     private function buildPerformanceReportPrompt(array $data): string
     {
-        $teacherName = $data['teacher_name'] ?? 'المعلم';
+        $userName = $data['user_name'] ?? 'المستخدم';
         $period = $data['period'] ?? 'الفصل الدراسي';
         $achievements = $data['achievements'] ?? [];
         $activities = $data['activities'] ?? [];
@@ -405,8 +405,8 @@ PROMPT;
         return <<<PROMPT
 أنشئ تقرير أداء وظيفي شامل:
 
-**معلومات المعلم:**
-- الاسم: {$teacherName}
+**معلومات المستخدم:**
+- الاسم: {$userName}
 - الفترة: {$period}
 
 **الإنجازات:**

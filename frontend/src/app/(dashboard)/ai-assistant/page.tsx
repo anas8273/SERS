@@ -64,7 +64,7 @@ import {
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 
-// Quick prompts for teachers
+// Quick prompts for users
 const QUICK_PROMPTS = [
     {
         icon: BookOpen,
@@ -221,7 +221,7 @@ export default function AIAssistantPage() {
         recipient_name: '',
         reason: '',
         organization: '',
-        teacher_name: '',
+        user_name: '',
         period: '',
         achievements: '',
         activities: '',
@@ -411,7 +411,7 @@ export default function AIAssistantPage() {
 
                 case 'performance-report':
                     response = await api.generatePerformanceReport({
-                        teacher_name: toolForm.teacher_name,
+                        user_name: toolForm.user_name,
                         period: toolForm.period,
                         achievements: toolForm.achievements.split('\n').filter(Boolean),
                         activities: toolForm.activities.split('\n').filter(Boolean),
@@ -639,11 +639,11 @@ export default function AIAssistantPage() {
                     <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>اسم المعلم</Label>
+                                <Label>اسم المستخدم</Label>
                                 <Input
-                                    value={toolForm.teacher_name}
-                                    onChange={(e) => setToolForm({ ...toolForm, teacher_name: e.target.value })}
-                                    placeholder="أدخل اسم المعلم"
+                                    value={toolForm.user_name}
+                                    onChange={(e) => setToolForm({ ...toolForm, user_name: e.target.value })}
+                                    placeholder="أدخل اسم المستخدم"
                                 />
                             </div>
                             <div className="space-y-2">

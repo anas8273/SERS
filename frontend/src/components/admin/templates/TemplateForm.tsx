@@ -54,7 +54,7 @@ export default function TemplateForm({ templateId }: TemplateFormProps) {
 
                 // 2. إذا كنا في وضع التعديل، جلب بيانات القالب
                 if (isEditMode && templateId) {
-                    const templateRes = await api.getAdminProduct(templateId);
+                    const templateRes = await api.getAdminTemplate(templateId);
                     const template = templateRes.data;
 
                     setFormData({
@@ -137,10 +137,10 @@ export default function TemplateForm({ templateId }: TemplateFormProps) {
             }
 
             if (isEditMode && templateId) {
-                await api.updateProduct(templateId, data);
+                await api.updateTemplate(templateId, data);
                 toast.success('تم تحديث القالب بنجاح! ✅');
             } else {
-                await api.createProduct(data);
+                await api.createTemplate(data);
                 toast.success('تم إضافة القالب بنجاح! 🚀');
             }
 

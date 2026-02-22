@@ -60,7 +60,7 @@ class TemplateSeeder extends Seeder
                 'name_ar' => 'نموذج التقييم الذاتي',
                 'name_en' => 'Self Assessment Form',
                 'description_ar' => 'نموذج تفاعلي للتقييم الذاتي للمعلمين والطلاب',
-                'description_en' => 'Interactive self-assessment form for teachers and students',
+                'description_en' => 'Interactive self-assessment form for users and students',
                 'price' => 0.00,
                 'type' => 'interactive',
                 'format' => 'pdf',
