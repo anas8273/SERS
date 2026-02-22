@@ -24,6 +24,7 @@ import type {
   AIPromptConfig, AIFieldPrompt,
   UserRecord,
   ServiceDefinition,
+  ServiceCategory,
 } from '@/types';
 
 // ============================================================
@@ -268,9 +269,88 @@ export async function getService(serviceId: string): Promise<ServiceDefinition |
 export async function saveService(serviceId: string, service: Partial<ServiceDefinition>): Promise<void> {
   try {
     const docRef = doc(db, 'services', serviceId);
-    await setDoc(docRef, service, { merge: true });
+    await setDoc(docRef, {
+      ...service,
+      updated_at: new Date().toISOString(),
+    }, { merge: true });
   } catch (error) {
     console.error('Error saving service:', error);
+    throw error;
+  }
+}
+
+export async function createService(service: Omit<ServiceDefinition, 'id'>): Promise<string> {
+  try {
+    const colRef = collection(db, 'services');
+    const docRef = await addDoc(colRef, {
+      ...service,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creating service:', error);
+    throw error;
+  }
+}
+
+export async function deleteService(serviceId: string): Promise<void> {
+  try {
+    const docRef = doc(db, 'services', serviceId);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error('Error deleting service:', error);
+    throw error;
+  }
+}
+
+export async function getAllServices(): Promise<ServiceDefinition[]> {
+  try {
+    const colRef = collection(db, 'services');
+    const q = query(colRef, orderBy('sort_order', 'asc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ServiceDefinition));
+  } catch (error) {
+    console.error('Error fetching all services:', error);
+    return [];
+  }
+}
+
+export async function getServiceBySlug(slug: string): Promise<ServiceDefinition | null> {
+  try {
+    const colRef = collection(db, 'services');
+    const q = query(colRef, where('slug', '==', slug), limit(1));
+    const snapshot = await getDocs(q);
+    if (!snapshot.empty) {
+      const docSnap = snapshot.docs[0];
+      return { id: docSnap.id, ...docSnap.data() } as ServiceDefinition;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching service by slug:', error);
+    return null;
+  }
+}
+
+// Service Categories
+export async function getServiceCategories(): Promise<ServiceCategory[]> {
+  try {
+    const colRef = collection(db, 'service_categories');
+    const q = query(colRef, orderBy('name_ar', 'asc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ServiceCategory));
+  } catch (error) {
+    console.error('Error fetching service categories:', error);
+    return [];
+  }
+}
+
+export async function saveServiceCategory(categoryId: string, category: Partial<ServiceCategory>): Promise<void> {
+  try {
+    const docRef = doc(db, 'service_categories', categoryId);
+    await setDoc(docRef, category, { merge: true });
+  } catch (error) {
+    console.error('Error saving service category:', error);
     throw error;
   }
 }

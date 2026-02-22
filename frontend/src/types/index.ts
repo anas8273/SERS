@@ -997,6 +997,15 @@ export interface UserRecord {
     updated_at: string;
 }
 
+/** Service category definition */
+export interface ServiceCategory {
+    id: string;
+    name_ar: string;
+    name_en: string;
+    icon: string;
+    color: string;
+}
+
 /** Service definition (stored in Firestore for dynamic management) */
 export interface ServiceDefinition {
     id: string;
@@ -1005,15 +1014,30 @@ export interface ServiceDefinition {
     name_en: string;
     description_ar: string;
     description_en: string;
+    long_description_ar?: string;
+    long_description_en?: string;
     icon: string;
     color: string;
+    gradient?: string;          // Tailwind gradient classes e.g. 'from-blue-500 to-blue-600'
     category: string;
-    route: string;             // The actual route to navigate to
+    route: string;              // The actual route to navigate to
     features: ServiceFeature[];
+    benefits_ar?: string[];     // Benefits list in Arabic
+    benefits_en?: string[];     // Benefits list in English
+    how_it_works?: ServiceStep[];
+    stats?: ServiceStat[];
+    pricing?: ServicePricing[];
+    faqs?: ServiceFAQ[];
+    related_services?: string[]; // slugs of related services
     is_active: boolean;
+    is_new?: boolean;
+    is_popular?: boolean;
+    is_premium?: boolean;
     sort_order: number;
     requires_auth: boolean;
     requires_subscription: boolean;
+    created_at?: string;
+    updated_at?: string;
 }
 
 export interface ServiceFeature {
@@ -1022,4 +1046,35 @@ export interface ServiceFeature {
     description_ar: string;
     description_en: string;
     icon: string;
+}
+
+export interface ServiceStep {
+    step: number;
+    title_ar: string;
+    title_en: string;
+    description_ar: string;
+    description_en: string;
+}
+
+export interface ServiceStat {
+    label_ar: string;
+    label_en: string;
+    value: string;
+    icon: string;
+}
+
+export interface ServicePricing {
+    type_ar: string;
+    type_en: string;
+    price: string;
+    features_ar: string[];
+    features_en: string[];
+    recommended?: boolean;
+}
+
+export interface ServiceFAQ {
+    question_ar: string;
+    question_en: string;
+    answer_ar: string;
+    answer_en: string;
 }
