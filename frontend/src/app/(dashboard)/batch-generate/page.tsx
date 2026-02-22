@@ -1,14 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -34,17 +32,19 @@ import {
   Eye,
   Trash2,
   Play,
-  Pause,
   RotateCcw,
   Settings,
-  ChevronDown,
-  ChevronUp,
   Users,
   FileDown,
   Zap,
   Clock,
-  BarChart3,
   Table as TableIcon,
+  ChevronDown,
+  ChevronUp,
+  MapPin,
+  Link2,
+  FileImage,
+  Archive,
 } from 'lucide-react';
 import {
   Table,
@@ -54,329 +54,454 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { getTemplateCanvas, getDynamicForm, getServices } from '@/lib/firestore-service';
+import { parseFile, analyzeColumns, generateSampleExcel, generateSampleCSV, type ParsedData, type ColumnInfo } from '@/lib/excel-parser';
+import type { TemplateCanvas, DynamicFormConfig, CanvasElement, DynamicFormField, ServiceDefinition } from '@/types';
 
+// ===== Types =====
 interface TemplateOption {
-  id: number;
+  id: string;
   name_ar: string;
   slug: string;
-  type: string;
-  category: {
-    name_ar: string;
-  };
-  fields: {
-    name: string;
-    label_ar: string;
-    type: string;
-    is_required: boolean;
-  }[];
+  category?: string;
+  canvas?: TemplateCanvas;
+  form?: DynamicFormConfig;
 }
 
-interface BatchRecord {
-  id: number;
-  data: Record<string, string>;
-  status: 'pending' | 'processing' | 'completed' | 'error';
-  error_message?: string;
-  output_url?: string;
+interface ColumnMapping {
+  excelColumn: string;
+  templateField: string;
 }
 
-interface BatchJob {
-  id: string;
-  template_id: number;
-  template_name: string;
-  total_records: number;
-  completed_records: number;
-  failed_records: number;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  created_at: string;
-  download_url?: string;
-}
+type ExportFormat = 'pdf' | 'zip_png' | 'zip_jpeg';
 
-export default function BatchGeneratePage() {
+// ===== Steps =====
+const STEPS = [
+  { id: 1, title: 'اختيار القالب', icon: Layers, description: 'اختر القالب التفاعلي' },
+  { id: 2, title: 'رفع البيانات', icon: FileSpreadsheet, description: 'رفع ملف Excel أو CSV' },
+  { id: 3, title: 'ربط الأعمدة', icon: Link2, description: 'ربط أعمدة الملف بحقول القالب' },
+  { id: 4, title: 'معاينة وتوليد', icon: Zap, description: 'معاينة النتائج وبدء التوليد' },
+];
+
+export default function BulkGeneratePage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
 
   // Step state
   const [currentStep, setCurrentStep] = useState(1);
-  
+
   // Step 1: Template selection
   const [templates, setTemplates] = useState<TemplateOption[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateOption | null>(null);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Step 2: Data input
-  const [inputMethod, setInputMethod] = useState<'manual' | 'csv' | 'excel'>('manual');
-  const [records, setRecords] = useState<BatchRecord[]>([]);
-  const [csvContent, setCsvContent] = useState('');
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  // Step 2: File upload
+  const [parsedData, setParsedData] = useState<ParsedData | null>(null);
+  const [columnInfos, setColumnInfos] = useState<ColumnInfo[]>([]);
+  const [uploadedFileName, setUploadedFileName] = useState('');
+  const [parsing, setParsing] = useState(false);
 
-  // Step 3: Preview & Generate
+  // Step 3: Column mapping
+  const [mappings, setMappings] = useState<ColumnMapping[]>([]);
+  const [autoMapped, setAutoMapped] = useState(false);
+
+  // Step 4: Generate
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('pdf');
   const [generating, setGenerating] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [batchJobId, setBatchJobId] = useState<string | null>(null);
-
-  // History
-  const [batchJobs, setBatchJobs] = useState<BatchJob[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
-  const [loadingHistory, setLoadingHistory] = useState(false);
-
-  // Settings
-  const [outputFormat, setOutputFormat] = useState<'pdf' | 'image'>('pdf');
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [previewData, setPreviewData] = useState<Record<string, string>>({});
   const [showSettings, setShowSettings] = useState(false);
-  const [useAI, setUseAI] = useState(false);
-  const [variantId, setVariantId] = useState<number | null>(null);
 
+  // ===== Load templates from Firestore =====
   useEffect(() => {
-    fetchTemplates();
-    fetchBatchHistory();
+    loadTemplates();
   }, []);
 
-  const fetchTemplates = async () => {
+  const loadTemplates = async () => {
     try {
       setLoadingTemplates(true);
-      const response = await api.getTemplates({ type: 'interactive' });
-      setTemplates(response.data || []);
+      // Get services that have templates
+      const services = await getServices();
+      const templateOptions: TemplateOption[] = [];
+
+      for (const service of services) {
+        if (!service.is_active) continue;
+        // Each service can have a template canvas + form in Firestore
+        // The templateId is the service.id or service.slug
+        const possibleIds = [service.id, service.slug].filter(Boolean);
+        for (const tplId of possibleIds) {
+          try {
+            const [canvas, form] = await Promise.all([
+              getTemplateCanvas(String(tplId)),
+              getDynamicForm(String(tplId)),
+            ]);
+            if (canvas && form && form.fields.length > 0) {
+              templateOptions.push({
+                id: String(tplId),
+                name_ar: service.name_ar || (service as any).title || tplId,
+                slug: service.slug,
+                category: service.category,
+                canvas,
+                form,
+              });
+              break; // Found template for this service, no need to try other IDs
+            }
+          } catch {
+            // Skip - no canvas/form for this ID
+          }
+        }
+      }
+
+      // If no templates from services, try loading directly from common IDs
+      if (templateOptions.length === 0) {
+        // Fallback: show a message
+        console.log('No templates with canvas found in services');
+      }
+
+      setTemplates(templateOptions);
     } catch (error) {
-      console.error('Error fetching templates:', error);
+      console.error('Error loading templates:', error);
+      toast.error('خطأ في تحميل القوالب');
     } finally {
       setLoadingTemplates(false);
     }
   };
 
-  const fetchBatchHistory = async () => {
-    try {
-      setLoadingHistory(true);
-      const response = await api.getBatchJobs();
-      setBatchJobs(response.data || []);
-    } catch (error) {
-      console.error('Error fetching batch history:', error);
-    } finally {
-      setLoadingHistory(false);
-    }
-  };
-
+  // ===== Handle template selection =====
   const handleTemplateSelect = (template: TemplateOption) => {
     setSelectedTemplate(template);
-    // Initialize empty records with template fields
-    const emptyRecord: Record<string, string> = {};
-    template.fields.forEach(f => {
-      emptyRecord[f.name] = '';
-    });
-    setRecords([{ id: 1, data: emptyRecord, status: 'pending' }]);
     setCurrentStep(2);
+    // Reset subsequent steps
+    setParsedData(null);
+    setMappings([]);
+    setPreviewIndex(0);
   };
 
-  const handleAddRecord = () => {
-    if (!selectedTemplate) return;
-    const emptyRecord: Record<string, string> = {};
-    selectedTemplate.fields.forEach(f => {
-      emptyRecord[f.name] = '';
-    });
-    setRecords(prev => [...prev, {
-      id: (prev[prev.length - 1]?.id || 0) + 1,
-      data: emptyRecord,
-      status: 'pending'
-    }]);
-  };
-
-  const handleRemoveRecord = (id: number) => {
-    setRecords(prev => prev.filter(r => r.id !== id));
-  };
-
-  const handleRecordChange = (id: number, fieldName: string, value: string) => {
-    setRecords(prev => prev.map(r => 
-      r.id === id ? { ...r, data: { ...r.data, [fieldName]: value } } : r
-    ));
-  };
-
-  const handleCSVParse = () => {
-    if (!selectedTemplate || !csvContent.trim()) return;
-
-    try {
-      const lines = csvContent.trim().split('\n');
-      const headers = lines[0].split(',').map(h => h.trim());
-      
-      const newRecords: BatchRecord[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim());
-        const data: Record<string, string> = {};
-        
-        selectedTemplate.fields.forEach((field, index) => {
-          const headerIndex = headers.findIndex(h => 
-            h === field.name || h === field.label_ar
-          );
-          data[field.name] = headerIndex >= 0 ? values[headerIndex] || '' : values[index] || '';
-        });
-
-        newRecords.push({
-          id: i,
-          data,
-          status: 'pending'
-        });
-      }
-
-      setRecords(newRecords);
-      toast.success(`تم استيراد ${newRecords.length} سجل بنجاح`);
-    } catch (error) {
-      toast.error('خطأ في تحليل البيانات. تأكد من صحة التنسيق');
-    }
-  };
-
+  // ===== Handle file upload =====
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setUploadedFile(file);
+    try {
+      setParsing(true);
+      setUploadedFileName(file.name);
 
-    if (file.name.endsWith('.csv')) {
-      const text = await file.text();
-      setCsvContent(text);
-      setInputMethod('csv');
-    } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('template_id', selectedTemplate?.id?.toString() || '');
-        
-        const response = await api.parseExcelForBatch(formData);
-        if (response.success && response.data.records) {
-          setRecords(response.data.records.map((data: Record<string, string>, i: number) => ({
-            id: i + 1,
-            data,
-            status: 'pending' as const
-          })));
-          toast.success(`تم استيراد ${response.data.records.length} سجل من ملف Excel`);
-        }
-      } catch (error) {
-        toast.error('خطأ في قراءة ملف Excel');
-      }
+      const data = await parseFile(file);
+      const infos = analyzeColumns(data);
+
+      setParsedData(data);
+      setColumnInfos(infos);
+
+      toast.success(`تم استيراد ${data.totalRows} سجل من "${file.name}"`);
+
+      // Auto-map columns
+      autoMapColumns(data.headers, selectedTemplate?.form?.fields || []);
+
+      setCurrentStep(3);
+    } catch (error: any) {
+      toast.error(error.message || 'خطأ في قراءة الملف');
+    } finally {
+      setParsing(false);
     }
   };
 
-  const handleAIFillRecords = async () => {
-    if (!selectedTemplate) return;
-    
+  // ===== Handle drag & drop =====
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!['xlsx', 'xls', 'csv'].includes(ext || '')) {
+      toast.error('يرجى رفع ملف Excel (.xlsx) أو CSV فقط');
+      return;
+    }
+
+    try {
+      setParsing(true);
+      setUploadedFileName(file.name);
+
+      const data = await parseFile(file);
+      const infos = analyzeColumns(data);
+
+      setParsedData(data);
+      setColumnInfos(infos);
+
+      toast.success(`تم استيراد ${data.totalRows} سجل`);
+      autoMapColumns(data.headers, selectedTemplate?.form?.fields || []);
+      setCurrentStep(3);
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setParsing(false);
+    }
+  }, [selectedTemplate]);
+
+  // ===== Auto-map columns to template fields =====
+  const autoMapColumns = (headers: string[], fields: DynamicFormField[]) => {
+    const newMappings: ColumnMapping[] = [];
+
+    fields.forEach(field => {
+      // Try exact match first
+      let matchedHeader = headers.find(h =>
+        h === field.label_ar ||
+        h === field.label_en ||
+        h === field.name ||
+        h.toLowerCase() === field.name.toLowerCase()
+      );
+
+      // Try fuzzy match
+      if (!matchedHeader) {
+        matchedHeader = headers.find(h => {
+          const hLower = h.toLowerCase().trim();
+          const nameLower = field.name.toLowerCase();
+          const labelAr = field.label_ar.toLowerCase();
+          return hLower.includes(nameLower) || nameLower.includes(hLower) ||
+                 hLower.includes(labelAr) || labelAr.includes(hLower);
+        });
+      }
+
+      // Try common Arabic mappings
+      if (!matchedHeader) {
+        const commonMappings: Record<string, string[]> = {
+          'student_name': ['الاسم', 'اسم الطالب', 'اسم الطالبة', 'الطالب', 'الاسم الكامل', 'name'],
+          'course_name': ['المادة', 'اسم المادة', 'الدورة', 'المقرر', 'course'],
+          'grade': ['الدرجة', 'النتيجة', 'العلامة', 'التقدير', 'grade', 'score'],
+          'date': ['التاريخ', 'تاريخ', 'date'],
+          'school_name': ['المدرسة', 'اسم المدرسة', 'school'],
+          'teacher_name': ['المعلم', 'اسم المعلم', 'المعلمة', 'teacher'],
+          'class': ['الصف', 'الفصل', 'class'],
+          'section': ['الشعبة', 'القسم', 'section'],
+        };
+
+        const fieldAliases = commonMappings[field.name] || [];
+        matchedHeader = headers.find(h =>
+          fieldAliases.some(alias => h.includes(alias) || alias.includes(h))
+        );
+      }
+
+      newMappings.push({
+        templateField: field.id,
+        excelColumn: matchedHeader || '',
+      });
+    });
+
+    setMappings(newMappings);
+    setAutoMapped(true);
+  };
+
+  // ===== Update mapping =====
+  const updateMapping = (fieldId: string, excelColumn: string) => {
+    setMappings(prev => prev.map(m =>
+      m.templateField === fieldId ? { ...m, excelColumn } : m
+    ));
+  };
+
+  // ===== Get mapped data for a row =====
+  const getMappedRowData = (rowIndex: number): Record<string, string> => {
+    if (!parsedData || !selectedTemplate?.form) return {};
+
+    const row = parsedData.rows[rowIndex];
+    if (!row) return {};
+
+    const data: Record<string, string> = {};
+    selectedTemplate.form.fields.forEach(field => {
+      const mapping = mappings.find(m => m.templateField === field.id);
+      if (mapping && mapping.excelColumn && row[mapping.excelColumn] !== undefined) {
+        data[field.id] = String(row[mapping.excelColumn]);
+      } else {
+        data[field.id] = '';
+      }
+    });
+
+    return data;
+  };
+
+  // ===== Update preview when index changes =====
+  useEffect(() => {
+    if (parsedData && selectedTemplate) {
+      setPreviewData(getMappedRowData(previewIndex));
+    }
+  }, [previewIndex, mappings, parsedData, selectedTemplate]);
+
+  // ===== Download sample file =====
+  const handleDownloadSample = (format: 'csv' | 'xlsx') => {
+    if (!selectedTemplate?.form) return;
+
+    const fields = selectedTemplate.form.fields.map(f => ({
+      id: f.id,
+      label_ar: f.label_ar,
+    }));
+
+    if (format === 'csv') {
+      const csv = generateSampleCSV(fields);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${selectedTemplate.name_ar}_template.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } else {
+      const blob = generateSampleExcel(fields);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${selectedTemplate.name_ar}_template.xlsx`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    toast.success('تم تحميل ملف القالب');
+  };
+
+  // ===== Bulk Generate =====
+  const handleBulkGenerate = async () => {
+    if (!selectedTemplate?.canvas || !selectedTemplate?.form || !parsedData) return;
+
+    const mappedCount = mappings.filter(m => m.excelColumn).length;
+    if (mappedCount === 0) {
+      toast.error('يرجى ربط عمود واحد على الأقل بحقول القالب');
+      return;
+    }
+
     try {
       setGenerating(true);
-      const response = await api.aiFillBatchRecords({
-        template_id: selectedTemplate.id,
-        records: records.map(r => r.data),
-      });
-      
-      if (response.success && response.data.records) {
-        setRecords(prev => prev.map((r, i) => ({
-          ...r,
-          data: response.data.records[i] || r.data
-        })));
-        toast.success('تم تعبئة البيانات بالذكاء الاصطناعي');
+      setProgress({ current: 0, total: parsedData.totalRows });
+
+      const canvas = selectedTemplate.canvas;
+      const form = selectedTemplate.form;
+
+      // Dynamic import for export utilities
+      if (exportFormat === 'pdf') {
+        const { bulkExportPDF } = await import('@/lib/pdf-export');
+
+        const renderFn = (rowData: Record<string, any>, index: number): HTMLElement => {
+          return createPreviewElement(canvas, form.fields, rowData);
+        };
+
+        // Prepare all row data
+        const allRows = parsedData.rows.map((_, i) => getMappedRowData(i));
+
+        const result = await bulkExportPDF(renderFn, allRows, {
+          fileName: `${selectedTemplate.name_ar}_bulk_${parsedData.totalRows}`,
+          canvasWidth: canvas.canvas_width,
+          canvasHeight: canvas.canvas_height,
+          scale: 2,
+          onProgress: (current, total) => {
+            setProgress({ current, total });
+          },
+        });
+
+        if (result.success) {
+          toast.success(`تم توليد ${parsedData.totalRows} مستند بنجاح!`);
+        } else {
+          toast.error(result.error || 'خطأ في التوليد');
+        }
+      } else {
+        // ZIP export
+        const { bulkExportZIP } = await import('@/lib/pdf-export');
+        const imgFormat = exportFormat === 'zip_png' ? 'png' : 'jpeg';
+
+        const renderFn = (rowData: Record<string, any>, index: number): HTMLElement => {
+          return createPreviewElement(canvas, form.fields, rowData);
+        };
+
+        const allRows = parsedData.rows.map((_, i) => getMappedRowData(i));
+
+        const result = await bulkExportZIP(renderFn, allRows, {
+          fileName: `${selectedTemplate.name_ar}_bulk_${parsedData.totalRows}`,
+          canvasWidth: canvas.canvas_width,
+          canvasHeight: canvas.canvas_height,
+          scale: 2,
+          format: imgFormat,
+          onProgress: (current, total) => {
+            setProgress({ current, total });
+          },
+        });
+
+        if (result.success) {
+          toast.success(`تم توليد ${parsedData.totalRows} صورة في ملف ZIP!`);
+        } else {
+          toast.error(result.error || 'خطأ في التوليد');
+        }
       }
-    } catch (error) {
-      toast.error('خطأ في التعبئة التلقائية');
+    } catch (error: any) {
+      console.error('Bulk generation error:', error);
+      toast.error('خطأ في التوليد الجماعي');
     } finally {
       setGenerating(false);
     }
   };
 
-  const handleStartBatch = async () => {
-    if (!selectedTemplate || records.length === 0) return;
+  // ===== Create preview DOM element for a single record =====
+  const createPreviewElement = (
+    canvas: TemplateCanvas,
+    fields: DynamicFormField[],
+    rowData: Record<string, string>
+  ): HTMLElement => {
+    const container = document.createElement('div');
+    container.style.position = 'relative';
+    container.style.width = `${canvas.canvas_width}px`;
+    container.style.height = `${canvas.canvas_height}px`;
+    container.style.overflow = 'hidden';
+    container.style.direction = 'rtl';
+    container.style.fontFamily = '"Cairo", "Tajawal", sans-serif';
 
-    try {
-      setGenerating(true);
-      setProgress(0);
-      setCurrentStep(3);
+    // Background image
+    const bg = document.createElement('img');
+    bg.src = canvas.background_url;
+    bg.style.width = '100%';
+    bg.style.height = '100%';
+    bg.style.objectFit = 'cover';
+    bg.style.position = 'absolute';
+    bg.style.top = '0';
+    bg.style.left = '0';
+    bg.crossOrigin = 'anonymous';
+    container.appendChild(bg);
 
-      const response = await api.startBatchGeneration({
-        template_id: selectedTemplate.id,
-        variant_id: variantId,
-        output_format: outputFormat,
-        records: records.map(r => r.data),
-        use_ai: useAI,
-      });
+    // Overlay text elements at X/Y coordinates
+    canvas.elements.forEach(element => {
+      const value = rowData[element.field_id] || '';
+      if (!value || !element.is_visible) return;
 
-      if (response.success) {
-        setBatchJobId(response.data.job_id);
-        
-        // Poll for progress
-        const pollInterval = setInterval(async () => {
-          try {
-            const statusResponse = await api.getBatchJobStatus(response.data.job_id);
-            if (statusResponse.success) {
-              const job = statusResponse.data;
-              const newProgress = Math.round((job.completed_records / job.total_records) * 100);
-              setProgress(newProgress);
+      const textEl = document.createElement('div');
+      textEl.style.position = 'absolute';
+      textEl.style.left = `${element.x}%`;
+      textEl.style.top = `${element.y}%`;
+      textEl.style.width = `${element.width}%`;
+      textEl.style.fontSize = `${element.font_size}px`;
+      textEl.style.fontFamily = element.font_family || '"Cairo", sans-serif';
+      textEl.style.fontWeight = element.font_weight || 'normal';
+      textEl.style.color = element.color || '#000000';
+      textEl.style.textAlign = element.text_align || 'center';
+      textEl.style.direction = 'rtl';
+      textEl.style.whiteSpace = 'pre-wrap';
+      textEl.style.lineHeight = '1.4';
+      textEl.style.transform = element.rotation ? `rotate(${element.rotation}deg)` : 'none';
+      textEl.textContent = value;
 
-              // Update individual record statuses
-              if (job.record_statuses) {
-                setRecords(prev => prev.map((r, i) => ({
-                  ...r,
-                  status: job.record_statuses[i]?.status || r.status,
-                  error_message: job.record_statuses[i]?.error_message,
-                  output_url: job.record_statuses[i]?.output_url,
-                })));
-              }
+      container.appendChild(textEl);
+    });
 
-              if (job.status === 'completed' || job.status === 'failed') {
-                clearInterval(pollInterval);
-                setGenerating(false);
-                if (job.status === 'completed') {
-                  toast.success('تم التوليد الجماعي بنجاح!');
-                } else {
-                  toast.error('حدث خطأ في بعض السجلات');
-                }
-                fetchBatchHistory();
-              }
-            }
-          } catch (err) {
-            console.error('Poll error:', err);
-          }
-        }, 2000);
-      }
-    } catch (error) {
-      console.error('Batch generation error:', error);
-      toast.error('خطأ في بدء التوليد الجماعي');
-      setGenerating(false);
-    }
+    return container;
   };
 
-  const handleDownloadAll = async () => {
-    if (!batchJobId) return;
-    try {
-      const response = await api.downloadBatchResults(batchJobId);
-      if (response.data?.download_url) {
-        window.open(response.data.download_url, '_blank');
-      }
-    } catch (error) {
-      toast.error('خطأ في تحميل النتائج');
-    }
-  };
-
-  const handleDownloadSampleCSV = () => {
-    if (!selectedTemplate) return;
-    const headers = selectedTemplate.fields.map(f => f.label_ar).join(',');
-    const sampleRow = selectedTemplate.fields.map(f => `مثال_${f.label_ar}`).join(',');
-    const csv = `${headers}\n${sampleRow}`;
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${selectedTemplate.name_ar}_template.csv`;
-    link.click();
-  };
-
+  // ===== Filtered templates =====
   const filteredTemplates = templates.filter(t =>
     t.name_ar.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.category?.name_ar?.toLowerCase().includes(searchQuery.toLowerCase())
+    (t.category || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const completedRecords = records.filter(r => r.status === 'completed').length;
-  const failedRecords = records.filter(r => r.status === 'error').length;
+  const mappedFieldsCount = mappings.filter(m => m.excelColumn).length;
+  const totalFields = selectedTemplate?.form?.fields.length || 0;
 
-  const steps = [
-    { id: 1, title: 'اختيار القالب', icon: Layers },
-    { id: 2, title: 'إدخال البيانات', icon: TableIcon },
-    { id: 3, title: 'التوليد والتحميل', icon: Zap },
-  ];
-
+  // ===== RENDER =====
   return (
     <div className="container mx-auto py-6 px-4" dir="rtl">
       {/* Header */}
@@ -387,44 +512,37 @@ export default function BatchGeneratePage() {
             التوليد الجماعي
           </h1>
           <p className="text-muted-foreground mt-1">
-            توليد عدة مستندات دفعة واحدة من قالب واحد
+            رفع ملف Excel لتوليد عشرات أو مئات المستندات دفعة واحدة باستخدام محرك القوالب
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setShowHistory(!showHistory)}
-            className="gap-2"
-          >
-            <Clock className="h-4 w-4" />
-            السجل ({batchJobs.length})
-          </Button>
         </div>
       </div>
 
       {/* Steps Indicator */}
-      <div className="flex items-center justify-center mb-8">
-        {steps.map((step, index) => (
+      <div className="flex items-center justify-center mb-8 overflow-x-auto">
+        {STEPS.map((step, index) => (
           <div key={step.id} className="flex items-center">
-            <div
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
+            <button
+              onClick={() => {
+                if (step.id < currentStep) setCurrentStep(step.id);
+              }}
+              disabled={step.id > currentStep}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all text-sm ${
                 currentStep === step.id
                   ? 'bg-primary text-white shadow-lg'
                   : currentStep > step.id
-                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                  : 'bg-gray-100 text-gray-500 dark:bg-gray-800'
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 cursor-pointer hover:bg-green-200'
+                  : 'bg-gray-100 text-gray-400 dark:bg-gray-800 cursor-not-allowed'
               }`}
             >
               {currentStep > step.id ? (
-                <CheckCircle2 className="h-5 w-5" />
+                <CheckCircle2 className="h-4 w-4" />
               ) : (
-                <step.icon className="h-5 w-5" />
+                <step.icon className="h-4 w-4" />
               )}
-              <span className="font-medium text-sm hidden sm:inline">{step.title}</span>
-              <span className="font-medium text-sm sm:hidden">{step.id}</span>
-            </div>
-            {index < steps.length - 1 && (
-              <div className={`w-8 md:w-16 h-0.5 mx-1 ${
+              <span className="font-medium hidden sm:inline">{step.title}</span>
+            </button>
+            {index < STEPS.length - 1 && (
+              <div className={`w-6 md:w-12 h-0.5 mx-1 ${
                 currentStep > step.id ? 'bg-green-400' : 'bg-gray-200 dark:bg-gray-700'
               }`} />
             )}
@@ -432,7 +550,7 @@ export default function BatchGeneratePage() {
         ))}
       </div>
 
-      {/* Step 1: Template Selection */}
+      {/* ===== STEP 1: Template Selection ===== */}
       {currentStep === 1 && (
         <div className="space-y-4">
           <div className="relative max-w-md">
@@ -445,38 +563,70 @@ export default function BatchGeneratePage() {
           </div>
 
           {loadingTemplates ? (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-muted-foreground">جاري تحميل القوالب من Firestore...</p>
             </div>
+          ) : filteredTemplates.length === 0 ? (
+            <Card className="p-12 text-center">
+              <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">لا توجد قوالب تفاعلية</h3>
+              <p className="text-muted-foreground mb-4">
+                يجب أن يقوم المسؤول بإنشاء قوالب تفاعلية مع Canvas و Form أولاً من لوحة الإدارة
+              </p>
+              <Button variant="outline" onClick={() => router.push('/admin/templates')}>
+                الذهاب لإدارة القوالب
+              </Button>
+            </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredTemplates.map((template) => (
                 <Card
                   key={template.id}
-                  className="cursor-pointer hover:shadow-lg hover:border-primary/50 transition-all"
+                  className="cursor-pointer hover:shadow-lg hover:border-primary/50 transition-all group"
                   onClick={() => handleTemplateSelect(template)}
                 >
-                  <CardHeader>
+                  {/* Template preview thumbnail */}
+                  {template.canvas?.background_url && (
+                    <div className="h-40 overflow-hidden rounded-t-lg bg-gray-50">
+                      <img
+                        src={template.canvas.background_url}
+                        alt={template.name_ar}
+                        className="w-full h-full object-contain group-hover:scale-105 transition-transform"
+                      />
+                    </div>
+                  )}
+                  <CardHeader className="pb-2">
                     <div className="flex items-start justify-between">
                       <div>
-                        <CardTitle className="text-lg">{template.name_ar}</CardTitle>
-                        <CardDescription>{template.category?.name_ar}</CardDescription>
+                        <CardTitle className="text-base">{template.name_ar}</CardTitle>
+                        {template.category && (
+                          <CardDescription>{template.category}</CardDescription>
+                        )}
                       </div>
-                      <Badge variant="secondary">{template.fields?.length || 0} حقل</Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        {template.form?.fields.length || 0} حقل
+                      </Badge>
                     </div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="pt-0">
                     <div className="flex flex-wrap gap-1">
-                      {template.fields?.slice(0, 4).map((field) => (
-                        <Badge key={field.name} variant="outline" className="text-xs">
+                      {template.form?.fields.slice(0, 4).map((field) => (
+                        <Badge key={field.id} variant="outline" className="text-xs">
                           {field.label_ar}
                         </Badge>
                       ))}
-                      {(template.fields?.length || 0) > 4 && (
+                      {(template.form?.fields.length || 0) > 4 && (
                         <Badge variant="outline" className="text-xs">
-                          +{(template.fields?.length || 0) - 4}
+                          +{(template.form?.fields.length || 0) - 4}
                         </Badge>
                       )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
+                      <MapPin className="h-3 w-3" />
+                      {template.canvas?.elements.length || 0} عنصر على الكانفاس
+                      <span className="mx-1">|</span>
+                      {template.canvas?.canvas_width}x{template.canvas?.canvas_height}px
                     </div>
                   </CardContent>
                 </Card>
@@ -486,466 +636,462 @@ export default function BatchGeneratePage() {
         </div>
       )}
 
-      {/* Step 2: Data Input */}
+      {/* ===== STEP 2: File Upload ===== */}
       {currentStep === 2 && selectedTemplate && (
-        <div className="space-y-4">
-          {/* Template Info */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
+        <div className="space-y-4 max-w-3xl mx-auto">
+          {/* Template info bar */}
+          <Card className="bg-primary/5 border-primary/20">
+            <CardContent className="py-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <FileText className="h-5 w-5 text-primary" />
                 <div>
-                  <CardTitle className="text-lg">{selectedTemplate.name_ar}</CardTitle>
-                  <CardDescription>
-                    {selectedTemplate.fields.length} حقل | {records.length} سجل
-                  </CardDescription>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => setCurrentStep(1)}>
-                  <ArrowRight className="h-4 w-4 ml-1" />
-                  تغيير القالب
-                </Button>
-              </div>
-            </CardHeader>
-          </Card>
-
-          {/* Input Method */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {[
-              { id: 'manual' as const, label: 'إدخال يدوي', icon: TableIcon },
-              { id: 'csv' as const, label: 'CSV', icon: FileText },
-              { id: 'excel' as const, label: 'Excel', icon: FileSpreadsheet },
-            ].map(method => (
-              <Button
-                key={method.id}
-                variant={inputMethod === method.id ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setInputMethod(method.id)}
-                className="gap-2"
-              >
-                <method.icon className="h-4 w-4" />
-                {method.label}
-              </Button>
-            ))}
-
-            <div className="flex-1" />
-
-            <Button variant="outline" size="sm" onClick={handleDownloadSampleCSV} className="gap-2">
-              <Download className="h-4 w-4" />
-              تحميل نموذج CSV
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleAIFillRecords}
-              disabled={generating}
-              className="gap-2 text-purple-600 border-purple-200 hover:bg-purple-50"
-            >
-              <Sparkles className="h-4 w-4" />
-              تعبئة ذكية
-            </Button>
-          </div>
-
-          {/* CSV/Excel Input */}
-          {inputMethod === 'csv' && (
-            <Card>
-              <CardContent className="pt-4">
-                <div className="space-y-3">
-                  <Textarea
-                    placeholder={`الصق بيانات CSV هنا...\n${selectedTemplate.fields.map(f => f.label_ar).join(',')}\nقيمة1,قيمة2,...`}
-                    value={csvContent}
-                    onChange={(e) => setCsvContent(e.target.value)}
-                    className="min-h-[200px] font-mono text-sm"
-                  />
-                  <div className="flex items-center gap-2">
-                    <Button onClick={handleCSVParse} className="gap-2">
-                      <Play className="h-4 w-4" />
-                      تحليل البيانات
-                    </Button>
-                    <span className="text-sm text-muted-foreground">أو</span>
-                    <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="gap-2">
-                      <Upload className="h-4 w-4" />
-                      رفع ملف
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {inputMethod === 'excel' && (
-            <Card>
-              <CardContent className="pt-4">
-                <div
-                  className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <FileSpreadsheet className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                  <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    {uploadedFile ? uploadedFile.name : 'اسحب ملف Excel أو انقر للرفع'}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    يدعم ملفات .xlsx و .xls
+                  <p className="font-semibold text-sm">{selectedTemplate.name_ar}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedTemplate.form?.fields.length} حقل مطلوب
                   </p>
                 </div>
-              </CardContent>
-            </Card>
-          )}
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
-
-          {/* Manual Data Table */}
-          {(inputMethod === 'manual' || records.length > 0) && (
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">
-                    البيانات ({records.length} سجل)
-                  </CardTitle>
-                  <Button size="sm" onClick={handleAddRecord} className="gap-1">
-                    + إضافة سجل
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">#</TableHead>
-                        {selectedTemplate.fields.map(field => (
-                          <TableHead key={field.name} className="min-w-[150px]">
-                            {field.label_ar}
-                            {field.is_required && <span className="text-red-500 mr-1">*</span>}
-                          </TableHead>
-                        ))}
-                        <TableHead className="w-16">إجراء</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {records.map((record, index) => (
-                        <TableRow key={record.id}>
-                          <TableCell className="font-mono text-sm">{index + 1}</TableCell>
-                          {selectedTemplate.fields.map(field => (
-                            <TableCell key={field.name}>
-                              <Input
-                                value={record.data[field.name] || ''}
-                                onChange={(e) => handleRecordChange(record.id, field.name, e.target.value)}
-                                placeholder={field.label_ar}
-                                className="min-w-[130px]"
-                              />
-                            </TableCell>
-                          ))}
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-destructive"
-                              onClick={() => handleRemoveRecord(record.id)}
-                              disabled={records.length <= 1}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Settings */}
-          <Card>
-            <CardHeader className="pb-3 cursor-pointer" onClick={() => setShowSettings(!showSettings)}>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Settings className="h-4 w-4" />
-                  إعدادات التوليد
-                </CardTitle>
-                {showSettings ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </div>
-            </CardHeader>
-            {showSettings && (
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label>صيغة الإخراج</Label>
-                    <Select value={outputFormat} onValueChange={(v: 'pdf' | 'image') => setOutputFormat(v)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pdf">PDF</SelectItem>
-                        <SelectItem value="image">صورة PNG</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>استخدام الذكاء الاصطناعي</Label>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setUseAI(!useAI)}
-                        className={`relative w-11 h-6 rounded-full transition-colors ${
-                          useAI ? 'bg-primary' : 'bg-gray-200 dark:bg-gray-700'
-                        }`}
-                      >
-                        <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                          useAI ? 'right-0.5' : 'right-[22px]'
-                        }`} />
-                      </button>
-                      <span className="text-sm text-muted-foreground">
-                        {useAI ? 'مفعل' : 'معطل'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            )}
+              <Button variant="ghost" size="sm" onClick={() => setCurrentStep(1)}>
+                <ArrowRight className="h-4 w-4 ml-1" />
+                تغيير القالب
+              </Button>
+            </CardContent>
           </Card>
 
-          {/* Actions */}
-          <div className="flex items-center justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(1)} className="gap-2">
-              <ArrowRight className="h-4 w-4" />
-              السابق
-            </Button>
-            <Button
-              onClick={handleStartBatch}
-              disabled={records.length === 0 || generating}
-              className="gap-2"
-              size="lg"
-            >
-              {generating ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
+          {/* Download sample */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Download className="h-4 w-4" />
+                تحميل ملف نموذجي
+              </CardTitle>
+              <CardDescription>
+                حمّل ملف نموذجي يحتوي على أسماء الأعمدة المطلوبة، ثم املأه ببياناتك
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex gap-3">
+              <Button variant="outline" size="sm" onClick={() => handleDownloadSample('xlsx')}>
+                <FileSpreadsheet className="h-4 w-4 ml-2" />
+                تحميل Excel
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => handleDownloadSample('csv')}>
+                <FileText className="h-4 w-4 ml-2" />
+                تحميل CSV
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Upload zone */}
+          <Card
+            className="border-2 border-dashed hover:border-primary/50 transition-colors"
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onDrop={handleDrop}
+          >
+            <CardContent className="py-12 text-center">
+              {parsing ? (
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                  <p className="text-muted-foreground">جاري تحليل الملف...</p>
+                </div>
               ) : (
-                <Zap className="h-5 w-5" />
+                <>
+                  <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">اسحب الملف هنا أو اضغط للرفع</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    يدعم ملفات Excel (.xlsx) و CSV
+                  </p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  <Button onClick={() => fileInputRef.current?.click()}>
+                    <Upload className="h-4 w-4 ml-2" />
+                    اختيار ملف
+                  </Button>
+                </>
               )}
-              بدء التوليد ({records.length} مستند)
-            </Button>
-          </div>
+            </CardContent>
+          </Card>
+
+          {/* Required fields info */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">الحقول المطلوبة في القالب</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {selectedTemplate.form?.fields.map(field => (
+                  <Badge
+                    key={field.id}
+                    variant={field.validation.required ? 'default' : 'outline'}
+                    className="text-xs"
+                  >
+                    {field.label_ar}
+                    {field.validation.required && <span className="text-red-300 mr-1">*</span>}
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
-      {/* Step 3: Progress & Results */}
-      {currentStep === 3 && (
-        <div className="space-y-6">
-          {/* Progress Card */}
+      {/* ===== STEP 3: Column Mapping ===== */}
+      {currentStep === 3 && selectedTemplate && parsedData && (
+        <div className="space-y-4">
+          {/* Info bar */}
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-4">
+              <Badge variant="outline" className="text-sm py-1 px-3">
+                <FileSpreadsheet className="h-4 w-4 ml-2" />
+                {uploadedFileName}
+              </Badge>
+              <Badge variant="secondary" className="text-sm py-1 px-3">
+                <Users className="h-4 w-4 ml-2" />
+                {parsedData.totalRows} سجل
+              </Badge>
+              <Badge
+                variant={mappedFieldsCount === totalFields ? 'default' : 'outline'}
+                className="text-sm py-1 px-3"
+              >
+                <Link2 className="h-4 w-4 ml-2" />
+                {mappedFieldsCount}/{totalFields} حقل مربوط
+              </Badge>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setCurrentStep(2)}>
+                <ArrowRight className="h-4 w-4 ml-1" />
+                تغيير الملف
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setCurrentStep(4)}
+                disabled={mappedFieldsCount === 0}
+              >
+                متابعة للمعاينة
+                <ArrowLeft className="h-4 w-4 mr-1" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Mapping table */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                {generating ? (
-                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                ) : progress === 100 ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-500" />
-                ) : (
-                  <AlertCircle className="h-5 w-5 text-yellow-500" />
-                )}
-                {generating ? 'جاري التوليد...' : progress === 100 ? 'اكتمل التوليد' : 'نتائج التوليد'}
+              <CardTitle className="text-base flex items-center gap-2">
+                <Link2 className="h-5 w-5" />
+                ربط الأعمدة بحقول القالب
               </CardTitle>
+              <CardDescription>
+                اربط كل عمود من ملف Excel بالحقل المقابل في القالب. تم الربط التلقائي للأعمدة المتطابقة.
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Progress Bar */}
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">{progress}%</span>
-                  <span className="text-sm text-muted-foreground">
-                    {completedRecords}/{records.length} مستند
-                  </span>
-                </div>
-                <div className="w-full h-3 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-primary to-blue-500 rounded-full transition-all duration-500"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-1/3">حقل القالب</TableHead>
+                    <TableHead className="w-1/3">عمود Excel</TableHead>
+                    <TableHead className="w-1/3">معاينة (أول سجل)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedTemplate.form?.fields.map(field => {
+                    const mapping = mappings.find(m => m.templateField === field.id);
+                    const excelCol = mapping?.excelColumn || '';
+                    const sampleValue = excelCol && parsedData.rows[0]
+                      ? parsedData.rows[0][excelCol] || ''
+                      : '';
 
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                  <CheckCircle2 className="h-6 w-6 text-green-500 mx-auto mb-1" />
-                  <p className="text-2xl font-bold text-green-600">{completedRecords}</p>
-                  <p className="text-xs text-muted-foreground">مكتمل</p>
-                </div>
-                <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-xl">
-                  <XCircle className="h-6 w-6 text-red-500 mx-auto mb-1" />
-                  <p className="text-2xl font-bold text-red-600">{failedRecords}</p>
-                  <p className="text-xs text-muted-foreground">فشل</p>
-                </div>
-                <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                  <Clock className="h-6 w-6 text-blue-500 mx-auto mb-1" />
-                  <p className="text-2xl font-bold text-blue-600">
-                    {records.length - completedRecords - failedRecords}
-                  </p>
-                  <p className="text-xs text-muted-foreground">قيد الانتظار</p>
-                </div>
-              </div>
+                    return (
+                      <TableRow key={field.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{field.label_ar}</span>
+                            {field.validation.required && (
+                              <span className="text-red-500 text-xs">مطلوب</span>
+                            )}
+                            <Badge variant="outline" className="text-xs">
+                              {field.type}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={excelCol}
+                            onValueChange={(val) => updateMapping(field.id, val)}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="اختر عمود..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">-- بدون ربط --</SelectItem>
+                              {parsedData.headers.map(header => (
+                                <SelectItem key={header} value={header}>
+                                  {header}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm text-muted-foreground truncate block max-w-[200px]">
+                            {sampleValue || '—'}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
 
-              {/* Records Status */}
+          {/* Data preview */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <TableIcon className="h-5 w-5" />
+                  معاينة البيانات (أول 5 سجلات)
+                </CardTitle>
+                <Badge variant="outline">{parsedData.totalRows} سجل إجمالي</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-12">#</TableHead>
-                    <TableHead>البيانات</TableHead>
-                    <TableHead className="w-24">الحالة</TableHead>
-                    <TableHead className="w-24">إجراء</TableHead>
+                    {parsedData.headers.slice(0, 8).map(h => (
+                      <TableHead key={h} className="text-xs">{h}</TableHead>
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {records.map((record, index) => (
-                    <TableRow key={record.id}>
-                      <TableCell>{index + 1}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {Object.entries(record.data).slice(0, 3).map(([key, value]) => (
-                            <Badge key={key} variant="outline" className="text-xs">
-                              {value || '-'}
-                            </Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {record.status === 'completed' && (
-                          <Badge className="bg-green-500">مكتمل</Badge>
-                        )}
-                        {record.status === 'processing' && (
-                          <Badge className="bg-blue-500">
-                            <Loader2 className="h-3 w-3 animate-spin ml-1" />
-                            جاري
-                          </Badge>
-                        )}
-                        {record.status === 'error' && (
-                          <Badge variant="destructive">فشل</Badge>
-                        )}
-                        {record.status === 'pending' && (
-                          <Badge variant="secondary">انتظار</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {record.output_url && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => window.open(record.output_url, '_blank')}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </TableCell>
+                  {parsedData.rows.slice(0, 5).map((row, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
+                      {parsedData.headers.slice(0, 8).map(h => (
+                        <TableCell key={h} className="text-xs truncate max-w-[150px]">
+                          {String(row[h] || '')}
+                        </TableCell>
+                      ))}
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
-
-          {/* Actions */}
-          <div className="flex items-center justify-between">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setCurrentStep(2);
-                setRecords(prev => prev.map(r => ({ ...r, status: 'pending' as const })));
-                setProgress(0);
-              }}
-              className="gap-2"
-            >
-              <RotateCcw className="h-4 w-4" />
-              إعادة التوليد
-            </Button>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setCurrentStep(1);
-                  setSelectedTemplate(null);
-                  setRecords([]);
-                  setProgress(0);
-                }}
-                className="gap-2"
-              >
-                توليد جديد
-              </Button>
-              {!generating && completedRecords > 0 && (
-                <Button onClick={handleDownloadAll} className="gap-2" size="lg">
-                  <FileDown className="h-5 w-5" />
-                  تحميل الكل ({completedRecords} ملف)
-                </Button>
-              )}
-            </div>
-          </div>
         </div>
       )}
 
-      {/* Batch History Sidebar */}
-      {showHistory && (
-        <div className="fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setShowHistory(false)} />
-          <div className="relative mr-auto w-96 bg-white dark:bg-gray-900 h-full shadow-2xl overflow-y-auto">
-            <div className="sticky top-0 bg-white dark:bg-gray-900 border-b p-4 flex items-center justify-between">
-              <h3 className="font-bold text-lg flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                سجل التوليد الجماعي
-              </h3>
-              <Button variant="ghost" size="icon" onClick={() => setShowHistory(false)}>
-                <XCircle className="h-5 w-5" />
+      {/* ===== STEP 4: Preview & Generate ===== */}
+      {currentStep === 4 && selectedTemplate && parsedData && (
+        <div className="space-y-4">
+          {/* Controls bar */}
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="sm" onClick={() => setCurrentStep(3)}>
+                <ArrowRight className="h-4 w-4 ml-1" />
+                تعديل الربط
+              </Button>
+              <Badge variant="secondary" className="text-sm py-1 px-3">
+                <Users className="h-4 w-4 ml-2" />
+                {parsedData.totalRows} مستند سيتم توليده
+              </Badge>
+            </div>
+            <div className="flex items-center gap-3">
+              <Select
+                value={exportFormat}
+                onValueChange={(val) => setExportFormat(val as ExportFormat)}
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pdf">
+                    <span className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" /> PDF متعدد الصفحات
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="zip_png">
+                    <span className="flex items-center gap-2">
+                      <Archive className="h-4 w-4" /> ZIP (صور PNG)
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="zip_jpeg">
+                    <span className="flex items-center gap-2">
+                      <FileImage className="h-4 w-4" /> ZIP (صور JPEG)
+                    </span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button
+                onClick={handleBulkGenerate}
+                disabled={generating}
+                className="gap-2"
+                size="lg"
+              >
+                {generating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    جاري التوليد... ({progress.current}/{progress.total})
+                  </>
+                ) : (
+                  <>
+                    <Zap className="h-4 w-4" />
+                    بدء التوليد الجماعي
+                  </>
+                )}
               </Button>
             </div>
-            <div className="p-4 space-y-3">
-              {batchJobs.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Layers className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>لا توجد عمليات سابقة</p>
+          </div>
+
+          {/* Progress bar */}
+          {generating && (
+            <Card className="bg-primary/5 border-primary/20">
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">
+                    جاري توليد المستند {progress.current} من {progress.total}...
+                  </span>
+                  <span className="text-sm font-bold text-primary">
+                    {progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0}%
+                  </span>
                 </div>
-              ) : (
-                batchJobs.map((job) => (
-                  <Card key={job.id} className="cursor-pointer hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <h4 className="font-medium">{job.template_name}</h4>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(job.created_at).toLocaleDateString('ar-SA')}
+                <div className="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
+                  <div
+                    className="bg-primary h-3 rounded-full transition-all duration-300"
+                    style={{ width: `${progress.total > 0 ? (progress.current / progress.total) * 100 : 0}%` }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Live Preview */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Preview canvas */}
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Eye className="h-4 w-4" />
+                    معاينة حية
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPreviewIndex(Math.max(0, previewIndex - 1))}
+                      disabled={previewIndex === 0}
+                    >
+                      <ArrowRight className="h-3 w-3" />
+                    </Button>
+                    <span className="text-sm font-medium min-w-[60px] text-center">
+                      {previewIndex + 1} / {parsedData.totalRows}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPreviewIndex(Math.min(parsedData.totalRows - 1, previewIndex + 1))}
+                      disabled={previewIndex >= parsedData.totalRows - 1}
+                    >
+                      <ArrowLeft className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div
+                  ref={previewRef}
+                  className="relative bg-gray-50 rounded-lg overflow-hidden border"
+                  style={{
+                    aspectRatio: selectedTemplate.canvas
+                      ? `${selectedTemplate.canvas.canvas_width} / ${selectedTemplate.canvas.canvas_height}`
+                      : '1 / 1.414',
+                  }}
+                >
+                  {/* Background */}
+                  {selectedTemplate.canvas?.background_url && (
+                    <img
+                      src={selectedTemplate.canvas.background_url}
+                      alt="خلفية القالب"
+                      className="w-full h-full object-contain"
+                      crossOrigin="anonymous"
+                    />
+                  )}
+
+                  {/* Overlay text elements */}
+                  {selectedTemplate.canvas?.elements.map(element => {
+                    const value = previewData[element.field_id] || '';
+                    if (!value || !element.is_visible) return null;
+
+                    return (
+                      <div
+                        key={element.id}
+                        className="absolute"
+                        style={{
+                          left: `${element.x}%`,
+                          top: `${element.y}%`,
+                          width: `${element.width}%`,
+                          fontSize: `${element.font_size * 0.5}px`, // Scale down for preview
+                          fontFamily: element.font_family || '"Cairo", sans-serif',
+                          fontWeight: element.font_weight || 'normal',
+                          color: element.color || '#000000',
+                          textAlign: element.text_align || 'center',
+                          direction: 'rtl',
+                          whiteSpace: 'pre-wrap',
+                          lineHeight: '1.4',
+                          transform: element.rotation ? `rotate(${element.rotation}deg)` : 'none',
+                        }}
+                      >
+                        {value}
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Record data */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <TableIcon className="h-4 w-4" />
+                  بيانات السجل #{previewIndex + 1}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {selectedTemplate.form?.fields.map(field => {
+                    const value = previewData[field.id] || '';
+                    const mapping = mappings.find(m => m.templateField === field.id);
+                    const isMapped = !!mapping?.excelColumn;
+
+                    return (
+                      <div key={field.id} className="flex items-center gap-3 py-2 border-b last:border-0">
+                        <div className="flex-1">
+                          <Label className="text-xs text-muted-foreground">{field.label_ar}</Label>
+                          <p className={`text-sm font-medium ${value ? '' : 'text-muted-foreground italic'}`}>
+                            {value || (isMapped ? 'فارغ' : 'غير مربوط')}
                           </p>
                         </div>
-                        <Badge className={
-                          job.status === 'completed' ? 'bg-green-500' :
-                          job.status === 'failed' ? 'bg-red-500' :
-                          job.status === 'processing' ? 'bg-blue-500' : ''
-                        }>
-                          {job.status === 'completed' ? 'مكتمل' :
-                           job.status === 'failed' ? 'فشل' :
-                           job.status === 'processing' ? 'جاري' : 'انتظار'}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">
-                          {job.completed_records}/{job.total_records} مستند
-                        </span>
-                        {job.download_url && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => window.open(job.download_url, '_blank')}
-                            className="gap-1"
-                          >
-                            <Download className="h-3 w-3" />
-                            تحميل
-                          </Button>
+                        {isMapped ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-gray-300 flex-shrink-0" />
                         )}
                       </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       )}
