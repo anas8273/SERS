@@ -95,12 +95,13 @@ const EDUCATIONAL_SERVICES = [
         href: '/achievements',
     },
     {
-        id: 'performance',
-        title: 'تقييم الأداء',
-        description: 'شواهد الأداء الوظيفي',
+        id: 'remedial-plans',
+        title: 'الخطط العلاجية والإثرائية',
+        description: 'خطط مرتبطة بتحليل النتائج',
         icon: Target,
         color: 'bg-red-500',
-        href: '/performance',
+        href: '/remedial-plans',
+        isNew: true,
     },
     {
         id: 'tests',
@@ -133,7 +134,7 @@ const EDUCATIONAL_SERVICES = [
         description: 'خطط أسبوعية وشهرية وفصلية',
         icon: Calendar,
         color: 'bg-teal-500',
-        href: '/services/distributions',
+        href: '/distributions',
         isNew: true,
     },
     {
@@ -142,7 +143,7 @@ const EDUCATIONAL_SERVICES = [
         description: 'بورتفوليو رقمي شامل',
         icon: Users,
         color: 'bg-rose-500',
-        href: '/services/portfolio',
+        href: '/portfolio',
         isNew: true,
     },
     {
@@ -151,7 +152,7 @@ const EDUCATIONAL_SERVICES = [
         description: '11 بند معتمد',
         icon: CheckCircle,
         color: 'bg-amber-500',
-        href: '/services/work-evidence',
+        href: '/work-evidence',
         isNew: true,
     },
     {
@@ -160,7 +161,7 @@ const EDUCATIONAL_SERVICES = [
         description: 'أبحاث ومقالات وأوراق عمل',
         icon: FileText,
         color: 'bg-sky-500',
-        href: '/services/knowledge-production',
+        href: '/knowledge-production',
         isNew: true,
     },
     {
@@ -169,7 +170,7 @@ const EDUCATIONAL_SERVICES = [
         description: 'زيارات وملاحظات وتوصيات',
         icon: ClipboardList,
         color: 'bg-lime-600',
-        href: '/services/follow-up-log',
+        href: '/follow-up-log',
         isNew: true,
     },
     {

@@ -297,8 +297,30 @@ export default function ServicesPage() {
     const popularServices = SERVICES.filter(s => s.isPopular);
     const newServices = SERVICES.filter(s => s.isNew);
 
+    // الخدمات التي لها صفحات خاصة
+    const DIRECT_PAGES: Record<string, string> = {
+        'analyses': '/analyses',
+        'certificates': '/certificates',
+        'plans': '/plans',
+        'achievements': '/achievements',
+        'distributions': '/distributions',
+        'portfolio': '/portfolio',
+        'work-evidence': '/work-evidence',
+        'knowledge-production': '/knowledge-production',
+        'follow-up-log': '/follow-up-log',
+        'tests': '/tests',
+        'ai-assistant': '/ai-assistant',
+        'my-templates': '/marketplace',
+        'performance': '/work-evidence',
+    };
+
     const handleServiceClick = (service: typeof SERVICES[0]) => {
-        router.push(`/services/${service.slug}`);
+        const directPage = DIRECT_PAGES[service.slug];
+        if (directPage) {
+            router.push(directPage);
+        } else {
+            router.push(`/services/${service.slug}`);
+        }
     };
 
     return (
