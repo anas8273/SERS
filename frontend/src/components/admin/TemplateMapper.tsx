@@ -159,7 +159,6 @@ export function TemplateMapper({ templateId, fields = [] }: TemplateMapperProps)
             if (response.data.canvas_size) setCanvasSize(response.data.canvas_size);
           }
         } catch (e) {
-          console.log('No existing canvas data, starting fresh');
         }
       }
     } catch (error) {
@@ -180,7 +179,6 @@ export function TemplateMapper({ templateId, fields = [] }: TemplateMapperProps)
         setFormFields(form.fields.map(f => ({ id: f.id, label_ar: f.label_ar })));
       }
     } catch (e) {
-      console.log('No form fields found');
     }
   };
 
@@ -229,7 +227,6 @@ export function TemplateMapper({ templateId, fields = [] }: TemplateMapperProps)
           canvas_size: canvasSize,
         });
       } catch (e) {
-        console.log('MySQL canvas sync skipped');
       }
 
       setHasChanges(false);
@@ -270,7 +267,6 @@ export function TemplateMapper({ templateId, fields = [] }: TemplateMapperProps)
         setBackgroundImage(response.data.url);
       }
     } catch (error) {
-      console.log('Server upload failed, using local preview');
       // Keep local URL - will use data URL when saving
     }
 
@@ -531,8 +527,8 @@ export function TemplateMapper({ templateId, fields = [] }: TemplateMapperProps)
   return (
     <div className="space-y-4" dir="rtl">
       {/* Toolbar */}
-      <div className="flex items-center justify-between bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 flex-wrap gap-2">
-        <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center justify-between bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-2 sm:p-3 flex-wrap gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
           {/* Mode Buttons */}
           <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
             <button

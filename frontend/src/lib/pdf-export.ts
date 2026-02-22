@@ -219,7 +219,6 @@ export async function exportElement(options: ExportOptions): Promise<ExportResul
 
     // Fallback: try html2canvas if html-to-image fails
     try {
-      console.log('Falling back to html2canvas...');
       return await exportWithHtml2Canvas(options);
     } catch (fallbackError: any) {
       return { success: false, error: error.message || 'Export failed' };

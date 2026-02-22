@@ -8,6 +8,7 @@ import {
   createUserRecord, updateUserRecord, getUserRecord,
 } from '@/lib/firestore-service';
 import { api } from '@/lib/api';
+import toast from 'react-hot-toast';
 import { useAuthStore } from '@/stores/authStore';
 import type {
   TemplateCanvas, DynamicFormConfig, DynamicFormField, AIPromptConfig,
@@ -78,7 +79,6 @@ export default function DynamicEditorPage() {
             setTemplateMeta(metaResponse.data);
           }
         } catch (e) {
-          console.log('Template metadata not available from API');
         }
 
         // 2. Fetch dynamic data from Firestore (parallel)
@@ -156,9 +156,10 @@ export default function DynamicEditorPage() {
           field_values: fieldValues,
           variant_id: selectedVariant || undefined,
         });
-      } catch (err) {
-        console.error('Auto-save failed:', err);
-      }
+    } catch (err) {
+      console.error('Auto-save failed:', err);
+      toast.error('فشل الحفظ التلقائي');
+    }
     }, (formConfig.settings.auto_save_interval || 120) * 1000);
 
     return () => {
@@ -282,8 +283,10 @@ export default function DynamicEditorPage() {
         });
         setCurrentRecordId(newId);
       }
+      toast.success('تم الحفظ بنجاح');
     } catch (err) {
       console.error('Save failed:', err);
+      toast.error('فشل الحفظ. حاول مرة أخرى.');
     } finally {
       setSaving(false);
     }
@@ -351,10 +354,11 @@ export default function DynamicEditorPage() {
       }
 
       setExportSuccess(true);
+      toast.success(format === 'pdf' ? 'تم تصدير PDF بنجاح' : 'تم تصدير الصورة بنجاح');
       setTimeout(() => setExportSuccess(false), 3000);
     } catch (err) {
       console.error('Export failed:', err);
-      alert('حدث خطأ أثناء التصدير. حاول مرة أخرى.');
+      toast.error('حدث خطأ أثناء التصدير. حاول مرة أخرى.');
     } finally {
       setExporting(false);
     }
@@ -660,15 +664,15 @@ export default function DynamicEditorPage() {
     <div className="min-h-screen bg-gray-50" dir="rtl">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="max-w-[1920px] mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="max-w-[1920px] mx-auto px-2 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             <Link href="/marketplace" className="text-gray-500 hover:text-gray-700 transition-colors">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
             </Link>
             <div>
-              <h1 className="text-lg font-bold text-gray-900">{templateMeta?.name_ar || 'محرر القالب'}</h1>
+              <h1 className="text-sm sm:text-lg font-bold text-gray-900 truncate">{templateMeta?.name_ar || 'محرر القالب'}</h1>
               <p className="text-xs text-gray-500">
                 {currentRecordId ? 'تعديل السجل' : 'سجل جديد'}
                 {formConfig?.settings.auto_save && <span className="mr-2 text-green-500">● حفظ تلقائي</span>}
@@ -751,9 +755,9 @@ export default function DynamicEditorPage() {
       </header>
 
       {/* Main Content - Split Screen */}
-      <div className="flex h-[calc(100vh-64px)]">
+      <div className="flex flex-col-reverse lg:flex-row h-[calc(100vh-64px)]">
         {/* RIGHT SIDE: Dynamic Form */}
-        <div className="w-[400px] bg-white border-l border-gray-200 overflow-y-auto flex-shrink-0">
+        <div className="w-full lg:w-[400px] bg-white border-t lg:border-t-0 lg:border-l border-gray-200 overflow-y-auto flex-shrink-0 max-h-[50vh] lg:max-h-none">
           {/* Tabs */}
           <div className="flex border-b border-gray-200 sticky top-0 bg-white z-10">
             {[
@@ -964,7 +968,7 @@ export default function DynamicEditorPage() {
         </div>
 
         {/* LEFT SIDE: Live Preview (DOM-based for PDF export) */}
-        <div className="flex-1 overflow-auto p-6 flex items-start justify-center bg-gray-100">
+        <div className="flex-1 overflow-auto p-3 sm:p-6 flex items-start justify-center bg-gray-100">
           <div
             className="bg-white rounded-2xl shadow-xl overflow-hidden"
             style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}

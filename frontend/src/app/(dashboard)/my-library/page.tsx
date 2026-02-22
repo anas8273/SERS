@@ -7,6 +7,7 @@ import { Footer } from '@/components/layout/footer';
 import { useAuthStore } from '@/stores/authStore';
 import { getUserRecords, deleteUserRecord, updateUserRecord, getTemplateCanvas } from '@/lib/firestore-service';
 import type { UserRecord, TemplateCanvas } from '@/types';
+import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -171,8 +172,10 @@ export default function MyLibraryPage() {
       await deleteUserRecord(recordId);
       setRecords(prev => prev.filter(r => r.id !== recordId));
       setDeleteConfirm(null);
+      toast.success('تم حذف السجل بنجاح');
     } catch (error) {
       console.error('Failed to delete record:', error);
+      toast.error('فشل حذف السجل');
     } finally {
       setIsDeleting(false);
     }
@@ -194,8 +197,10 @@ export default function MyLibraryPage() {
         const updated = await getUserRecords(user.id);
         setRecords(updated);
       }
+      toast.success('تم نسخ السجل بنجاح');
     } catch (error) {
       console.error('Failed to duplicate record:', error);
+      toast.error('فشل نسخ السجل');
     }
   };
 

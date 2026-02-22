@@ -158,7 +158,6 @@ export default function BulkGeneratePage() {
       // If no templates from services, try loading directly from common IDs
       if (templateOptions.length === 0) {
         // Fallback: show a message
-        console.log('No templates with canvas found in services');
       }
 
       setTemplates(templateOptions);
