@@ -224,11 +224,8 @@ export default function ServicesPage() {
     const newServices = services.filter(s => s.is_new && s.is_active);
 
     const handleServiceClick = (service: ServiceDefinition) => {
-        if (service.route) {
-            router.push(service.route);
-        } else {
-            router.push(`/services/${service.slug}`);
-        }
+        // Always route to dynamic service detail page
+        router.push(`/services/${service.slug}`);
     };
 
     // Derive unique categories from services data

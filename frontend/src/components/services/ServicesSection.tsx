@@ -39,12 +39,13 @@ const COLOR_MAP: Record<string, string> = {
 };
 
 // Fallback services (used when Firestore is empty/unavailable)
-const FALLBACK_SERVICES = [
+// All routes point to /services/[slug] - the dynamic storefront
+const FALLBACK_SERVICES: ServiceCardData[] = [
     {
         title: 'تحليل النتائج',
         description: 'تحليل شامل لنتائج الاختبارات مع رسوم بيانية وتوصيات ذكية للتحسين',
         icon: BarChart3,
-        href: '/analyses',
+        href: '/services/analyses',
         color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
         features: ['تحليل تلقائي', 'رسوم بيانية', 'تقارير PDF'],
         isAI: true,
@@ -53,7 +54,7 @@ const FALLBACK_SERVICES = [
         title: 'الشهادات والتقدير',
         description: 'إنشاء شهادات شكر وتقدير احترافية بتصاميم متنوعة وقابلة للتخصيص',
         icon: Award,
-        href: '/certificates',
+        href: '/services/certificates',
         color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400',
         features: ['قوالب متنوعة', 'تخصيص كامل', 'تصدير متعدد'],
         badge: 'الأكثر استخداماً',
@@ -62,7 +63,7 @@ const FALLBACK_SERVICES = [
         title: 'الخطط العلاجية',
         description: 'إنشاء خطط علاجية مخصصة للطلاب المتعثرين مع متابعة التقدم',
         icon: Target,
-        href: '/plans?type=remedial',
+        href: '/services/remedial-plans',
         color: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
         features: ['تشخيص ذكي', 'متابعة التقدم', 'تقارير دورية'],
         isAI: true,
@@ -71,7 +72,7 @@ const FALLBACK_SERVICES = [
         title: 'الخطط الإثرائية',
         description: 'خطط إثرائية للطلاب المتفوقين لتنمية مهاراتهم وقدراتهم',
         icon: Sparkles,
-        href: '/plans?type=enrichment',
+        href: '/services/enrichment-plans',
         color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
         features: ['أنشطة متقدمة', 'تحديات ذكية', 'مشاريع إبداعية'],
         isNew: true,
@@ -80,7 +81,7 @@ const FALLBACK_SERVICES = [
         title: 'توزيع المنهج',
         description: 'توزيع المنهج الدراسي على الأسابيع مع مراعاة الإجازات والمناسبات',
         icon: Calendar,
-        href: '/plans?type=curriculum',
+        href: '/services/curriculum-distribution',
         color: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400',
         features: ['توزيع تلقائي', 'مرونة التعديل', 'طباعة جاهزة'],
     },
@@ -88,7 +89,7 @@ const FALLBACK_SERVICES = [
         title: 'توثيق الإنجازات',
         description: 'توثيق الإنجازات اليومية والأسبوعية والشهرية بشكل منظم',
         icon: Trophy,
-        href: '/achievements',
+        href: '/services/achievements',
         color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400',
         features: ['توثيق سهل', 'أرشفة ذكية', 'مشاركة سريعة'],
     },
@@ -96,7 +97,7 @@ const FALLBACK_SERVICES = [
         title: 'تقييم الأداء',
         description: 'إنشاء تقارير أداء شاملة للمعلمين والطلاب مع مؤشرات قياس',
         icon: FileText,
-        href: '/performance',
+        href: '/services/performance-evaluation',
         color: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400',
         features: ['مؤشرات أداء', 'تقارير مفصلة', 'مقارنات'],
         isAI: true,

@@ -38,7 +38,8 @@ import {
   Award,
   ChevronLeft,
 } from 'lucide-react';
-import type { Template, Category } from '@/types';
+import type { Template, Category, ServiceCategory } from '@/types';
+import { getServiceCategories } from '@/lib/firestore-service';
 
 function formatPrice(amount: number): string {
   return new Intl.NumberFormat('ar-SA', {
@@ -51,19 +52,23 @@ function formatPrice(amount: number): string {
 export default function HomePage() {
   const [featuredTemplates, setFeaturedTemplates] = useState<Template[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [dynamicCategories, setDynamicCategories] = useState<ServiceCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [templatesRes, categoriesRes] = await Promise.all([
+        // Load from both Laravel API and Firestore
+        const [templatesRes, categoriesRes, firestoreCats] = await Promise.all([
           api.getFeaturedTemplates().catch(() => ({ data: [] })),
           api.getCategories().catch(() => ({ data: [] })),
+          getServiceCategories().catch(() => []),
         ]);
         const templatesData = templatesRes.data?.data || templatesRes.data || [];
         const categoriesData = categoriesRes.data?.data || categoriesRes.data || [];
         setFeaturedTemplates(Array.isArray(templatesData) ? templatesData.slice(0, 8) : []);
         setCategories(Array.isArray(categoriesData) ? categoriesData.slice(0, 6) : []);
+        setDynamicCategories(firestoreCats.filter(c => c.is_active !== false).slice(0, 8));
       } catch (error) {
         console.error('Failed to fetch data:', error);
       } finally {
@@ -234,60 +239,56 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ===== Categories Section ===== */}
+        {/* ===== Categories Section (Dynamic from Firestore) ===== */}
         <section className="py-24 bg-gray-50 dark:bg-gray-900/50">
           <div className="container mx-auto px-4">
             <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
               <div className="space-y-2">
                 <h2 className="text-3xl font-black text-gray-900 dark:text-white">تصفح حسب التصنيف</h2>
-                <p className="text-gray-500 dark:text-gray-400">اختر المرحلة التعليمية أو نوع المحتوى الذي تبحث عنه</p>
+                <p className="text-gray-500 dark:text-gray-400">اختر التصنيف الذي تبحث عنه لاستعراض الخدمات والقوالب</p>
               </div>
-              <Link href="/marketplace">
+              <Link href="/services">
                 <Button variant="ghost" className="text-primary font-bold hover:bg-primary/5">
-                  عرض جميع التصنيفات <ArrowLeft className="mr-2 w-4 h-4" />
+                  عرض جميع الخدمات <ArrowLeft className="mr-2 w-4 h-4" />
                 </Button>
               </Link>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-              {categories.length > 0 ? categories.map((category) => (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {dynamicCategories.length > 0 ? dynamicCategories.map((cat) => (
+                <Link
+                  key={cat.id}
+                  href={`/categories/${cat.slug || cat.id}`}
+                  className="group p-6 bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-500 text-center"
+                >
+                  <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-primary/5 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors duration-500 text-2xl">
+                    {cat.icon === 'BarChart3' ? '📊' : cat.icon === 'Award' ? '🏆' : cat.icon === 'ClipboardList' ? '📋' : cat.icon === 'FileText' ? '📄' : cat.icon === 'Bot' ? '🤖' : cat.icon === 'Target' ? '🎯' : cat.icon === 'FolderArchive' ? '🗂️' : cat.icon === 'BookOpen' ? '📖' : '📂'}
+                  </div>
+                  <h3 className="font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors text-sm">
+                    {cat.name_ar}
+                  </h3>
+                  {cat.description_ar && (
+                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{cat.description_ar}</p>
+                  )}
+                </Link>
+              )) : categories.length > 0 ? categories.map((category) => (
                 <Link
                   key={category.id}
-                  href={`/marketplace?category=${category.slug}`}
-                  className="group p-8 bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-500 text-center"
+                  href={`/categories/${category.slug}`}
+                  className="group p-6 bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-500 text-center"
                 >
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary/5 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors duration-500">
-                    {category.slug.includes('baby') || category.slug.includes('kindergarten') ? <Baby className="w-8 h-8" /> :
-                      category.slug.includes('school') || category.slug.includes('primary') ? <BookOpen className="w-8 h-8" /> :
-                        category.slug.includes('high') || category.slug.includes('grad') ? <GraduationCap className="w-8 h-8" /> :
-                          <Palette className="w-8 h-8" />}
+                  <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-primary/5 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors duration-500">
+                    <FileText className="w-7 h-7" />
                   </div>
-                  <h3 className="font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors">
+                  <h3 className="font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors text-sm">
                     {category.name_ar}
                   </h3>
                 </Link>
               )) : (
-                [
-                  { name: 'رياض الأطفال', icon: <Baby className="w-8 h-8" /> },
-                  { name: 'الابتدائية', icon: <BookOpen className="w-8 h-8" /> },
-                  { name: 'المتوسطة', icon: <GraduationCap className="w-8 h-8" /> },
-                  { name: 'الثانوية', icon: <Layout className="w-8 h-8" /> },
-                  { name: 'الأنشطة', icon: <Palette className="w-8 h-8" /> },
-                  { name: 'الشهادات', icon: <Award className="w-8 h-8" /> }
-                ].map((cat, i) => (
-                  <Link
-                    key={i}
-                    href="/marketplace"
-                    className="group p-8 bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-500 text-center"
-                  >
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary/5 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors duration-500">
-                      {cat.icon}
-                    </div>
-                    <h3 className="font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors">
-                      {cat.name}
-                    </h3>
-                  </Link>
-                ))
+                <div className="col-span-full text-center py-8 text-gray-500">
+                  <p>لم يتم إضافة تصنيفات بعد. يمكن للمسؤول إضافتها من لوحة الإدارة.</p>
+                  <Link href="/services" className="text-primary font-bold mt-2 inline-block">استعرض الخدمات</Link>
+                </div>
               )}
             </div>
           </div>

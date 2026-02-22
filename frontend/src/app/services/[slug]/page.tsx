@@ -268,7 +268,7 @@ export default function ServiceDetailPage() {
                                     <Button
                                         size="lg"
                                         className="bg-white text-gray-900 hover:bg-white/90 shadow-xl"
-                                        onClick={() => router.push(service.route)}
+                                        onClick={() => router.push(`/editor/${service.id}`)}
                                     >
                                         <Play className="h-5 w-5 ml-2" />
                                         ابدأ الاستخدام
@@ -525,7 +525,7 @@ export default function ServiceDetailPage() {
                                 <Button
                                     size="lg"
                                     className="bg-white text-gray-900 hover:bg-white/90 shadow-xl"
-                                    onClick={() => router.push(service.route)}
+                                    onClick={() => router.push(`/editor/${service.id}`)}
                                 >
                                     <Play className="h-5 w-5 ml-2" />
                                     ابدأ الآن مجاناً

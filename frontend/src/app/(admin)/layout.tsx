@@ -11,15 +11,13 @@ const sidebarItems = [
     { label: 'لوحة التحكم', href: '/admin', icon: '📊', group: 'main' },
     { label: 'القوالب', href: '/admin/templates', icon: '📋', group: 'main' },
     { label: 'التصنيفات', href: '/admin/categories', icon: '🗂️', group: 'main' },
+    { label: 'الخدمات', href: '/admin/services', icon: '🎓', group: 'main' },
     { label: 'المستخدمون', href: '/admin/users', icon: '👥', group: 'main' },
     { label: 'الطلبات', href: '/admin/orders', icon: '🛒', group: 'main' },
-    { label: 'أكواد الخصم', href: '/admin/coupons', icon: '🎟️', group: 'main' },
-    { label: 'التقييمات', href: '/admin/reviews', icon: '⭐', group: 'main' },
-    { label: 'الخدمات التعليمية', href: '/admin/services', icon: '🎓', group: 'services' },
-    { label: 'التحليلات', href: '/admin/analyses', icon: '📈', group: 'services' },
-    { label: 'الشهادات', href: '/admin/certificates', icon: '🏆', group: 'services' },
-    { label: 'الخطط التعليمية', href: '/admin/plans', icon: '📝', group: 'services' },
-    { label: 'التقارير', href: '/admin/reports', icon: '📑', group: 'services' },
+    { label: 'أكواد الخصم', href: '/admin/coupons', icon: '🎟️', group: 'tools' },
+    { label: 'التقييمات', href: '/admin/reviews', icon: '⭐', group: 'tools' },
+    { label: 'التقارير', href: '/admin/reports', icon: '📑', group: 'tools' },
+    { label: 'التحليلات', href: '/admin/analyses', icon: '📈', group: 'tools' },
     { label: 'الذكاء الاصطناعي', href: '/admin/ai-management', icon: '🤖', group: 'system' },
     { label: 'سجل النشاطات', href: '/admin/activity-logs', icon: '📋', group: 'system' },
     { label: 'الإعدادات', href: '/admin/settings', icon: '⚙️', group: 'system' },
@@ -30,14 +28,12 @@ const pageTitles: Record<string, string> = {
     '/admin': 'لوحة التحكم',
     '/admin/templates': 'إدارة القوالب',
     '/admin/categories': 'إدارة التصنيفات',
+    '/admin/services': 'إدارة الخدمات',
     '/admin/users': 'إدارة المستخدمين',
     '/admin/coupons': 'إدارة أكواد الخصم',
     '/admin/orders': 'إدارة الطلبات',
     '/admin/reviews': 'إدارة التقييمات',
-    '/admin/services': 'إدارة الخدمات التعليمية',
-    '/admin/analyses': 'إدارة التحليلات',
-    '/admin/certificates': 'إدارة الشهادات',
-    '/admin/plans': 'إدارة الخطط التعليمية',
+    '/admin/analyses': 'التحليلات',
     '/admin/reports': 'التقارير',
     '/admin/ai-management': 'إدارة الذكاء الاصطناعي',
     '/admin/activity-logs': 'سجل النشاطات',
@@ -127,11 +123,11 @@ export default function AdminLayout({
                                 );
                             })}
 
-                            {/* Services Group */}
+                            {/* Tools Group */}
                             <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
-                                <p className="px-4 py-1 text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">الخدمات التعليمية</p>
+                                <p className="px-4 py-1 text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">الأدوات</p>
                             </div>
-                            {sidebarItems.filter(i => i.group === 'services').map((item) => {
+                            {sidebarItems.filter(i => i.group === 'tools').map((item) => {
                                 const isActive = pathname === item.href ||
                                     (item.href !== '/admin' && pathname.startsWith(item.href));
                                 return (

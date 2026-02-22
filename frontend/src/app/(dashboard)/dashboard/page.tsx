@@ -112,20 +112,14 @@ const QUICK_ACTIONS = [
   },
 ];
 
-// ===== Educational Services =====
-const EDUCATIONAL_SERVICES = [
+// ===== Quick Tool Links (non-service specific) =====
+const DASHBOARD_TOOLS = [
   { id: 'analyses', title: 'تحليل النتائج', icon: BarChart3, color: 'bg-blue-500', href: '/analyses' },
-  { id: 'certificates', title: 'الشهادات', icon: Award, color: 'bg-yellow-500', href: '/certificates' },
-  { id: 'plans', title: 'الخطط التعليمية', icon: ClipboardList, color: 'bg-green-500', href: '/plans' },
   { id: 'achievements', title: 'الإنجازات', icon: Trophy, color: 'bg-purple-500', href: '/achievements' },
-  { id: 'remedial-plans', title: 'الخطط العلاجية', icon: Target, color: 'bg-red-500', href: '/remedial-plans', isNew: true },
-  { id: 'tests', title: 'الاختبارات', icon: FileQuestion, color: 'bg-cyan-500', href: '/tests' },
-  { id: 'distributions', title: 'التوزيعات', icon: Calendar, color: 'bg-teal-500', href: '/distributions', isNew: true },
-  { id: 'portfolio', title: 'ملف الإنجاز', icon: Users, color: 'bg-rose-500', href: '/portfolio', isNew: true },
-  { id: 'work-evidence', title: 'شواهد الأداء', icon: CheckCircle, color: 'bg-amber-500', href: '/work-evidence', isNew: true },
-  { id: 'knowledge', title: 'الإنتاج المعرفي', icon: FileText, color: 'bg-sky-500', href: '/knowledge-production', isNew: true },
-  { id: 'follow-up', title: 'سجل المتابعة', icon: ClipboardList, color: 'bg-lime-600', href: '/follow-up-log', isNew: true },
-  { id: 'templates', title: 'القوالب الجاهزة', icon: FileText, color: 'bg-orange-500', href: '/marketplace' },
+  { id: 'templates', title: 'سوق القوالب', icon: FolderOpen, color: 'bg-orange-500', href: '/marketplace' },
+  { id: 'services', title: 'الخدمات التعليمية', icon: Layers, color: 'bg-teal-500', href: '/services' },
+  { id: 'my-library', title: 'مكتبتي', icon: Library, color: 'bg-rose-500', href: '/my-library' },
+  { id: 'my-templates', title: 'قوالبي', icon: FileText, color: 'bg-sky-500', href: '/my-templates' },
 ];
 
 export default function DashboardPage() {
@@ -547,16 +541,13 @@ export default function DashboardPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 gap-2">
-                  {EDUCATIONAL_SERVICES.slice(0, 8).map((service) => (
-                    <Link key={service.id} href={service.href}>
+                  {DASHBOARD_TOOLS.map((tool) => (
+                    <Link key={tool.id} href={tool.href}>
                       <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-center group">
-                        <div className={`w-9 h-9 ${service.color} rounded-lg flex items-center justify-center text-white mx-auto mb-1.5 group-hover:scale-110 transition-transform`}>
-                          <service.icon className="h-4 w-4" />
+                        <div className={`w-9 h-9 ${tool.color} rounded-lg flex items-center justify-center text-white mx-auto mb-1.5 group-hover:scale-110 transition-transform`}>
+                          <tool.icon className="h-4 w-4" />
                         </div>
-                        <p className="text-xs font-bold text-gray-700 dark:text-gray-300 line-clamp-1">{service.title}</p>
-                        {service.isNew && (
-                          <Badge className="bg-green-500 text-[8px] mt-1 px-1 py-0">جديد</Badge>
-                        )}
+                        <p className="text-xs font-bold text-gray-700 dark:text-gray-300 line-clamp-1">{tool.title}</p>
                       </div>
                     </Link>
                   ))}

@@ -348,9 +348,34 @@ export async function getServiceCategories(): Promise<ServiceCategory[]> {
 export async function saveServiceCategory(categoryId: string, category: Partial<ServiceCategory>): Promise<void> {
   try {
     const docRef = doc(db, 'service_categories', categoryId);
-    await setDoc(docRef, category, { merge: true });
+    await setDoc(docRef, { ...category, updated_at: new Date().toISOString() }, { merge: true });
   } catch (error) {
     console.error('Error saving service category:', error);
+    throw error;
+  }
+}
+
+export async function createServiceCategory(category: Omit<ServiceCategory, 'id'>): Promise<string> {
+  try {
+    const colRef = collection(db, 'service_categories');
+    const docRef = await addDoc(colRef, {
+      ...category,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creating service category:', error);
+    throw error;
+  }
+}
+
+export async function deleteServiceCategory(categoryId: string): Promise<void> {
+  try {
+    const docRef = doc(db, 'service_categories', categoryId);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error('Error deleting service category:', error);
     throw error;
   }
 }

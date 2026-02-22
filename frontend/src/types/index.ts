@@ -1002,8 +1002,17 @@ export interface ServiceCategory {
     id: string;
     name_ar: string;
     name_en: string;
+    description_ar?: string;
+    description_en?: string;
     icon: string;
     color: string;
+    slug?: string;
+    parent_id?: string | null;
+    is_active?: boolean;
+    sort_order?: number;
+    templates_count?: number;
+    created_at?: string;
+    updated_at?: string;
 }
 
 /** Service definition (stored in Firestore for dynamic management) */

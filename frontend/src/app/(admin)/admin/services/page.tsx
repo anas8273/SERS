@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import toast from 'react-hot-toast';
-import type { ServiceDefinition, ServiceFeature } from '@/types';
+import type { ServiceDefinition, ServiceFeature, ServiceCategory } from '@/types';
+import { getServiceCategories } from '@/lib/firestore-service';
 
 // ===== Available Icons for selection =====
 const AVAILABLE_ICONS = [
@@ -17,8 +18,8 @@ const AVAILABLE_ICONS = [
     'Lightbulb', 'LayoutGrid',
 ];
 
-// ===== Available Categories =====
-const CATEGORIES = [
+// ===== Fallback Categories (used only if Firestore is empty) =====
+const FALLBACK_CATEGORIES = [
     { id: 'analysis', name: 'التحليل والتقييم', color: 'bg-blue-500' },
     { id: 'documents', name: 'الوثائق والشهادات', color: 'bg-amber-500' },
     { id: 'planning', name: 'التخطيط والإدارة', color: 'bg-green-500' },
@@ -198,11 +199,28 @@ export default function AdminServicesPage() {
     const [activeTab, setActiveTab] = useState<'list' | 'seed'>('list');
     const [featureInput, setFeatureInput] = useState({ title_ar: '', title_en: '', description_ar: '', description_en: '' });
     const [editFeatures, setEditFeatures] = useState<ServiceFeature[]>([]);
+    const [dynamicCategories, setDynamicCategories] = useState<{id: string; name: string; color: string}[]>(FALLBACK_CATEGORIES);
 
-    // Load services from Firestore
+    // Load services and categories from Firestore
     useEffect(() => {
         loadServices();
+        loadCategories();
     }, []);
+
+    const loadCategories = async () => {
+        try {
+            const cats = await getServiceCategories();
+            if (cats && cats.length > 0) {
+                setDynamicCategories(cats.map(c => ({
+                    id: c.id,
+                    name: c.name_ar,
+                    color: c.color || 'bg-blue-500',
+                })));
+            }
+        } catch (error) {
+            // Keep fallback categories
+        }
+    };
 
     const loadServices = async () => {
         setIsLoading(true);
@@ -501,7 +519,7 @@ export default function AdminServicesPage() {
                                         onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                                         className="w-full px-3 py-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                     >
-                                        {CATEGORIES.map(cat => (
+                                        {dynamicCategories.map(cat => (
                                             <option key={cat.id} value={cat.id}>{cat.name}</option>
                                         ))}
                                     </select>
@@ -630,7 +648,7 @@ export default function AdminServicesPage() {
                                         </div>
                                         <p className="text-sm text-gray-500 mt-0.5 line-clamp-1">{service.description_ar}</p>
                                         <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
-                                            <span>التصنيف: {CATEGORIES.find(c => c.id === service.category)?.name || service.category}</span>
+                                            <span>التصنيف: {dynamicCategories.find(c => c.id === service.category)?.name || service.category}</span>
                                             <span>|</span>
                                             <span>المسار: {service.route}</span>
                                             <span>|</span>
