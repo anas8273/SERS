@@ -259,16 +259,7 @@ export interface TemplateDataVersion {
     created_at: string;
 }
 
-// Legacy alias
-export interface UserRecord {
-    id: string;
-    user_id: string;
-    template_id: string;
-    user_data: Record<string, unknown>;
-    status: 'active' | 'archived';
-    created_at: string;
-    updated_at: string;
-}
+// Legacy UserRecord moved to dynamic engine types below
 
 /**
  * =========================
@@ -842,4 +833,193 @@ export interface DashboardStats {
         title: string;
         date: string;
     }>;
+}
+
+
+/**
+ * =========================
+ * Dynamic Engine Types (Firestore)
+ * =========================
+ * These types define the dynamic template engine architecture.
+ * All dynamic data is stored in Firestore, while relational data stays in MySQL.
+ *
+ * Firestore Collections:
+ *   - template_canvas/{templateId}  → TemplateCanvas
+ *   - dynamic_forms/{templateId}    → DynamicFormConfig
+ *   - ai_prompts/{templateId}       → AIPromptConfig
+ *   - user_records/{recordId}       → UserRecord
+ */
+
+/** Canvas element that maps a form field to X/Y coordinates on the template image */
+export interface CanvasElement {
+    id: string;
+    field_id: string;          // Links to DynamicFormField.id
+    label: string;
+    x: number;                 // X coordinate on canvas (percentage 0-100)
+    y: number;                 // Y coordinate on canvas (percentage 0-100)
+    width: number;             // Width in percentage
+    height: number;            // Height in percentage
+    font_size: number;         // Font size in pt
+    font_family: string;       // e.g., 'Cairo', 'Arial'
+    font_weight: 'normal' | 'bold';
+    color: string;             // Hex color e.g., '#000000'
+    text_align: 'right' | 'center' | 'left';
+    rotation: number;          // Rotation in degrees
+    max_lines: number;         // Max lines before truncation
+    is_visible: boolean;
+}
+
+/** Template Canvas: background image + mapped elements (stored in Firestore) */
+export interface TemplateCanvas {
+    template_id: string;
+    background_url: string;    // URL of the blank PDF/Image template
+    background_type: 'image' | 'pdf';
+    canvas_width: number;      // Original width in px
+    canvas_height: number;     // Original height in px
+    orientation: 'portrait' | 'landscape';
+    elements: CanvasElement[];
+    variants: CanvasVariant[];
+    updated_at: string;
+}
+
+/** Canvas variant: different design for the same template */
+export interface CanvasVariant {
+    id: string;
+    name_ar: string;
+    name_en: string;
+    background_url: string;
+    preview_url: string;
+    is_default: boolean;
+    elements_override?: Partial<CanvasElement>[]; // Override specific element positions
+}
+
+/** Dynamic form field definition (stored in Firestore) */
+export interface DynamicFormField {
+    id: string;
+    name: string;              // Machine name e.g., 'student_name'
+    type: 'text' | 'textarea' | 'number' | 'date' | 'select' | 'multi_select' | 'image' | 'signature' | 'qrcode' | 'barcode' | 'checkbox' | 'radio' | 'file' | 'color' | 'time';
+    label_ar: string;
+    label_en: string;
+    placeholder_ar?: string;
+    placeholder_en?: string;
+    default_value?: string;
+    options?: FieldOption[];    // For select/radio/checkbox
+    validation: FieldValidation;
+    ai_fillable: boolean;      // Can AI fill this field?
+    ai_hint?: string;          // Hint for AI on how to fill
+    group?: string;            // Group name for organizing fields
+    sort_order: number;
+    is_visible: boolean;
+    conditional?: FieldConditional; // Show/hide based on another field
+}
+
+export interface FieldOption {
+    value: string;
+    label_ar: string;
+    label_en: string;
+}
+
+export interface FieldValidation {
+    required: boolean;
+    min_length?: number;
+    max_length?: number;
+    min_value?: number;
+    max_value?: number;
+    pattern?: string;          // Regex pattern
+    custom_message_ar?: string;
+    custom_message_en?: string;
+}
+
+export interface FieldConditional {
+    field_id: string;          // The field to watch
+    operator: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than';
+    value: string;
+}
+
+/** Dynamic form configuration (stored in Firestore) */
+export interface DynamicFormConfig {
+    template_id: string;
+    fields: DynamicFormField[];
+    field_groups: FieldGroup[];
+    settings: FormSettings;
+    updated_at: string;
+}
+
+export interface FieldGroup {
+    id: string;
+    name_ar: string;
+    name_en: string;
+    sort_order: number;
+    collapsible: boolean;
+    default_collapsed: boolean;
+}
+
+export interface FormSettings {
+    auto_save: boolean;
+    auto_save_interval: number; // seconds
+    show_progress: boolean;
+    allow_partial_save: boolean;
+    require_all_fields: boolean;
+    enable_ai_assist: boolean;
+}
+
+/** AI Prompt configuration (stored in Firestore) */
+export interface AIPromptConfig {
+    template_id: string;
+    system_prompt: string;     // Hidden system prompt for the template
+    field_prompts: AIFieldPrompt[];
+    global_context?: string;   // Additional context for all fields
+    model: 'gpt-4.1-mini' | 'gpt-4.1-nano' | 'gemini-2.5-flash';
+    temperature: number;       // 0-1
+    max_tokens: number;
+    updated_at: string;
+}
+
+export interface AIFieldPrompt {
+    field_id: string;
+    prompt_type: 'auto_fill' | 'suggest' | 'validate' | 'transform' | 'generate';
+    prompt_template: string;   // Template with {{field_name}} placeholders
+    context_fields?: string[]; // Other field IDs to include as context
+    output_format?: string;    // Expected output format
+}
+
+/** User record: a filled template instance (stored in Firestore) */
+export interface UserRecord {
+    id: string;
+    user_id: string;
+    template_id: string;
+    variant_id?: string;
+    field_values: Record<string, any>; // field_id → value
+    status: 'draft' | 'completed' | 'exported';
+    generated_pdf_url?: string;
+    generated_image_url?: string;
+    created_at: string;
+    updated_at: string;
+}
+
+/** Service definition (stored in Firestore for dynamic management) */
+export interface ServiceDefinition {
+    id: string;
+    slug: string;
+    name_ar: string;
+    name_en: string;
+    description_ar: string;
+    description_en: string;
+    icon: string;
+    color: string;
+    category: string;
+    route: string;             // The actual route to navigate to
+    features: ServiceFeature[];
+    is_active: boolean;
+    sort_order: number;
+    requires_auth: boolean;
+    requires_subscription: boolean;
+}
+
+export interface ServiceFeature {
+    title_ar: string;
+    title_en: string;
+    description_ar: string;
+    description_en: string;
+    icon: string;
 }
