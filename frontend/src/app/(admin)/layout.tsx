@@ -8,19 +8,21 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { cn } from '@/lib/utils';
 
 const sidebarItems = [
-    { label: 'لوحة التحكم', href: '/admin', icon: '📊' },
-    { label: 'القوالب', href: '/admin/templates', icon: '📋' },
-    { label: 'التصنيفات', href: '/admin/categories', icon: '🗂️' },
-    { label: 'المستخدمون', href: '/admin/users', icon: '👥' },
-    { label: 'الطلبات', href: '/admin/orders', icon: '🛒' },
-    { label: 'أكواد الخصم', href: '/admin/coupons', icon: '🎟️' },
-    { label: 'التقييمات', href: '/admin/reviews', icon: '⭐' },
-    { label: 'التحليلات', href: '/admin/analyses', icon: '📈' },
-    { label: 'الشهادات', href: '/admin/certificates', icon: '🏆' },
-    { label: 'الخطط التعليمية', href: '/admin/plans', icon: '📝' },
-    { label: 'الذكاء الاصطناعي', href: '/admin/ai-management', icon: '🤖' },
-    { label: 'سجل النشاطات', href: '/admin/activity-logs', icon: '📋' },
-    { label: 'الإعدادات', href: '/admin/settings', icon: '⚙️' },
+    { label: 'لوحة التحكم', href: '/admin', icon: '📊', group: 'main' },
+    { label: 'القوالب', href: '/admin/templates', icon: '📋', group: 'main' },
+    { label: 'التصنيفات', href: '/admin/categories', icon: '🗂️', group: 'main' },
+    { label: 'المستخدمون', href: '/admin/users', icon: '👥', group: 'main' },
+    { label: 'الطلبات', href: '/admin/orders', icon: '🛒', group: 'main' },
+    { label: 'أكواد الخصم', href: '/admin/coupons', icon: '🎟️', group: 'main' },
+    { label: 'التقييمات', href: '/admin/reviews', icon: '⭐', group: 'main' },
+    { label: 'الخدمات التعليمية', href: '/admin/services', icon: '🎓', group: 'services' },
+    { label: 'التحليلات', href: '/admin/analyses', icon: '📈', group: 'services' },
+    { label: 'الشهادات', href: '/admin/certificates', icon: '🏆', group: 'services' },
+    { label: 'الخطط التعليمية', href: '/admin/plans', icon: '📝', group: 'services' },
+    { label: 'التقارير', href: '/admin/reports', icon: '📑', group: 'services' },
+    { label: 'الذكاء الاصطناعي', href: '/admin/ai-management', icon: '🤖', group: 'system' },
+    { label: 'سجل النشاطات', href: '/admin/activity-logs', icon: '📋', group: 'system' },
+    { label: 'الإعدادات', href: '/admin/settings', icon: '⚙️', group: 'system' },
 ];
 
 // Dynamic page titles based on route
@@ -32,9 +34,11 @@ const pageTitles: Record<string, string> = {
     '/admin/coupons': 'إدارة أكواد الخصم',
     '/admin/orders': 'إدارة الطلبات',
     '/admin/reviews': 'إدارة التقييمات',
+    '/admin/services': 'إدارة الخدمات التعليمية',
     '/admin/analyses': 'إدارة التحليلات',
     '/admin/certificates': 'إدارة الشهادات',
     '/admin/plans': 'إدارة الخطط التعليمية',
+    '/admin/reports': 'التقارير',
     '/admin/ai-management': 'إدارة الذكاء الاصطناعي',
     '/admin/activity-logs': 'سجل النشاطات',
     '/admin/settings': 'إعدادات النظام',
@@ -103,23 +107,62 @@ export default function AdminLayout({
 
                 <div className="flex">
                     {/* Sidebar */}
-                    <aside className="w-64 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 min-h-[calc(100vh-64px)] sticky top-16 hidden lg:block">
+                    <aside className="w-64 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 min-h-[calc(100vh-64px)] sticky top-16 hidden lg:block overflow-y-auto">
                         <nav className="p-4 space-y-1">
-                            {sidebarItems.map((item) => {
+                            {/* Main Group */}
+                            {sidebarItems.filter(i => i.group === 'main').map((item) => {
                                 const isActive = pathname === item.href ||
                                     (item.href !== '/admin' && pathname.startsWith(item.href));
-
                                 return (
-                                    <Link
-                                        key={item.href}
-                                        href={item.href}
+                                    <Link key={item.href} href={item.href}
                                         className={cn(
-                                            "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors",
+                                            "flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors",
                                             isActive
                                                 ? "bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300"
                                                 : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white"
-                                        )}
-                                    >
+                                        )}>
+                                        <span className="text-lg">{item.icon}</span>
+                                        <span>{item.label}</span>
+                                    </Link>
+                                );
+                            })}
+
+                            {/* Services Group */}
+                            <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
+                                <p className="px-4 py-1 text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">الخدمات التعليمية</p>
+                            </div>
+                            {sidebarItems.filter(i => i.group === 'services').map((item) => {
+                                const isActive = pathname === item.href ||
+                                    (item.href !== '/admin' && pathname.startsWith(item.href));
+                                return (
+                                    <Link key={item.href} href={item.href}
+                                        className={cn(
+                                            "flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors",
+                                            isActive
+                                                ? "bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300"
+                                                : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white"
+                                        )}>
+                                        <span className="text-lg">{item.icon}</span>
+                                        <span>{item.label}</span>
+                                    </Link>
+                                );
+                            })}
+
+                            {/* System Group */}
+                            <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
+                                <p className="px-4 py-1 text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">النظام</p>
+                            </div>
+                            {sidebarItems.filter(i => i.group === 'system').map((item) => {
+                                const isActive = pathname === item.href ||
+                                    (item.href !== '/admin' && pathname.startsWith(item.href));
+                                return (
+                                    <Link key={item.href} href={item.href}
+                                        className={cn(
+                                            "flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors",
+                                            isActive
+                                                ? "bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300"
+                                                : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white"
+                                        )}>
                                         <span className="text-lg">{item.icon}</span>
                                         <span>{item.label}</span>
                                     </Link>

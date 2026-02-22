@@ -127,6 +127,60 @@ const EDUCATIONAL_SERVICES = [
         color: 'bg-orange-500',
         href: '/marketplace',
     },
+    {
+        id: 'distributions',
+        title: 'التوزيعات',
+        description: 'خطط أسبوعية وشهرية وفصلية',
+        icon: Calendar,
+        color: 'bg-teal-500',
+        href: '/services/distributions',
+        isNew: true,
+    },
+    {
+        id: 'portfolio',
+        title: 'ملف الإنجاز',
+        description: 'بورتفوليو رقمي شامل',
+        icon: Users,
+        color: 'bg-rose-500',
+        href: '/services/portfolio',
+        isNew: true,
+    },
+    {
+        id: 'work-evidence',
+        title: 'شواهد الأداء الوظيفي',
+        description: '11 بند معتمد',
+        icon: CheckCircle,
+        color: 'bg-amber-500',
+        href: '/services/work-evidence',
+        isNew: true,
+    },
+    {
+        id: 'knowledge-production',
+        title: 'الإنتاج المعرفي',
+        description: 'أبحاث ومقالات وأوراق عمل',
+        icon: FileText,
+        color: 'bg-sky-500',
+        href: '/services/knowledge-production',
+        isNew: true,
+    },
+    {
+        id: 'follow-up-log',
+        title: 'سجل المتابعة',
+        description: 'زيارات وملاحظات وتوصيات',
+        icon: ClipboardList,
+        color: 'bg-lime-600',
+        href: '/services/follow-up-log',
+        isNew: true,
+    },
+    {
+        id: 'batch-generate',
+        title: 'التوليد الجماعي',
+        description: 'توليد عدة مستندات دفعة واحدة',
+        icon: Zap,
+        color: 'bg-violet-500',
+        href: '/batch-generate',
+        isNew: true,
+    },
 ];
 
 export default function DashboardPage() {
@@ -223,6 +277,8 @@ export default function DashboardPage() {
         { label: 'طلباتي', href: '/orders', icon: <Package className="w-6 h-6" />, color: 'bg-purple-500' },
         { label: 'المفضلة', href: '/wishlist', icon: <Heart className="w-6 h-6" />, color: 'bg-red-500' },
         { label: 'الإعدادات', href: '/settings', icon: <Settings className="w-6 h-6" />, color: 'bg-gray-500' },
+        { label: 'التوليد الجماعي', href: '/batch-generate', icon: <Zap className="w-6 h-6" />, color: 'bg-violet-500' },
+        { label: 'الخدمات', href: '/services', icon: <Sparkles className="w-6 h-6" />, color: 'bg-teal-500' },
     ];
 
     // Get greeting based on time

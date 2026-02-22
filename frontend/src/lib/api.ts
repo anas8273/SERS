@@ -828,6 +828,154 @@ class ApiClient {
         return data;
     }
 
+    /**
+     * =========================
+     * Batch Generation
+     * =========================
+     */
+    async getBatchJobs() {
+        const { data } = await this.client.get('/batch-jobs');
+        return data;
+    }
+    async getBatchJobStatus(jobId: string) {
+        const { data } = await this.client.get(`/batch-jobs/${jobId}`);
+        return data;
+    }
+    async startBatchGeneration(payload: any) {
+        const { data } = await this.client.post('/batch-jobs', payload);
+        return data;
+    }
+    async downloadBatchResults(jobId: string) {
+        const { data } = await this.client.get(`/batch-jobs/${jobId}/download`);
+        return data;
+    }
+    async parseExcelForBatch(formData: FormData) {
+        const { data } = await this.client.post('/batch-jobs/parse-excel', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return data;
+    }
+    async aiFillBatchRecords(payload: any) {
+        const { data } = await this.client.post('/batch-jobs/ai-fill', payload);
+        return data;
+    }
+
+    /**
+     * =========================
+     * Educational Services - Extended
+     * =========================
+     */
+    async getDistributions(params?: Record<string, any>) {
+        const { data } = await this.client.get('/distributions', { params });
+        return data;
+    }
+    async createDistribution(payload: any) {
+        const { data } = await this.client.post('/distributions', payload);
+        return data;
+    }
+    async updateDistribution(id: string | number, payload: any) {
+        const { data } = await this.client.put(`/distributions/${id}`, payload);
+        return data;
+    }
+    async deleteDistribution(id: string | number) {
+        const { data } = await this.client.delete(`/distributions/${id}`);
+        return data;
+    }
+    async getPortfolio(params?: Record<string, any>) {
+        const { data } = await this.client.get('/portfolio', { params });
+        return data;
+    }
+    async createPortfolioItem(payload: any) {
+        const { data } = await this.client.post('/portfolio', payload);
+        return data;
+    }
+    async updatePortfolioItem(id: string | number, payload: any) {
+        const { data } = await this.client.put(`/portfolio/${id}`, payload);
+        return data;
+    }
+    async deletePortfolioItem(id: string | number) {
+        const { data } = await this.client.delete(`/portfolio/${id}`);
+        return data;
+    }
+    async getWorkEvidence(params?: Record<string, any>) {
+        const { data } = await this.client.get('/work-evidence', { params });
+        return data;
+    }
+    async createWorkEvidence(payload: any) {
+        const { data } = await this.client.post('/work-evidence', payload);
+        return data;
+    }
+    async updateWorkEvidence(id: string | number, payload: any) {
+        const { data } = await this.client.put(`/work-evidence/${id}`, payload);
+        return data;
+    }
+    async deleteWorkEvidence(id: string | number) {
+        const { data } = await this.client.delete(`/work-evidence/${id}`);
+        return data;
+    }
+    async getKnowledgeProduction(params?: Record<string, any>) {
+        const { data } = await this.client.get('/knowledge-production', { params });
+        return data;
+    }
+    async createKnowledgeProduction(payload: any) {
+        const { data } = await this.client.post('/knowledge-production', payload);
+        return data;
+    }
+    async updateKnowledgeProduction(id: string | number, payload: any) {
+        const { data } = await this.client.put(`/knowledge-production/${id}`, payload);
+        return data;
+    }
+    async deleteKnowledgeProduction(id: string | number) {
+        const { data } = await this.client.delete(`/knowledge-production/${id}`);
+        return data;
+    }
+    async getFollowUpLogs(params?: Record<string, any>) {
+        const { data } = await this.client.get('/follow-up-logs', { params });
+        return data;
+    }
+    async createFollowUpLog(payload: any) {
+        const { data } = await this.client.post('/follow-up-logs', payload);
+        return data;
+    }
+    async updateFollowUpLog(id: string | number, payload: any) {
+        const { data } = await this.client.put(`/follow-up-logs/${id}`, payload);
+        return data;
+    }
+    async deleteFollowUpLog(id: string | number) {
+        const { data } = await this.client.delete(`/follow-up-logs/${id}`);
+        return data;
+    }
+
+    /**
+     * =========================
+     * Admin - Services & Reports
+     * =========================
+     */
+    async getAdminServices(params?: Record<string, any>) {
+        const { data } = await this.client.get('/admin/services', { params });
+        return data;
+    }
+    async createAdminService(payload: any) {
+        const { data } = await this.client.post('/admin/services', payload);
+        return data;
+    }
+    async updateAdminService(id: string, payload: any) {
+        const { data } = await this.client.put(`/admin/services/${id}`, payload);
+        return data;
+    }
+    async deleteAdminService(id: string) {
+        const { data } = await this.client.delete(`/admin/services/${id}`);
+        return data;
+    }
+    async getAdminReports(params?: Record<string, any>) {
+        const { data } = await this.client.get('/admin/reports', { params });
+        return data;
+    }
+    async exportAdminReport(type: string, params?: Record<string, any>) {
+        const { data } = await this.client.get(`/admin/reports/${type}/export`, { params });
+        return data;
+    }
+
     // Backward compatibility aliases
     async getFeaturedProducts() {
         return this.getFeaturedTemplates();
