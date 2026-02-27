@@ -63,6 +63,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
+import { TopNavBar } from '@/components/layout/TopNavBar';
 
 // Quick prompts for users
 const QUICK_PROMPTS = [
@@ -375,7 +376,7 @@ export default function AIAssistantPage() {
 
         try {
             let response;
-            
+
             switch (selectedTool) {
                 case 'therapeutic-plan':
                     response = await api.suggestPlan({
@@ -438,8 +439,8 @@ export default function AIAssistantPage() {
                         weeks: toolForm.weeks,
                         topics: toolForm.topics.split('\n').filter(Boolean),
                     });
-                    setToolResult(typeof response.data?.distribution === 'object' 
-                        ? JSON.stringify(response.data.distribution, null, 2) 
+                    setToolResult(typeof response.data?.distribution === 'object'
+                        ? JSON.stringify(response.data.distribution, null, 2)
                         : response.data?.distribution || response.data);
                     break;
 
@@ -818,344 +819,347 @@ export default function AIAssistantPage() {
     };
 
     return (
-        <div className="flex h-[calc(100vh-4rem)]">
-            {/* Sidebar */}
-            <div
-                className={cn(
-                    'bg-muted/30 border-l transition-all duration-300 flex flex-col',
-                    isSidebarOpen ? 'w-80' : 'w-0 overflow-hidden'
-                )}
-            >
-                <div className="p-4 border-b">
-                    <Button
-                        onClick={startNewConversation}
-                        className="w-full gap-2"
-                    >
-                        <Plus className="h-4 w-4" />
-                        محادثة جديدة
-                    </Button>
-                </div>
-
-                <ScrollArea className="flex-1">
-                    <div className="p-2 space-y-1">
-                        {loadingConversations ? (
-                            <div className="flex items-center justify-center py-8">
-                                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                            </div>
-                        ) : conversations.length === 0 ? (
-                            <div className="text-center py-8 text-muted-foreground text-sm">
-                                لا توجد محادثات سابقة
-                            </div>
-                        ) : (
-                            conversations.map((conv) => (
-                                <div
-                                    key={conv.id}
-                                    className={cn(
-                                        'group flex items-center gap-2 p-3 rounded-lg cursor-pointer hover:bg-muted transition-colors',
-                                        currentConversation?.id === conv.id && 'bg-muted'
-                                    )}
-                                    onClick={() => loadConversation(conv.id)}
-                                >
-                                    <MessageSquare className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium truncate">
-                                            {conv.title || 'محادثة جديدة'}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                            <Clock className="h-3 w-3" />
-                                            {new Date(conv.created_at).toLocaleDateString('ar-SA')}
-                                        </p>
-                                    </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            deleteConversation(conv.id);
-                                        }}
-                                    >
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </ScrollArea>
-            </div>
-
-            {/* Main Chat Area */}
-            <div className="flex-1 flex flex-col">
-                {/* Header */}
-                <div className="p-4 border-b flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+        <>
+            <TopNavBar title="المساعد الذكي" />
+            <div className="flex h-[calc(100vh-4rem)]">
+                {/* Sidebar */}
+                <div
+                    className={cn(
+                        'bg-muted/30 border-l transition-all duration-300 flex flex-col',
+                        isSidebarOpen ? 'w-80' : 'w-0 overflow-hidden'
+                    )}
+                >
+                    <div className="p-4 border-b">
                         <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                            onClick={startNewConversation}
+                            className="w-full gap-2"
                         >
-                            {isSidebarOpen ? <ChevronLeft className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                            <Plus className="h-4 w-4" />
+                            محادثة جديدة
                         </Button>
-                        <div className="flex items-center gap-2">
-                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                                <Bot className="h-6 w-6 text-white" />
-                            </div>
-                            <div>
-                                <h2 className="font-semibold">المساعد الذكي</h2>
-                                <p className="text-xs text-muted-foreground">مساعدك الشخصي للمهام التعليمية</p>
-                            </div>
-                        </div>
                     </div>
 
-                    <Tabs value={activeTab} onValueChange={setActiveTab}>
-                        <TabsList>
-                            <TabsTrigger value="chat" className="gap-2">
-                                <MessageSquare className="h-4 w-4" />
-                                المحادثة
-                            </TabsTrigger>
-                            <TabsTrigger value="tools" className="gap-2">
-                                <Wand2 className="h-4 w-4" />
-                                الأدوات
-                            </TabsTrigger>
-                        </TabsList>
-                    </Tabs>
-                </div>
-
-                {activeTab === 'chat' ? (
-                    <>
-                        {/* Messages Area */}
-                        <ScrollArea className="flex-1 p-4">
-                            {messages.length === 0 ? (
-                                <div className="h-full flex flex-col items-center justify-center">
-                                    <div className="text-center mb-8">
-                                        <div className="h-20 w-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto mb-4">
-                                            <Sparkles className="h-10 w-10 text-white" />
-                                        </div>
-                                        <h3 className="text-xl font-bold mb-2">مرحباً بك في المساعد الذكي</h3>
-                                        <p className="text-muted-foreground max-w-md">
-                                            أنا هنا لمساعدتك في إعداد الخطط والتقارير والشهادات وتحليل النتائج. اختر من الاقتراحات أدناه أو اكتب سؤالك.
-                                        </p>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-w-3xl">
-                                        {QUICK_PROMPTS.map((prompt, index) => (
-                                            <Card
-                                                key={index}
-                                                className="cursor-pointer hover:shadow-md hover:border-primary/50 transition-all"
-                                                onClick={() => sendMessage(prompt.prompt)}
-                                            >
-                                                <CardContent className="p-4 flex flex-col items-center text-center">
-                                                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
-                                                        <prompt.icon className="h-5 w-5 text-primary" />
-                                                    </div>
-                                                    <p className="text-sm font-medium">{prompt.title}</p>
-                                                </CardContent>
-                                            </Card>
-                                        ))}
-                                    </div>
+                    <ScrollArea className="flex-1">
+                        <div className="p-2 space-y-1">
+                            {loadingConversations ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                </div>
+                            ) : conversations.length === 0 ? (
+                                <div className="text-center py-8 text-muted-foreground text-sm">
+                                    لا توجد محادثات سابقة
                                 </div>
                             ) : (
-                                <div className="space-y-4 max-w-4xl mx-auto">
-                                    {messages.map((message, index) => (
-                                        <div
-                                            key={index}
-                                            className={cn(
-                                                'flex gap-3',
-                                                message.role === 'user' ? 'flex-row-reverse' : ''
-                                            )}
+                                conversations.map((conv) => (
+                                    <div
+                                        key={conv.id}
+                                        className={cn(
+                                            'group flex items-center gap-2 p-3 rounded-lg cursor-pointer hover:bg-muted transition-colors',
+                                            currentConversation?.id === conv.id && 'bg-muted'
+                                        )}
+                                        onClick={() => loadConversation(conv.id)}
+                                    >
+                                        <MessageSquare className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium truncate">
+                                                {conv.title || 'محادثة جديدة'}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                                <Clock className="h-3 w-3" />
+                                                {new Date(conv.created_at).toLocaleDateString('ar-SA')}
+                                            </p>
+                                        </div>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                deleteConversation(conv.id);
+                                            }}
                                         >
-                                            <div
-                                                className={cn(
-                                                    'h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0',
-                                                    message.role === 'user'
-                                                        ? 'bg-primary text-primary-foreground'
-                                                        : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white'
-                                                )}
-                                            >
-                                                {message.role === 'user' ? (
-                                                    <User className="h-4 w-4" />
-                                                ) : (
-                                                    <Bot className="h-4 w-4" />
-                                                )}
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </ScrollArea>
+                </div>
+
+                {/* Main Chat Area */}
+                <div className="flex-1 flex flex-col">
+                    {/* Header */}
+                    <div className="p-4 border-b flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                            >
+                                {isSidebarOpen ? <ChevronLeft className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                            </Button>
+                            <div className="flex items-center gap-2">
+                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                                    <Bot className="h-6 w-6 text-white" />
+                                </div>
+                                <div>
+                                    <h2 className="font-semibold">المساعد الذكي</h2>
+                                    <p className="text-xs text-muted-foreground">مساعدك الشخصي للمهام التعليمية</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <Tabs value={activeTab} onValueChange={setActiveTab}>
+                            <TabsList>
+                                <TabsTrigger value="chat" className="gap-2">
+                                    <MessageSquare className="h-4 w-4" />
+                                    المحادثة
+                                </TabsTrigger>
+                                <TabsTrigger value="tools" className="gap-2">
+                                    <Wand2 className="h-4 w-4" />
+                                    الأدوات
+                                </TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                    </div>
+
+                    {activeTab === 'chat' ? (
+                        <>
+                            {/* Messages Area */}
+                            <ScrollArea className="flex-1 p-4">
+                                {messages.length === 0 ? (
+                                    <div className="h-full flex flex-col items-center justify-center">
+                                        <div className="text-center mb-8">
+                                            <div className="h-20 w-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto mb-4">
+                                                <Sparkles className="h-10 w-10 text-white" />
                                             </div>
+                                            <h3 className="text-xl font-bold mb-2">مرحباً بك في المساعد الذكي</h3>
+                                            <p className="text-muted-foreground max-w-md">
+                                                أنا هنا لمساعدتك في إعداد الخطط والتقارير والشهادات وتحليل النتائج. اختر من الاقتراحات أدناه أو اكتب سؤالك.
+                                            </p>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-w-3xl">
+                                            {QUICK_PROMPTS.map((prompt, index) => (
+                                                <Card
+                                                    key={index}
+                                                    className="cursor-pointer hover:shadow-md hover:border-primary/50 transition-all"
+                                                    onClick={() => sendMessage(prompt.prompt)}
+                                                >
+                                                    <CardContent className="p-4 flex flex-col items-center text-center">
+                                                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
+                                                            <prompt.icon className="h-5 w-5 text-primary" />
+                                                        </div>
+                                                        <p className="text-sm font-medium">{prompt.title}</p>
+                                                    </CardContent>
+                                                </Card>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4 max-w-4xl mx-auto">
+                                        {messages.map((message, index) => (
                                             <div
+                                                key={index}
                                                 className={cn(
-                                                    'flex-1 max-w-[80%]',
-                                                    message.role === 'user' ? 'text-left' : ''
+                                                    'flex gap-3',
+                                                    message.role === 'user' ? 'flex-row-reverse' : ''
                                                 )}
                                             >
                                                 <div
                                                     className={cn(
-                                                        'rounded-2xl p-4',
+                                                        'h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0',
                                                         message.role === 'user'
-                                                            ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                                                            : 'bg-muted rounded-tl-sm'
+                                                            ? 'bg-primary text-primary-foreground'
+                                                            : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white'
                                                     )}
                                                 >
-                                                    {message.role === 'assistant' ? (
-                                                        <div className="prose prose-sm dark:prose-invert max-w-none">
-                                                            <ReactMarkdown>{message.content}</ReactMarkdown>
-                                                        </div>
+                                                    {message.role === 'user' ? (
+                                                        <User className="h-4 w-4" />
                                                     ) : (
-                                                        <p className="whitespace-pre-wrap">{message.content}</p>
+                                                        <Bot className="h-4 w-4" />
                                                     )}
                                                 </div>
-                                                {message.role === 'assistant' && (
-                                                    <div className="flex items-center gap-2 mt-2">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-7 text-xs"
-                                                            onClick={() => copyToClipboard(message.content, index)}
-                                                        >
-                                                            {copiedIndex === index ? (
-                                                                <Check className="h-3 w-3 ml-1" />
-                                                            ) : (
-                                                                <Copy className="h-3 w-3 ml-1" />
-                                                            )}
-                                                            نسخ
-                                                        </Button>
+                                                <div
+                                                    className={cn(
+                                                        'flex-1 max-w-[80%]',
+                                                        message.role === 'user' ? 'text-left' : ''
+                                                    )}
+                                                >
+                                                    <div
+                                                        className={cn(
+                                                            'rounded-2xl p-4',
+                                                            message.role === 'user'
+                                                                ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                                                                : 'bg-muted rounded-tl-sm'
+                                                        )}
+                                                    >
+                                                        {message.role === 'assistant' ? (
+                                                            <div className="prose prose-sm dark:prose-invert max-w-none">
+                                                                <ReactMarkdown>{message.content}</ReactMarkdown>
+                                                            </div>
+                                                        ) : (
+                                                            <p className="whitespace-pre-wrap">{message.content}</p>
+                                                        )}
                                                     </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {loading && (
-                                        <div className="flex gap-3">
-                                            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                                                <Bot className="h-4 w-4 text-white" />
-                                            </div>
-                                            <div className="bg-muted rounded-2xl rounded-tl-sm p-4">
-                                                <div className="flex items-center gap-2">
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                    <span className="text-sm text-muted-foreground">جاري الكتابة...</span>
+                                                    {message.role === 'assistant' && (
+                                                        <div className="flex items-center gap-2 mt-2">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-7 text-xs"
+                                                                onClick={() => copyToClipboard(message.content, index)}
+                                                            >
+                                                                {copiedIndex === index ? (
+                                                                    <Check className="h-3 w-3 ml-1" />
+                                                                ) : (
+                                                                    <Copy className="h-3 w-3 ml-1" />
+                                                                )}
+                                                                نسخ
+                                                            </Button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
-                                        </div>
-                                    )}
-                                    <div ref={messagesEndRef} />
-                                </div>
-                            )}
-                        </ScrollArea>
-
-                        {/* Input Area */}
-                        <div className="p-4 border-t">
-                            <div className="max-w-4xl mx-auto flex gap-2">
-                                <Input
-                                    value={inputMessage}
-                                    onChange={(e) => setInputMessage(e.target.value)}
-                                    onKeyPress={handleKeyPress}
-                                    placeholder="اكتب رسالتك هنا..."
-                                    disabled={loading}
-                                    className="flex-1"
-                                />
-                                <Button
-                                    onClick={() => sendMessage()}
-                                    disabled={!inputMessage.trim() || loading}
-                                >
-                                    {loading ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <Send className="h-4 w-4" />
-                                    )}
-                                </Button>
-                            </div>
-                        </div>
-                    </>
-                ) : (
-                    /* Tools Tab */
-                    <ScrollArea className="flex-1 p-6">
-                        <div className="max-w-4xl mx-auto">
-                            <div className="text-center mb-8">
-                                <h3 className="text-xl font-bold mb-2">أدوات الذكاء الاصطناعي</h3>
-                                <p className="text-muted-foreground">
-                                    استخدم هذه الأدوات لإنشاء محتوى تعليمي احترافي بسرعة
-                                </p>
-                            </div>
-
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                {AI_TOOLS.map((tool) => (
-                                    <Card
-                                        key={tool.id}
-                                        className="cursor-pointer hover:shadow-lg hover:border-primary/50 transition-all group"
-                                        onClick={() => openToolDialog(tool.id)}
-                                    >
-                                        <CardContent className="p-6">
-                                            <div className={`h-12 w-12 rounded-xl ${tool.color} flex items-center justify-center text-white mb-4 group-hover:scale-110 transition-transform`}>
-                                                <tool.icon className="h-6 w-6" />
+                                        ))}
+                                        {loading && (
+                                            <div className="flex gap-3">
+                                                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                                                    <Bot className="h-4 w-4 text-white" />
+                                                </div>
+                                                <div className="bg-muted rounded-2xl rounded-tl-sm p-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                        <span className="text-sm text-muted-foreground">جاري الكتابة...</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <h4 className="font-bold mb-1">{tool.title}</h4>
-                                            <p className="text-sm text-muted-foreground">{tool.description}</p>
-                                        </CardContent>
-                                    </Card>
-                                ))}
+                                        )}
+                                        <div ref={messagesEndRef} />
+                                    </div>
+                                )}
+                            </ScrollArea>
+
+                            {/* Input Area */}
+                            <div className="p-4 border-t">
+                                <div className="max-w-4xl mx-auto flex gap-2">
+                                    <Input
+                                        value={inputMessage}
+                                        onChange={(e) => setInputMessage(e.target.value)}
+                                        onKeyPress={handleKeyPress}
+                                        placeholder="اكتب رسالتك هنا..."
+                                        disabled={loading}
+                                        className="flex-1"
+                                    />
+                                    <Button
+                                        onClick={() => sendMessage()}
+                                        disabled={!inputMessage.trim() || loading}
+                                    >
+                                        {loading ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Send className="h-4 w-4" />
+                                        )}
+                                    </Button>
+                                </div>
                             </div>
-                        </div>
-                    </ScrollArea>
-                )}
-            </div>
-
-            {/* Tool Dialog */}
-            <Dialog open={toolDialogOpen} onOpenChange={setToolDialogOpen}>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <Wand2 className="h-5 w-5 text-primary" />
-                            {AI_TOOLS.find(t => t.id === selectedTool)?.title}
-                        </DialogTitle>
-                        <DialogDescription>
-                            {AI_TOOLS.find(t => t.id === selectedTool)?.description}
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    {!toolResult ? (
-                        <>
-                            {renderToolForm()}
-                            <DialogFooter>
-                                <Button variant="outline" onClick={() => setToolDialogOpen(false)}>
-                                    إلغاء
-                                </Button>
-                                <Button onClick={executeAITool} disabled={toolLoading}>
-                                    {toolLoading ? (
-                                        <>
-                                            <Loader2 className="h-4 w-4 animate-spin ml-2" />
-                                            جاري الإنشاء...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Sparkles className="h-4 w-4 ml-2" />
-                                            إنشاء
-                                        </>
-                                    )}
-                                </Button>
-                            </DialogFooter>
                         </>
                     ) : (
-                        <>
-                            <div className="bg-muted rounded-lg p-4 max-h-96 overflow-y-auto">
-                                <div className="prose prose-sm dark:prose-invert max-w-none">
-                                    <ReactMarkdown>{toolResult}</ReactMarkdown>
+                        /* Tools Tab */
+                        <ScrollArea className="flex-1 p-6">
+                            <div className="max-w-4xl mx-auto">
+                                <div className="text-center mb-8">
+                                    <h3 className="text-xl font-bold mb-2">أدوات الذكاء الاصطناعي</h3>
+                                    <p className="text-muted-foreground">
+                                        استخدم هذه الأدوات لإنشاء محتوى تعليمي احترافي بسرعة
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                    {AI_TOOLS.map((tool) => (
+                                        <Card
+                                            key={tool.id}
+                                            className="cursor-pointer hover:shadow-lg hover:border-primary/50 transition-all group"
+                                            onClick={() => openToolDialog(tool.id)}
+                                        >
+                                            <CardContent className="p-6">
+                                                <div className={`h-12 w-12 rounded-xl ${tool.color} flex items-center justify-center text-white mb-4 group-hover:scale-110 transition-transform`}>
+                                                    <tool.icon className="h-6 w-6" />
+                                                </div>
+                                                <h4 className="font-bold mb-1">{tool.title}</h4>
+                                                <p className="text-sm text-muted-foreground">{tool.description}</p>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
                                 </div>
                             </div>
-                            <DialogFooter>
-                                <Button variant="outline" onClick={() => setToolResult(null)}>
-                                    تعديل
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    onClick={() => copyToClipboard(toolResult, -1)}
-                                >
-                                    <Copy className="h-4 w-4 ml-2" />
-                                    نسخ
-                                </Button>
-                                <Button onClick={() => setToolDialogOpen(false)}>
-                                    إغلاق
-                                </Button>
-                            </DialogFooter>
-                        </>
+                        </ScrollArea>
                     )}
-                </DialogContent>
-            </Dialog>
-        </div>
+                </div>
+
+                {/* Tool Dialog */}
+                <Dialog open={toolDialogOpen} onOpenChange={setToolDialogOpen}>
+                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <Wand2 className="h-5 w-5 text-primary" />
+                                {AI_TOOLS.find(t => t.id === selectedTool)?.title}
+                            </DialogTitle>
+                            <DialogDescription>
+                                {AI_TOOLS.find(t => t.id === selectedTool)?.description}
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        {!toolResult ? (
+                            <>
+                                {renderToolForm()}
+                                <DialogFooter>
+                                    <Button variant="outline" onClick={() => setToolDialogOpen(false)}>
+                                        إلغاء
+                                    </Button>
+                                    <Button onClick={executeAITool} disabled={toolLoading}>
+                                        {toolLoading ? (
+                                            <>
+                                                <Loader2 className="h-4 w-4 animate-spin ml-2" />
+                                                جاري الإنشاء...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Sparkles className="h-4 w-4 ml-2" />
+                                                إنشاء
+                                            </>
+                                        )}
+                                    </Button>
+                                </DialogFooter>
+                            </>
+                        ) : (
+                            <>
+                                <div className="bg-muted rounded-lg p-4 max-h-96 overflow-y-auto">
+                                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                                        <ReactMarkdown>{toolResult}</ReactMarkdown>
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button variant="outline" onClick={() => setToolResult(null)}>
+                                        تعديل
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => copyToClipboard(toolResult, -1)}
+                                    >
+                                        <Copy className="h-4 w-4 ml-2" />
+                                        نسخ
+                                    </Button>
+                                    <Button onClick={() => setToolDialogOpen(false)}>
+                                        إغلاق
+                                    </Button>
+                                </DialogFooter>
+                            </>
+                        )}
+                    </DialogContent>
+                </Dialog>
+            </div>
+        </>
     );
 }

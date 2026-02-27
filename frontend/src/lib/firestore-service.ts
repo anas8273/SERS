@@ -1,4 +1,5 @@
 // src/lib/firestore-service.ts
+import { cache, CACHE_TTL } from './cache';
 /**
  * Firestore Service - Dynamic Template Engine
  * 
@@ -241,15 +242,17 @@ export async function deleteUserRecord(recordId: string): Promise<void> {
 // ============================================================
 
 export async function getServices(): Promise<ServiceDefinition[]> {
-  try {
-    const colRef = collection(db, 'services');
-    const q = query(colRef, where('is_active', '==', true), orderBy('sort_order', 'asc'));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ServiceDefinition));
-  } catch (error) {
-    console.error('Error fetching services:', error);
-    return [];
-  }
+  return cache.getOrSet('firestore_services', async () => {
+    try {
+      const colRef = collection(db, 'services');
+      const q = query(colRef, where('is_active', '==', true), orderBy('sort_order', 'asc'));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ServiceDefinition));
+    } catch (error) {
+      console.error('Error fetching services:', error);
+      return [];
+    }
+  }, CACHE_TTL.LONG);
 }
 
 export async function getService(serviceId: string): Promise<ServiceDefinition | null> {
@@ -334,15 +337,17 @@ export async function getServiceBySlug(slug: string): Promise<ServiceDefinition 
 
 // Service Categories
 export async function getServiceCategories(): Promise<ServiceCategory[]> {
-  try {
-    const colRef = collection(db, 'service_categories');
-    const q = query(colRef, orderBy('name_ar', 'asc'));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ServiceCategory));
-  } catch (error) {
-    console.error('Error fetching service categories:', error);
-    return [];
-  }
+  return cache.getOrSet('firestore_service_categories', async () => {
+    try {
+      const colRef = collection(db, 'service_categories');
+      const q = query(colRef, orderBy('name_ar', 'asc'));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ServiceCategory));
+    } catch (error) {
+      console.error('Error fetching service categories:', error);
+      return [];
+    }
+  }, CACHE_TTL.LONG);
 }
 
 export async function saveServiceCategory(categoryId: string, category: Partial<ServiceCategory>): Promise<void> {
@@ -403,6 +408,32 @@ export function onFormChange(templateId: string, callback: (form: DynamicFormCon
     } else {
       callback(null);
     }
+  });
+}
+
+/**
+ * Real-time listener for user records.
+ * Syncs instantly across multiple tabs/users without race conditions.
+ * Returns an unsubscribe function to clean up the listener.
+ */
+export function onUserRecordsChange(
+  userId: string,
+  callback: (records: UserRecord[]) => void,
+  templateId?: string
+) {
+  const colRef = collection(db, 'user_records');
+  let q;
+  if (templateId) {
+    q = query(colRef, where('user_id', '==', userId), where('template_id', '==', templateId), orderBy('updated_at', 'desc'));
+  } else {
+    q = query(colRef, where('user_id', '==', userId), orderBy('updated_at', 'desc'));
+  }
+  return onSnapshot(q, (snapshot) => {
+    const records = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as UserRecord));
+    callback(records);
+  }, (error) => {
+    console.error('Error in user records listener:', error);
+    callback([]);
   });
 }
 

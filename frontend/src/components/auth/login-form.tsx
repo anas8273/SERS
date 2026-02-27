@@ -50,10 +50,17 @@ export const LoginForm = () => {
         await login(values.email, values.password);
         setSuccess("تم تسجيل الدخول بنجاح!");
         toast.success("أهلاً بك مجدداً");
-        router.push("/dashboard");
+
+        // Role-based redirect
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser?.role === 'admin') {
+          router.push("/admin/services");
+        } else {
+          router.push("/dashboard");
+        }
       } catch (err: any) {
         console.error('Login error:', err);
-        
+
         // Handle validation errors (422)
         if (err?.response?.status === 422 && err?.response?.data?.errors) {
           const validationErrors = err.response.data.errors;

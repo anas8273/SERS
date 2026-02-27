@@ -6,7 +6,7 @@ import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { useAuthStore } from '@/stores/authStore';
 import { api } from '@/lib/api';
-import { getUserRecords } from '@/lib/firestore-service';
+import { onUserRecordsChange } from '@/lib/firestore-service';
 import type { Order, UserRecord } from '@/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -48,6 +48,7 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { StatCardSkeleton, RecordListSkeleton } from '@/components/ui/skeleton-loaders';
 
 interface DashboardStats {
   orders_count: number;
@@ -131,79 +132,90 @@ export default function DashboardPage() {
   });
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [recentRecords, setRecentRecords] = useState<UserRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+  const [isLoadingRecords, setIsLoadingRecords] = useState(true);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
 
+  // Real-time Firestore listener for user records
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      if (!isAuthenticated || !user) return;
+    if (!isAuthenticated || !user) return;
 
+    setIsLoadingRecords(true);
+    const unsubscribe = onUserRecordsChange(user.id, (userRecords) => {
+      const draftRecords = userRecords.filter(r => r.status === 'draft');
+      const finalRecords = userRecords.filter(r => r.status === 'completed' || (r.status as string) === 'final');
+
+      setRecentRecords(userRecords.slice(0, 5));
+      setStats(prev => ({
+        ...prev,
+        records_total: userRecords.length,
+        records_draft: draftRecords.length,
+        records_final: finalRecords.length,
+      }));
+      setIsLoadingRecords(false);
+    });
+
+    return () => unsubscribe();
+  }, [isAuthenticated, user]);
+
+  // Parallel API fetches for orders, wishlist, and educational stats
+  useEffect(() => {
+    if (!isAuthenticated || !user || authLoading) return;
+
+    // Fetch orders independently
+    const fetchOrders = async () => {
+      setIsLoadingOrders(true);
       try {
-        // Fetch orders from Laravel API
-        let orders: Order[] = [];
-        let wishlistCount = 0;
-        try {
-          const ordersRes = await api.getOrders();
-          orders = ordersRes.data || [];
-        } catch { /* API may not be available */ }
-
-        try {
-          const wishlistRes = await api.getWishlistIds();
-          wishlistCount = wishlistRes.data?.length || 0;
-        } catch { /* Wishlist may not exist */ }
-
-        // Fetch user records from Firestore
-        let userRecords: UserRecord[] = [];
-        try {
-          userRecords = await getUserRecords(user.id);
-        } catch { /* Firestore may not be configured */ }
-
-        // Fetch educational stats from Laravel
-        let analysesCount = 0, certificatesCount = 0, plansCount = 0, achievementsCount = 0;
-        try {
-          const [aRes, cRes, pRes, achRes] = await Promise.all([
-            api.getAnalyses().catch(() => ({ data: [] })),
-            api.getCertificates().catch(() => ({ data: [] })),
-            api.getPlans().catch(() => ({ data: [] })),
-            api.getAchievements().catch(() => ({ data: [] })),
-          ]);
-          analysesCount = aRes.data?.length || 0;
-          certificatesCount = cRes.data?.length || 0;
-          plansCount = pRes.data?.length || 0;
-          achievementsCount = achRes.data?.length || 0;
-        } catch { /* Educational services may not be available */ }
-
+        const [ordersRes, wishlistRes] = await Promise.all([
+          api.getOrders().catch(() => ({ data: [] })),
+          api.getWishlistIds().catch(() => ({ data: [] })),
+        ]);
+        const orders: Order[] = ordersRes.data || [];
+        const wishlistCount = wishlistRes.data?.length || 0;
         const completedOrders = orders.filter((o: Order) => o.status === 'completed');
         const totalSpent = completedOrders.reduce((sum: number, o: Order) => sum + o.total, 0);
-        const draftRecords = userRecords.filter(r => r.status === 'draft');
-        const finalRecords = userRecords.filter(r => r.status === 'completed' || (r.status as string) === 'final');
 
         setRecentOrders(orders.slice(0, 5));
-        setRecentRecords(userRecords.slice(0, 5));
-
-        setStats({
+        setStats(prev => ({
+          ...prev,
           orders_count: orders.length,
           wishlist_count: wishlistCount,
-          reviews_count: 0,
           total_spent: totalSpent,
-          analyses_count: analysesCount,
-          certificates_count: certificatesCount + finalRecords.length,
-          plans_count: plansCount,
-          achievements_count: achievementsCount,
-          records_total: userRecords.length,
-          records_draft: draftRecords.length,
-          records_final: finalRecords.length,
-        });
+        }));
       } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
+        console.error('Failed to fetch orders:', error);
       } finally {
-        setIsLoading(false);
+        setIsLoadingOrders(false);
       }
     };
 
-    if (!authLoading) {
-      fetchDashboardData();
-    }
+    // Fetch educational stats independently
+    const fetchEducationalStats = async () => {
+      setIsLoadingStats(true);
+      try {
+        const [aRes, cRes, pRes, achRes] = await Promise.all([
+          api.getAnalyses().catch(() => ({ data: [] })),
+          api.getCertificates().catch(() => ({ data: [] })),
+          api.getPlans().catch(() => ({ data: [] })),
+          api.getAchievements().catch(() => ({ data: [] })),
+        ]);
+        setStats(prev => ({
+          ...prev,
+          analyses_count: aRes.data?.length || 0,
+          certificates_count: (cRes.data?.length || 0),
+          plans_count: pRes.data?.length || 0,
+          achievements_count: achRes.data?.length || 0,
+        }));
+      } catch { /* Educational services may not be available */ }
+      finally { setIsLoadingStats(false); }
+    };
+
+    // Fire both in parallel - UI renders instantly with skeletons
+    fetchOrders();
+    fetchEducationalStats();
   }, [isAuthenticated, authLoading, user]);
+
+  const isLoading = isLoadingOrders && isLoadingRecords;
 
   if (authLoading) {
     return (

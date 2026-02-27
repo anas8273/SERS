@@ -57,7 +57,13 @@ const TABS: TabItem[] = [
   },
 ];
 
-export default function EditTemplatePage({ params }: { params: { id: string } }) {
+export default async function EditTemplatePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  
+  return <EditTemplatePageClient templateId={id} />;
+}
+
+function EditTemplatePageClient({ templateId }: { templateId: string }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('info');
   const [templateData, setTemplateData] = useState<any>(null);
@@ -66,13 +72,13 @@ export default function EditTemplatePage({ params }: { params: { id: string } })
 
   useEffect(() => {
     loadTemplateData();
-  }, [params.id]);
+  }, [templateId]);
 
   const loadTemplateData = async () => {
     try {
       const [templateRes, schemaRes] = await Promise.all([
-        api.getAdminTemplate(params.id),
-        api.get(`/admin/templates/${params.id}/schema`).catch(() => ({ success: false, data: null })),
+        api.getAdminTemplate(templateId),
+        api.get(`/admin/templates/${templateId}/schema`).catch(() => ({ success: false, data: null })),
       ]);
 
       if (templateRes.success) {
@@ -190,19 +196,19 @@ export default function EditTemplatePage({ params }: { params: { id: string } })
       {/* Tab Content */}
       <div className="animate-fade-in">
         {activeTab === 'info' && (
-          <TemplateForm templateId={params.id} />
+          <TemplateForm templateId={templateId} />
         )}
 
         {activeTab === 'schema' && templateData?.type === 'interactive' && (
           <SchemaBuilder
-            templateId={params.id}
+            templateId={templateId}
             onSchemaUpdate={(fields) => setSchemaFields(fields)}
           />
         )}
 
         {activeTab === 'mapper' && templateData?.type === 'interactive' && (
           <TemplateMapper
-            templateId={params.id}
+            templateId={templateId}
             fields={schemaFields.map(f => ({
               id: f.id || f.name,
               name: f.name,
@@ -213,7 +219,7 @@ export default function EditTemplatePage({ params }: { params: { id: string } })
 
         {activeTab === 'ai' && templateData?.type === 'interactive' && (
           <AIPromptManager
-            templateId={params.id}
+            templateId={templateId}
             fields={schemaFields.map(f => ({
               id: f.id || f.name,
               name: f.name,

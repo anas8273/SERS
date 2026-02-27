@@ -65,19 +65,19 @@ const PUBLIC_ROUTES = [
 // ===== Helper Functions =====
 
 function isProtectedRoute(pathname: string): boolean {
-  return PROTECTED_ROUTES.some(route => 
+  return PROTECTED_ROUTES.some(route =>
     pathname === route || pathname.startsWith(`${route}/`)
   );
 }
 
 function isAdminRoute(pathname: string): boolean {
-  return ADMIN_ROUTES.some(route => 
+  return ADMIN_ROUTES.some(route =>
     pathname === route || pathname.startsWith(`${route}/`)
   );
 }
 
 function isAuthRoute(pathname: string): boolean {
-  return AUTH_ROUTES.some(route => 
+  return AUTH_ROUTES.some(route =>
     pathname === route || pathname.startsWith(`${route}/`)
   );
 }
@@ -169,8 +169,9 @@ export function middleware(request: NextRequest) {
   // ===== Auth Route Redirect =====
   if (isAuthRoute(pathname)) {
     if (isAuthenticated) {
-      // Already logged in, redirect to dashboard
-      return NextResponse.redirect(new URL('/dashboard', request.url));
+      // Already logged in — redirect based on role
+      const redirectUrl = role === 'admin' ? '/admin/services' : '/dashboard';
+      return NextResponse.redirect(new URL(redirectUrl, request.url));
     }
     return NextResponse.next();
   }

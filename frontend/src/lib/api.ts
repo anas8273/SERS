@@ -2,6 +2,7 @@
 
 import axios, { AxiosInstance } from 'axios';
 import { ApiResponse } from '@/types';
+import { cache, CACHE_KEYS, CACHE_TTL } from './cache';
 
 class ApiClient {
     private client: AxiosInstance;
@@ -9,6 +10,8 @@ class ApiClient {
     constructor() {
         this.client = axios.create({
             baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api',
+            timeout: 10000, // 10s fail-fast timeout
+            withCredentials: true, // Required for Sanctum cookie auth
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
@@ -23,9 +26,12 @@ class ApiClient {
                 if (error.response) {
                     // Server responded with error status
                     throw error;
+                } else if (error.code === 'ECONNABORTED') {
+                    // Request timed out
+                    throw new Error('انتهت مهلة الاتصال بالخادم. يرجى المحاولة لاحقاً.');
                 } else if (error.request) {
                     // Request was made but no response received
-                    throw new Error('لا يمكن الاتصال بالخادم');
+                    throw new Error('لا يمكن الاتصال بالخادم. تأكد من أن الخادم يعمل.');
                 } else {
                     // Something else happened
                     throw new Error('حدث خطأ غير متوقع');
@@ -138,7 +144,9 @@ class ApiClient {
     }
 
     async getFeaturedTemplates() {
-        return this.getTemplates({ featured: 1 });
+        return cache.getOrSet('featured_templates', async () => {
+            return this.getTemplates({ featured: 1 });
+        }, CACHE_TTL.MEDIUM);
     }
 
     async getTemplate(slug: string) {
@@ -204,8 +212,10 @@ class ApiClient {
     }
 
     async getCategories() {
-        const { data } = await this.client.get('/categories');
-        return data;
+        return cache.getOrSet(CACHE_KEYS.CATEGORIES, async () => {
+            const { data } = await this.client.get('/categories');
+            return data;
+        }, CACHE_TTL.MEDIUM);
     }
 
     async getCategory(slug: string) {

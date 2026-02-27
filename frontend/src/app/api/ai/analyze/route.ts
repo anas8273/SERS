@@ -12,46 +12,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Try OpenAI API if available
-    const apiKey = process.env.OPENAI_API_KEY;
+    // Use Google Gemini API
+    const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey) {
       try {
         const prompt = buildAnalysisPrompt(type, data, language);
+        const systemInstruction = language === 'ar'
+          ? 'أنت محلل بيانات تعليمية خبير. قدم تحليلاً شاملاً ومهنياً باللغة العربية مع توصيات عملية لتحسين الأداء الأكاديمي. استخدم تنسيق Markdown مع عناوين وقوائم.'
+          : 'You are an expert educational data analyst. Provide comprehensive analysis with actionable recommendations.';
 
-        const response = await fetch(process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: 'gpt-4.1-mini',
-            messages: [
-              {
-                role: 'system',
-                content: language === 'ar'
-                  ? 'أنت محلل بيانات تعليمية خبير. قدم تحليلاً شاملاً ومهنياً باللغة العربية مع توصيات عملية لتحسين الأداء الأكاديمي. استخدم تنسيق Markdown مع عناوين وقوائم.'
-                  : 'You are an expert educational data analyst. Provide comprehensive analysis with actionable recommendations.'
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              system_instruction: {
+                parts: [{ text: systemInstruction }],
               },
-              { role: 'user', content: prompt }
-            ],
-            temperature: 0.7,
-            max_tokens: 2000,
-          }),
-        });
+              contents: [
+                {
+                  role: 'user',
+                  parts: [{ text: prompt }],
+                },
+              ],
+              generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 2000,
+              },
+            }),
+          }
+        );
 
         if (response.ok) {
           const result = await response.json();
-          const analysis = result.choices?.[0]?.message?.content || '';
+          const analysis =
+            result.candidates?.[0]?.content?.parts?.[0]?.text || '';
           return NextResponse.json({ success: true, analysis });
+        } else {
+          const errorBody = await response.text();
+          console.error('Gemini API error:', response.status, errorBody);
         }
       } catch (aiError) {
-        console.error('AI API error:', aiError);
-        // Fall through to local analysis
+        console.error('Gemini API call error:', aiError);
+        // Fall through to 503
       }
     }
 
-    // Fallback: Return empty to trigger client-side local analysis
+    // Fallback: Return 503 to trigger client-side local analysis
     return NextResponse.json(
       { success: false, error: 'AI service unavailable' },
       { status: 503 }

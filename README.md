@@ -114,4 +114,4 @@ The architecture is designed for scalability and separation of concerns, utilizi
 
 ---
 
-This project was built with the assistance of **Manus.im**, an advanced AI development agent.
+This project was built with the assistance of **Anas-Alyuousfi**, an advanced AI development agent.

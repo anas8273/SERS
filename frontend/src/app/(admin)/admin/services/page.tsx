@@ -199,7 +199,7 @@ export default function AdminServicesPage() {
     const [activeTab, setActiveTab] = useState<'list' | 'seed'>('list');
     const [featureInput, setFeatureInput] = useState({ title_ar: '', title_en: '', description_ar: '', description_en: '' });
     const [editFeatures, setEditFeatures] = useState<ServiceFeature[]>([]);
-    const [dynamicCategories, setDynamicCategories] = useState<{id: string; name: string; color: string}[]>(FALLBACK_CATEGORIES);
+    const [dynamicCategories, setDynamicCategories] = useState<{ id: string; name: string; color: string }[]>(FALLBACK_CATEGORIES);
 
     // Load services and categories from Firestore
     useEffect(() => {
@@ -378,14 +378,14 @@ export default function AdminServicesPage() {
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                         <span className="text-2xl">🎓</span> إدارة الخدمات التعليمية
                     </h1>
-                    <p className="text-gray-600 dark:text-gray-400 mt-1">
+                    <div className="text-gray-600 dark:text-gray-400 mt-1">
                         إضافة وتعديل وتنظيم الخدمات التعليمية ({services.length} خدمة)
                         {services.length > 0 && (
                             <Badge className="mr-2 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
                                 Firestore
                             </Badge>
                         )}
-                    </p>
+                    </div>
                 </div>
                 <div className="flex gap-2">
                     <Button onClick={() => setShowForm(true)} className="bg-primary hover:bg-primary/90 text-white">
