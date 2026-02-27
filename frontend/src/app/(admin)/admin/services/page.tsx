@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import toast from 'react-hot-toast';
 import type { ServiceDefinition, ServiceFeature, ServiceCategory } from '@/types';
 import { getServiceCategories } from '@/lib/firestore-service';
+import { SEED_CATEGORIES, SEED_SERVICES } from '@/lib/seed-data';
 
 // ===== Available Icons for selection =====
 const AVAILABLE_ICONS = [
@@ -38,7 +39,8 @@ const GRADIENTS = [
     'from-orange-500 to-amber-500',
 ];
 
-// ===== Default services for seeding =====
+// ===== Default services for seeding (imported from seed-data.ts) =====
+// Legacy fallback - now uses comprehensive SEED_SERVICES from seed-data.ts
 const DEFAULT_SERVICES: Omit<ServiceDefinition, 'id'>[] = [
     {
         slug: 'analyses', category: 'analysis', name_ar: 'تحليل النتائج', name_en: 'Results Analysis',
@@ -327,24 +329,66 @@ export default function AdminServicesPage() {
     };
 
     const seedDefaultServices = async () => {
-        if (!confirm('سيتم إضافة 13 خدمة افتراضية إلى Firestore. هل تريد المتابعة؟')) return;
+        const totalServices = SEED_SERVICES.length;
+        const totalCategories = SEED_CATEGORIES.length;
+        if (!confirm(`سيتم إضافة ${totalCategories} تصنيف و ${totalServices} خدمة تعليمية شاملة إلى Firestore.\nهذا يشمل: شواهد الأداء الوظيفي، ملفات الإنجاز، التقارير، التحليلات، الشهادات، وغيرها.\n\nهل تريد المتابعة؟`)) return;
 
         setIsSaving(true);
         try {
-            const { createService } = await import('@/lib/firestore-service');
-            let count = 0;
-            for (const service of DEFAULT_SERVICES) {
-                // Check if service with same slug exists
-                const exists = services.find(s => s.slug === service.slug);
-                if (!exists) {
-                    await createService(service as Omit<ServiceDefinition, 'id'>);
-                    count++;
-                }
-            }
-            toast.success(`تم إضافة ${count} خدمة بنجاح`);
+            const { seedCategories, seedServices } = await import('@/lib/firestore-service');
+            
+            // Seed categories first
+            toast.loading('جاري إضافة التصنيفات...', { id: 'seed' });
+            const catCount = await seedCategories(SEED_CATEGORIES as Omit<ServiceCategory, 'id'>[]);
+            
+            // Then seed services
+            toast.loading(`تم إضافة ${catCount} تصنيف. جاري إضافة الخدمات...`, { id: 'seed' });
+            const svcCount = await seedServices(SEED_SERVICES as Omit<ServiceDefinition, 'id'>[]);
+            
+            toast.success(`تم بنجاح! ${catCount} تصنيف + ${svcCount} خدمة`, { id: 'seed' });
             await loadServices();
+            // Reload categories too
+            const { getServiceCategories: getCats } = await import('@/lib/firestore-service');
+            const cats = await getCats();
+            if (cats.length > 0) {
+                setDynamicCategories(cats.map(c => ({ id: c.slug || c.id || '', name: c.name_ar, color: c.color || 'bg-gray-500' })));
+            }
         } catch (error) {
-            toast.error('خطأ في إضافة الخدمات الافتراضية');
+            toast.error('خطأ في إضافة البيانات الافتراضية', { id: 'seed' });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const seedComprehensiveData = async (replaceExisting: boolean) => {
+        if (!confirm(replaceExisting 
+            ? '⚠️ تحذير: سيتم حذف جميع البيانات الحالية واستبدالها بالبيانات الشاملة. هل أنت متأكد؟'
+            : `سيتم إضافة البيانات الجديدة فقط (بدون حذف الموجود). هل تريد المتابعة؟`
+        )) return;
+
+        setIsSaving(true);
+        try {
+            if (replaceExisting) {
+                const { clearAndSeedCategories, clearAndSeedServices } = await import('@/lib/firestore-service');
+                toast.loading('جاري حذف البيانات القديمة وإضافة الجديدة...', { id: 'seed-full' });
+                const catCount = await clearAndSeedCategories(SEED_CATEGORIES);
+                const svcCount = await clearAndSeedServices(SEED_SERVICES);
+                toast.success(`تم الاستبدال! ${catCount} تصنيف + ${svcCount} خدمة`, { id: 'seed-full' });
+            } else {
+                const { seedCategories, seedServices } = await import('@/lib/firestore-service');
+                toast.loading('جاري إضافة البيانات الجديدة...', { id: 'seed-full' });
+                const catCount = await seedCategories(SEED_CATEGORIES);
+                const svcCount = await seedServices(SEED_SERVICES);
+                toast.success(`تم! ${catCount} تصنيف + ${svcCount} خدمة جديدة`, { id: 'seed-full' });
+            }
+            await loadServices();
+            const { getServiceCategories: getCats } = await import('@/lib/firestore-service');
+            const cats = await getCats();
+            if (cats.length > 0) {
+                setDynamicCategories(cats.map(c => ({ id: c.slug || c.id || '', name: c.name_ar, color: c.color || 'bg-gray-500' })));
+            }
+        } catch (error) {
+            toast.error('خطأ في تحميل البيانات', { id: 'seed-full' });
         } finally {
             setIsSaving(false);
         }
@@ -393,8 +437,18 @@ export default function AdminServicesPage() {
                     </Button>
                     {services.length === 0 && (
                         <Button onClick={seedDefaultServices} variant="outline" disabled={isSaving}>
-                            <span className="ml-1">🌱</span> {isSaving ? 'جاري الإضافة...' : 'إضافة الخدمات الافتراضية'}
+                            <span className="ml-1">🌱</span> {isSaving ? 'جاري الإضافة...' : `تحميل ${SEED_SERVICES.length} خدمة تعليمية`}
                         </Button>
+                    )}
+                    {services.length > 0 && (
+                        <div className="flex gap-1">
+                            <Button onClick={() => seedComprehensiveData(false)} variant="outline" size="sm" disabled={isSaving}>
+                                ➕ إضافة الناقص
+                            </Button>
+                            <Button onClick={() => seedComprehensiveData(true)} variant="outline" size="sm" disabled={isSaving} className="text-red-600 border-red-200 hover:bg-red-50">
+                                🔄 إعادة تحميل الكل
+                            </Button>
+                        </div>
                     )}
                 </div>
             </div>
@@ -459,7 +513,7 @@ export default function AdminServicesPage() {
                     </p>
                     <div className="flex gap-3 justify-center">
                         <Button onClick={seedDefaultServices} disabled={isSaving}>
-                            🌱 {isSaving ? 'جاري الإضافة...' : 'إضافة 13 خدمة افتراضية'}
+                            🌱 {isSaving ? 'جاري الإضافة...' : `تحميل ${SEED_SERVICES.length} خدمة تعليمية شاملة`}
                         </Button>
                         <Button onClick={() => setShowForm(true)} variant="outline">
                             + إضافة يدوياً

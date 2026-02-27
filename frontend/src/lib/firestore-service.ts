@@ -462,3 +462,99 @@ export async function saveFullTemplateConfig(
     saveAIPromptConfig(templateId, aiPrompts),
   ]);
 }
+
+// ==========================================
+// Seed Database Functions
+// ==========================================
+
+// Helper: convert seed category format to ServiceCategory format
+function normalizeSeedCategory(raw: any): Omit<ServiceCategory, 'id'> {
+  return {
+    name_ar: raw.name_ar || raw.name || '',
+    name_en: raw.name_en || raw.slug?.replace(/-/g, ' ') || '',
+    description_ar: raw.description_ar || raw.description || '',
+    description_en: raw.description_en || '',
+    icon: raw.icon || 'FileText',
+    color: raw.color || '#6366F1',
+    slug: raw.slug || '',
+    parent_id: raw.parent_id || null,
+    is_active: raw.is_active !== false,
+    sort_order: raw.sort_order || raw.order || 0,
+    templates_count: raw.templates_count || raw.services_count || 0,
+  };
+}
+
+// Helper: convert seed service format to ServiceDefinition format
+function normalizeSeedService(raw: any): Omit<ServiceDefinition, 'id'> {
+  return {
+    slug: raw.slug || '',
+    name_ar: raw.name_ar || raw.title || raw.name || '',
+    name_en: raw.name_en || raw.slug?.replace(/-/g, ' ') || '',
+    description_ar: raw.description_ar || raw.description || '',
+    description_en: raw.description_en || '',
+    long_description_ar: raw.long_description_ar || raw.description || '',
+    icon: raw.icon || 'FileText',
+    color: raw.color || 'bg-blue-500',
+    gradient: raw.gradient || '',
+    category: raw.category || '',
+    route: raw.route || `/services/${raw.slug}`,
+    features: Array.isArray(raw.features) ? raw.features.map((f: any) => {
+      if (typeof f === 'string') return { title_ar: f, title_en: '', description_ar: f, description_en: '', icon: 'CheckCircle' };
+      return f;
+    }) : [],
+    benefits_ar: raw.benefits_ar || raw.features?.filter((f: any) => typeof f === 'string') || [],
+    is_active: raw.is_active !== false && raw.status !== 'inactive',
+    is_new: raw.is_new || false,
+    is_popular: raw.is_popular || false,
+    is_premium: raw.is_premium || !raw.is_free,
+    sort_order: raw.sort_order || raw.order || 0,
+    requires_auth: raw.requires_auth || false,
+    requires_subscription: raw.requires_subscription || false,
+  };
+}
+
+export async function seedCategories(categories: any[]): Promise<number> {
+  let count = 0;
+  for (const category of categories) {
+    try {
+      const normalized = normalizeSeedCategory(category);
+      await createServiceCategory(normalized);
+      count++;
+    } catch (error) {
+      // Skip duplicates silently
+    }
+  }
+  return count;
+}
+
+export async function seedServices(services: any[]): Promise<number> {
+  let count = 0;
+  for (const service of services) {
+    try {
+      const normalized = normalizeSeedService(service);
+      await createService(normalized);
+      count++;
+    } catch (error) {
+      // Skip duplicates silently
+    }
+  }
+  return count;
+}
+
+export async function clearAndSeedCategories(categories: any[]): Promise<number> {
+  // Delete existing categories first
+  const existing = await getServiceCategories();
+  for (const cat of existing) {
+    if (cat.id) await deleteServiceCategory(cat.id);
+  }
+  return seedCategories(categories);
+}
+
+export async function clearAndSeedServices(services: any[]): Promise<number> {
+  // Delete existing services first
+  const existing = await getAllServices();
+  for (const svc of existing) {
+    if (svc.id) await deleteService(svc.id);
+  }
+  return seedServices(services);
+}

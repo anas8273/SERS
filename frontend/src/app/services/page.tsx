@@ -37,18 +37,35 @@ function getIcon(iconName: string) {
     return ICON_MAP[iconName] || FileText;
 }
 
-// ===== Default categories (fallback) =====
+// ===== Default categories (fallback) - derived from SEED_CATEGORIES =====
 const DEFAULT_CATEGORIES = [
     { id: 'all', name: 'جميع الخدمات', icon: LayoutGrid, color: 'bg-gray-500' },
-    { id: 'analysis', name: 'التحليل والتقييم', icon: BarChart3, color: 'bg-blue-500' },
-    { id: 'documents', name: 'الوثائق والشهادات', icon: FileText, color: 'bg-amber-500' },
+    { id: 'performance-evidence', name: 'شواهد الأداء الوظيفي', icon: Award, color: 'bg-amber-500' },
+    { id: 'portfolio', name: 'ملفات الإنجاز', icon: FolderArchive, color: 'bg-purple-500' },
+    { id: 'reports', name: 'التقارير التعليمية', icon: FileText, color: 'bg-blue-500' },
+    { id: 'analysis', name: 'تحليل النتائج', icon: BarChart3, color: 'bg-cyan-500' },
+    { id: 'certificates', name: 'الشهادات والتقدير', icon: Trophy, color: 'bg-yellow-500' },
     { id: 'planning', name: 'التخطيط والإدارة', icon: ClipboardList, color: 'bg-green-500' },
-    { id: 'records', name: 'السجلات والتوثيق', icon: FolderArchive, color: 'bg-purple-500' },
-    { id: 'ai', name: 'الذكاء الاصطناعي', icon: Bot, color: 'bg-indigo-500' },
+    { id: 'school-records', name: 'السجلات المدرسية', icon: BookOpen, color: 'bg-indigo-500' },
+    { id: 'professional-development', name: 'التطوير المهني', icon: GraduationCap, color: 'bg-rose-500' },
+    { id: 'research', name: 'البحوث والدراسات', icon: Target, color: 'bg-teal-500' },
+    { id: 'initiatives', name: 'المبادرات والأنشطة', icon: Sparkles, color: 'bg-orange-500' },
+    { id: 'student-guidance', name: 'التوجيه والإرشاد', icon: Users, color: 'bg-sky-500' },
+    { id: 'electronic-services', name: 'الخدمات الإلكترونية', icon: Zap, color: 'bg-violet-500' },
+    { id: 'ai', name: 'الذكاء الاصطناعي', icon: Bot, color: 'bg-fuchsia-500' },
 ];
 
-// ===== Default services (fallback when Firestore is empty/unavailable) =====
-const DEFAULT_SERVICES: ServiceDefinition[] = [
+// ===== Import comprehensive seed data as fallback =====
+import { SEED_SERVICES, SEED_CATEGORIES } from '@/lib/seed-data';
+
+// Convert SEED_SERVICES to ServiceDefinition[] with IDs for fallback
+const DEFAULT_SERVICES: ServiceDefinition[] = SEED_SERVICES.slice(0, 24).map((s, i) => ({
+    ...s,
+    id: s.slug,
+})) as ServiceDefinition[];
+
+// Legacy hardcoded services - REMOVED, now using SEED_SERVICES
+const _LEGACY_SERVICES: ServiceDefinition[] = [
     {
         id: 'analyses', slug: 'analyses', category: 'analysis',
         name_ar: 'تحليل النتائج', name_en: 'Results Analysis',
@@ -185,7 +202,7 @@ export default function ServicesPage() {
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState('');
     const [activeCategory, setActiveCategory] = useState('all');
-    const [services, setServices] = useState<ServiceDefinition[]>(DEFAULT_SERVICES);
+    const [services, setServices] = useState<ServiceDefinition[]>(DEFAULT_SERVICES);    const [categories, setCategories] = useState<{id: string; name: string; color: string}[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [dataSource, setDataSource] = useState<'firestore' | 'fallback'>('fallback');
 

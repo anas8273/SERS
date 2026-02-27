@@ -13,7 +13,10 @@ import {
   createServiceCategory,
   saveServiceCategory,
   deleteServiceCategory,
+  seedCategories,
+  clearAndSeedCategories,
 } from '@/lib/firestore-service';
+import { SEED_CATEGORIES } from '@/lib/seed-data';
 
 // ===== Icon Options =====
 const ICON_OPTIONS = [
@@ -207,6 +210,22 @@ export default function AdminCategoriesPage() {
     }
   };
 
+  // ===== Seed Categories =====
+  const handleSeedCategories = async () => {
+    if (!confirm(`سيتم إضافة ${SEED_CATEGORIES.length} تصنيف تعليمي شامل. هل تريد المتابعة؟`)) return;
+    setIsSaving(true);
+    try {
+      toast.loading('جاري إضافة التصنيفات...', { id: 'seed-cats' });
+      const count = await seedCategories(SEED_CATEGORIES);
+      toast.success(`تم إضافة ${count} تصنيف بنجاح`, { id: 'seed-cats' });
+      fetchCategories();
+    } catch (error) {
+      toast.error('خطأ في إضافة التصنيفات', { id: 'seed-cats' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // ===== Filter =====
   const filteredCategories = categories.filter(c =>
     c.name_ar.includes(searchQuery) ||
@@ -227,9 +246,21 @@ export default function AdminCategoriesPage() {
             إنشاء وتعديل وحذف التصنيفات ديناميكياً من Firestore - تظهر تلقائياً في واجهة المستخدم
           </p>
         </div>
-        <Button onClick={openCreateForm} className="bg-primary hover:bg-primary/90">
-          <span className="ml-2">+</span> إضافة تصنيف جديد
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={openCreateForm} className="bg-primary hover:bg-primary/90">
+            <span className="ml-2">+</span> إضافة تصنيف جديد
+          </Button>
+          {categories.length === 0 && (
+            <Button onClick={handleSeedCategories} variant="outline" disabled={isSaving}>
+              🌱 {isSaving ? 'جاري...' : `تحميل ${SEED_CATEGORIES.length} تصنيف`}
+            </Button>
+          )}
+          {categories.length > 0 && categories.length < SEED_CATEGORIES.length && (
+            <Button onClick={() => handleSeedCategories()} variant="outline" size="sm" disabled={isSaving}>
+              ➕ إضافة الناقص
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
