@@ -14,56 +14,79 @@ export async function POST(request: NextRequest) {
 
     // Use Google Gemini API
     const apiKey = process.env.GEMINI_API_KEY;
-    if (apiKey) {
-      try {
-        const prompt = buildAnalysisPrompt(type, data, language);
-        const systemInstruction = language === 'ar'
-          ? 'أنت محلل بيانات تعليمية خبير. قدم تحليلاً شاملاً ومهنياً باللغة العربية مع توصيات عملية لتحسين الأداء الأكاديمي. استخدم تنسيق Markdown مع عناوين وقوائم.'
-          : 'You are an expert educational data analyst. Provide comprehensive analysis with actionable recommendations.';
-
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              system_instruction: {
-                parts: [{ text: systemInstruction }],
-              },
-              contents: [
-                {
-                  role: 'user',
-                  parts: [{ text: prompt }],
-                },
-              ],
-              generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 2000,
-              },
-            }),
-          }
-        );
-
-        if (response.ok) {
-          const result = await response.json();
-          const analysis =
-            result.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          return NextResponse.json({ success: true, analysis });
-        } else {
-          const errorBody = await response.text();
-          console.error('Gemini API error:', response.status, errorBody);
-        }
-      } catch (aiError) {
-        console.error('Gemini API call error:', aiError);
-        // Fall through to 503
-      }
+    if (!apiKey) {
+      console.warn('GEMINI_API_KEY is not configured in environment variables');
+      return NextResponse.json(
+        { success: false, error: 'مفتاح API غير مُعرّف. يرجى إضافة GEMINI_API_KEY في ملف .env.local' },
+        { status: 503 }
+      );
     }
 
-    // Fallback: Return 503 to trigger client-side local analysis
-    return NextResponse.json(
-      { success: false, error: 'AI service unavailable' },
-      { status: 503 }
-    );
+    try {
+      const prompt = buildAnalysisPrompt(type, data, language);
+      const systemInstruction = language === 'ar'
+        ? 'أنت محلل بيانات تعليمية خبير. قدم تحليلاً شاملاً ومهنياً باللغة العربية مع توصيات عملية لتحسين الأداء الأكاديمي. استخدم تنسيق Markdown مع عناوين وقوائم.'
+        : 'You are an expert educational data analyst. Provide comprehensive analysis with actionable recommendations.';
+
+      const geminiModel = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            system_instruction: {
+              parts: [{ text: systemInstruction }],
+            },
+            contents: [
+              {
+                role: 'user',
+                parts: [{ text: prompt }],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 2000,
+            },
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        const analysis =
+          result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        return NextResponse.json({ success: true, analysis });
+      } else {
+        const errorBody = await response.text();
+        console.error('Gemini API error:', response.status, errorBody);
+
+        // Check for specific error types
+        if (response.status === 400) {
+          return NextResponse.json(
+            { success: false, error: 'مفتاح API غير صالح أو منتهي الصلاحية. يرجى تحديث GEMINI_API_KEY' },
+            { status: 503 }
+          );
+        }
+        if (response.status === 429) {
+          return NextResponse.json(
+            { success: false, error: 'تم تجاوز حد الاستخدام. يرجى المحاولة لاحقاً' },
+            { status: 429 }
+          );
+        }
+
+        return NextResponse.json(
+          { success: false, error: 'خطأ في خدمة الذكاء الاصطناعي. يرجى المحاولة لاحقاً' },
+          { status: 503 }
+        );
+      }
+    } catch (aiError) {
+      console.error('Gemini API call error:', aiError);
+      return NextResponse.json(
+        { success: false, error: 'فشل الاتصال بخدمة الذكاء الاصطناعي' },
+        { status: 503 }
+      );
+    }
 
   } catch (error: any) {
     console.error('Analysis API error:', error);
