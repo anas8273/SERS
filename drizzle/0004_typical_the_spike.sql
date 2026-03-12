@@ -1,0 +1,1 @@
+ALTER TABLE `pdf_templates` ADD `templateLayout` json;

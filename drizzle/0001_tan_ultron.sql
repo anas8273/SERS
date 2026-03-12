@@ -1,0 +1,20 @@
+CREATE TABLE `pdf_templates` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`name` varchar(255) NOT NULL,
+	`description` text,
+	`headerBg` varchar(128) NOT NULL DEFAULT 'linear-gradient(135deg, #059669, #047857)',
+	`headerText` varchar(32) NOT NULL DEFAULT '#ffffff',
+	`accent` varchar(32) NOT NULL DEFAULT '#059669',
+	`borderColor` varchar(32) NOT NULL DEFAULT '#e5e7eb',
+	`bodyBg` varchar(32) NOT NULL DEFAULT '#ffffff',
+	`fontFamily` varchar(128) DEFAULT '''Cairo'', ''Tajawal'', sans-serif',
+	`coverImageUrl` text,
+	`logoUrl` text,
+	`isDefault` boolean DEFAULT false,
+	`isActive` boolean DEFAULT true,
+	`sortOrder` int DEFAULT 0,
+	`createdBy` int,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `pdf_templates_id` PRIMARY KEY(`id`)
+);

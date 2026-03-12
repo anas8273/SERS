@@ -1,0 +1,55 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1772251027714,
+      "tag": "0000_loose_adam_destine",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1772847524638,
+      "tag": "0001_tan_ultron",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1772942239391,
+      "tag": "0002_wise_prowler",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1772949657975,
+      "tag": "0003_white_starhawk",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1772954793315,
+      "tag": "0004_typical_the_spike",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1773095769027,
+      "tag": "0005_keen_gateway",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1773097633130,
+      "tag": "0006_sudden_sage",
+      "breakpoints": true
+    }
+  ]
+}
