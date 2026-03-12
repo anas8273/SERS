@@ -1223,22 +1223,42 @@ export default function PerformanceEvidence() {
 
             if (result.success && result.classification) {
               const cls = result.classification;
-              const targetCriterion = allCriteria.find(c =>
-                c.id === cls.standardId || c.title.includes(cls.standardName) || cls.standardName.includes(c.title)
-              );
+              
+              // دالة مساعدة لتنظيف النص العربي للمقارنة
+              const normalize = (t: string) => t.replace(/[\u0640\u064B-\u065F]/g, '').replace(/[إأآا]/g, 'ا').replace(/[ىئ]/g, 'ي').replace(/ة/g, 'ه').replace(/\s+/g, ' ').trim().toLowerCase();
+              
+              // === تحسين البحث عن المعيار: بحث متعدد المستويات ===
+              let targetCriterion = allCriteria.find(c => c.id === cls.standardId);
+              if (!targetCriterion) {
+                // بحث بالاسم مع normalize
+                const normalizedStdName = normalize(cls.standardName);
+                targetCriterion = allCriteria.find(c => {
+                  const normTitle = normalize(c.title);
+                  return normTitle === normalizedStdName || normTitle.includes(normalizedStdName) || normalizedStdName.includes(normTitle);
+                });
+              }
+              if (!targetCriterion && cls.standardNumber > 0 && cls.standardNumber <= allCriteria.length) {
+                // بحث بالرقم كـ fallback
+                targetCriterion = allCriteria[cls.standardNumber - 1];
+              }
+              
               if (targetCriterion && criteriaData[targetCriterion.id]) {
                 const subs = [...targetCriterion.subEvidences, ...(criteriaData[targetCriterion.id]?.customSubEvidences || [])];
                 
                 // === خوارزمية توجيه ذكية متعددة المستويات ===
-                // تستخدم نظام نقاط (scoring) لاختيار أفضل بند فرعي مطابق
-                let targetSub = subs[0]; // fallback
+                let targetSub = subs[0]; // fallback أولي
                 let matched = false;
                 
-                // دالة مساعدة لتنظيف النص العربي للمقارنة
-                const normalize = (t: string) => t.replace(/[\u0640\u064B-\u065F]/g, '').replace(/[إأآا]/g, 'ا').replace(/[ىئ]/g, 'ي').replace(/ة/g, 'ه').replace(/\s+/g, ' ').trim().toLowerCase();
+                // تحقق: هل البند الفرعي "غير محدد" أو فارغ أو عام؟
+                const isSubUndetermined = !cls.subIndicatorText || 
+                  cls.subIndicatorText.length <= 3 || 
+                  normalize(cls.subIndicatorText).includes('غير محدد') ||
+                  normalize(cls.subIndicatorText).includes('غير معروف') ||
+                  normalize(cls.subIndicatorText).includes('عام') ||
+                  cls.subIndicatorIndex === 0;
                 
-                // === المستوى 1: مطابقة دقيقة بنص البند الفرعي ===
-                if (cls.subIndicatorText && cls.subIndicatorText.length > 3) {
+                // === المستوى 1: مطابقة دقيقة بنص البند الفرعي (فقط إذا كان محدداً) ===
+                if (!isSubUndetermined && cls.subIndicatorText && cls.subIndicatorText.length > 3) {
                   const normalizedSub = normalize(cls.subIndicatorText);
                   // أولاً: تطابق تام
                   let exactMatch = subs.find(s => normalize(s.title) === normalizedSub);
@@ -1253,18 +1273,20 @@ export default function PerformanceEvidence() {
                 // === المستوى 2: مطابقة بنص البند الرئيسي ===
                 if (!matched && cls.indicatorText && cls.indicatorText.length > 3) {
                   const normalizedInd = normalize(cls.indicatorText);
-                  const exactMatch = subs.find(s => normalize(s.title) === normalizedInd);
-                  if (exactMatch) { targetSub = exactMatch; matched = true; }
-                  if (!matched) {
-                    const containMatch = subs.find(s => normalize(s.title).includes(normalizedInd) || normalizedInd.includes(normalize(s.title)));
-                    if (containMatch) { targetSub = containMatch; matched = true; }
+                  // تجاهل نصوص "غير محدد" في البند الرئيسي أيضاً
+                  if (!normalizedInd.includes('غير محدد') && !normalizedInd.includes('غير معروف')) {
+                    const exactMatch = subs.find(s => normalize(s.title) === normalizedInd);
+                    if (exactMatch) { targetSub = exactMatch; matched = true; }
+                    if (!matched) {
+                      const containMatch = subs.find(s => normalize(s.title).includes(normalizedInd) || normalizedInd.includes(normalize(s.title)));
+                      if (containMatch) { targetSub = containMatch; matched = true; }
+                    }
                   }
                 }
                 
                 // === المستوى 3: مطابقة بالفهرس الهيكلي ===
                 if (!matched && cls.indicatorIndex > 0) {
-                  // بناء خريطة الفهرس: البنود الرئيسية وبنودها الفرعية
-                  const stdPrefix = targetCriterion.id; // مثل std-1
+                  const stdPrefix = targetCriterion.id;
                   const targetItemId = `${stdPrefix}-item-${cls.indicatorIndex}`;
                   
                   if (cls.subIndicatorIndex > 0) {
@@ -1275,76 +1297,86 @@ export default function PerformanceEvidence() {
                   }
                   
                   if (!matched) {
-                    // البحث عن البند الرئيسي
+                    // البحث عن البند الرئيسي بالـ ID
                     const itemMatch = subs.find(s => s.id === targetItemId);
                     if (itemMatch) { targetSub = itemMatch; matched = true; }
                   }
                   
                   if (!matched) {
                     // fallback: البحث بالفهرس في القائمة المسطحة
-                    let flatIndex = 0;
-                    const items = targetCriterion.subEvidences.filter(s => !s.isSubItem);
-                    for (let i = 0; i < Math.min(cls.indicatorIndex - 1, items.length); i++) {
-                      flatIndex++; // البند الرئيسي
-                      // عدد البنود الفرعية لهذا البند
-                      const itemSubCount = targetCriterion.subEvidences.filter(s => s.isSubItem && s.parentTitle === items[i].title).length;
-                      flatIndex += itemSubCount;
-                    }
-                    if (cls.subIndicatorIndex > 0) flatIndex += cls.subIndicatorIndex;
-                    if (flatIndex >= 0 && flatIndex < subs.length) {
-                      targetSub = subs[flatIndex];
+                    const mainItems = targetCriterion.subEvidences.filter(s => !s.isSubItem);
+                    const idx = Math.min(cls.indicatorIndex - 1, mainItems.length - 1);
+                    if (idx >= 0 && idx < mainItems.length) {
+                      targetSub = mainItems[idx];
                       matched = true;
                     }
                   }
                 }
                 
                 // === المستوى 4: مطابقة ذكية بالكلمات المفتاحية (Fuzzy Scoring) ===
-                if (!matched && (cls.indicatorText || cls.subIndicatorText)) {
-                  const searchTexts = [cls.subIndicatorText, cls.indicatorText, cls.contentDescription].filter(Boolean).map(t => normalize(t!));
+                if (!matched && (cls.indicatorText || cls.subIndicatorText || cls.contentDescription)) {
+                  const textsToSearch = [cls.subIndicatorText, cls.indicatorText, cls.contentDescription, file.name].filter(Boolean);
+                  const searchTexts = textsToSearch.map(t => normalize(t!)).filter(t => !t.includes('غير محدد') && !t.includes('غير معروف'));
                   const allWords = searchTexts.flatMap(t => t.split(/\s+/).filter((w: string) => w.length > 2));
-                  // إزالة الكلمات الشائعة التي لا تفيد في المطابقة
-                  const stopWords = new Set(['من', 'في', 'على', 'إلى', 'عن', 'مع', 'هذا', 'هذه', 'التي', 'الذي', 'بين', 'عند', 'حول']);
+                  const stopWords = new Set(['من', 'في', 'على', 'إلى', 'عن', 'مع', 'هذا', 'هذه', 'التي', 'الذي', 'بين', 'عند', 'حول', 'غير', 'محدد']);
                   const keywords = allWords.filter(w => !stopWords.has(w));
                   
-                  let bestMatch = subs[0];
-                  let bestScore = 0;
-                  for (const sub of subs) {
-                    const subNorm = normalize(sub.title);
-                    const descNorm = sub.description ? normalize(sub.description) : '';
-                    let score = 0;
-                    for (const kw of keywords) {
-                      if (subNorm.includes(kw)) score += 3; // تطابق في العنوان = 3 نقاط
-                      if (descNorm.includes(kw)) score += 1; // تطابق في الوصف = 1 نقطة
+                  if (keywords.length > 0) {
+                    let bestMatch = subs[0];
+                    let bestScore = 0;
+                    for (const sub of subs) {
+                      const subNorm = normalize(sub.title);
+                      const descNorm = sub.description ? normalize(sub.description) : '';
+                      let score = 0;
+                      for (const kw of keywords) {
+                        if (subNorm.includes(kw)) score += 3;
+                        if (descNorm.includes(kw)) score += 1;
+                      }
+                      if (sub.isSubItem && score > 0) score += 1;
+                      if (score > bestScore) {
+                        bestScore = score;
+                        bestMatch = sub;
+                      }
                     }
-                    // مكافأة للبنود الفرعية (أكثر تحديداً)
-                    if (sub.isSubItem && score > 0) score += 1;
-                    if (score > bestScore) {
-                      bestScore = score;
-                      bestMatch = sub;
+                    if (bestScore >= 2) {
+                      targetSub = bestMatch;
+                      matched = true;
                     }
-                  }
-                  if (bestScore >= 2) { // حد أدنى نقطتين للقبول
-                    targetSub = bestMatch;
-                    matched = true;
                   }
                 }
                 
                 // === المستوى 5: إذا لم يتم التطابق، إدراج تحت البند الرئيسي الأقرب ===
                 if (!matched && cls.indicatorIndex > 0) {
-                  // البحث عن أقرب بند رئيسي (غير فرعي)
                   const mainItems = subs.filter(s => !s.isSubItem);
                   const idx = Math.min(cls.indicatorIndex - 1, mainItems.length - 1);
                   if (idx >= 0) {
                     targetSub = mainItems[idx];
+                    matched = true; // اعتبره matched لأننا وجدنا البند الرئيسي
+                  }
+                }
+                
+                // === المستوى 6 (جديد): Fallback نهائي - أول بند رئيسي في المعيار ===
+                if (!matched) {
+                  const mainItems = subs.filter(s => !s.isSubItem);
+                  if (mainItems.length > 0) {
+                    targetSub = mainItems[0];
+                  } else if (subs.length > 0) {
+                    targetSub = subs[0];
                   }
                 }
                 
                 targetCriterionId = targetCriterion.id;
-                targetSubId = targetSub?.id || "";
+                targetSubId = targetSub?.id || subs[0]?.id || "";
                 contentDesc = cls.contentDescription || file.name;
                 classificationSuccess = true;
                 criterionTitle = targetCriterion.title;
-                indicatorText = cls.indicatorText + (cls.subIndicatorText ? ` → ${cls.subIndicatorText}` : '');
+                
+                // بناء نص المؤشر للعرض
+                const matchedSubTitle = targetSub?.title || '';
+                indicatorText = cls.indicatorText || '';
+                if (matchedSubTitle && matchedSubTitle !== indicatorText) {
+                  indicatorText += ` → ${matchedSubTitle}`;
+                }
               }
             }
           } catch (aiErr) {
