@@ -951,12 +951,31 @@ export default function PerformanceEvidence() {
       return updated;
     });
     const toCrit = allCriteria.find(c => c.id === toCriterionId);
+    const toSubName = toCrit ? [...toCrit.subEvidences, ...(criteriaData[toCrit.id]?.customSubEvidences || [])].find(s => s.id === toSubId)?.title : '';
     toast.success("تم نقل الشاهد بنجاح", {
-      description: `تم النقل إلى: ${toCrit?.title || 'بند آخر'}`,
-      duration: 3000,
+      description: `\ud83d\udccd المسار الجديد: ${toCrit?.title || 'بند آخر'}${toSubName ? ` \u2190 ${toSubName}` : ''}`,
+      duration: 4000,
     });
+    
+    // تحديث سجل التعلم بالنقل اليدوي (يعزز دقة التصنيفات المستقبلية)
+    try {
+      const logKey = `sers_learning_log_${selectedJob?.id || 'default'}`;
+      const existingLog = JSON.parse(localStorage.getItem(logKey) || '[]');
+      const newEntry = {
+        fileName: evidence.fileName || evidence.text || 'manual-move',
+        criterionId: toCriterionId,
+        criterionTitle: toCrit?.title || '',
+        subEvidenceId: toSubId,
+        subEvidenceTitle: toSubName || '',
+        timestamp: Date.now(),
+        isManualCorrection: true,
+      };
+      const updatedLog = [...existingLog, newEntry].slice(-50);
+      localStorage.setItem(logKey, JSON.stringify(updatedLog));
+    } catch {}
+    
     setShowMoveDialog(null);
-  }, [allCriteria]);
+  }, [allCriteria, criteriaData, selectedJob]);
 
   // ===== رفع ذكي مع تصنيف AI تلقائي =====
   const [isSmartUploading, setIsSmartUploading] = useState(false);
@@ -1214,11 +1233,35 @@ export default function PerformanceEvidence() {
           setUploadProgress(prev => ({ stage: `${batchPrefix}جاري التصنيف الذكي...`, percent: Math.round(45 + (80 * fileIndex / totalFiles)), framePreview: prev?.framePreview }));
           
           try {
+            // بناء قائمة البنود الفعلية + المخصصة للوظيفة الحالية
+            const criteriaListForAI = allCriteria.map(c => ({
+              id: c.id,
+              title: c.title,
+              subEvidences: [
+                ...c.subEvidences.map(s => ({ id: s.id, title: s.title, isCustom: !!s.isCustom })),
+                ...(criteriaData[c.id]?.customSubEvidences || []).map(s => ({ id: s.id, title: s.title, isCustom: true })),
+              ],
+            }));
+            
+            // جلب سجل التعلم من localStorage (آخر 10 تصنيفات ناجحة)
+            let learningContext: { fileName: string; criterionId: string; criterionTitle: string; subEvidenceId: string; subEvidenceTitle: string }[] = [];
+            try {
+              const stored = localStorage.getItem(`sers_learning_log_${selectedJob?.id || 'default'}`);
+              if (stored) {
+                const parsed = JSON.parse(stored);
+                learningContext = Array.isArray(parsed) ? parsed.slice(-10) : [];
+              }
+            } catch {}
+            
             const result = await classifyMutation.mutateAsync({
               fileName: file.name,
               fileType: file.type,
               description: file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "),
               fileUrl: aiImageUrl,
+              jobId: selectedJob?.id,
+              jobTitle: selectedJob?.title,
+              criteriaList: criteriaListForAI,
+              learningContext,
             });
 
             if (result.success && result.classification) {
@@ -1377,6 +1420,25 @@ export default function PerformanceEvidence() {
                 if (matchedSubTitle && matchedSubTitle !== indicatorText) {
                   indicatorText += ` → ${matchedSubTitle}`;
                 }
+                
+                // === حفظ في سجل التعلم (Learning Log) ===
+                try {
+                  const logKey = `sers_learning_log_${selectedJob?.id || 'default'}`;
+                  const existingLog = JSON.parse(localStorage.getItem(logKey) || '[]');
+                  const newEntry = {
+                    fileName: file.name,
+                    criterionId: targetCriterion.id,
+                    criterionTitle: targetCriterion.title,
+                    subEvidenceId: targetSub?.id || '',
+                    subEvidenceTitle: matchedSubTitle,
+                    timestamp: Date.now(),
+                  };
+                  // احتفظ بآخر 50 تصنيف فقط
+                  const updatedLog = [...existingLog, newEntry].slice(-50);
+                  localStorage.setItem(logKey, JSON.stringify(updatedLog));
+                } catch {
+                  // تجاهل أخطاء localStorage
+                }
               }
             }
           } catch (aiErr) {
@@ -1449,7 +1511,7 @@ export default function PerformanceEvidence() {
       reader.onerror = () => resolve({ success: false });
       reader.readAsDataURL(file);
     });
-  }, [allCriteria, criteriaData, classifyMutation, compressImage, compressImageForStorage, addEvidenceToCriterion, uploadFileMutation, extractVideoFrame, compressVideoForStorage]);
+  }, [allCriteria, criteriaData, classifyMutation, compressImage, compressImageForStorage, addEvidenceToCriterion, uploadFileMutation, extractVideoFrame, compressVideoForStorage, selectedJob]);
 
   const handleSmartUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault();
@@ -1501,35 +1563,42 @@ export default function PerformanceEvidence() {
     if (totalFiles === 1) {
       const r = results[0];
       if (r.success) {
-        toast.success(`تم تصنيف الشاهد تلقائياً`, {
-          description: `البند: ${r.criterion}${r.indicator ? `\nالمؤشر: ${r.indicator}` : ''}`,
-          duration: 6000,
+        // إشعار مرئي محسّن يعرض مسار التصنيف الكامل
+        const pathParts = [r.criterion, r.indicator].filter(Boolean);
+        const classificationPath = pathParts.join(' \u2190 ');
+        toast.success(`\u2728 تم التصنيف الذكي بنجاح`, {
+          description: `\ud83d\udcc1 ${r.fileName}\n\ud83d\udccd المسار: ${classificationPath}\n\u270f\ufe0f يمكنك تعديل التصنيف من زر النقل بجانب الشاهد`,
+          duration: 8000,
         });
       } else {
         toast.warning("لم يتمكن النظام من تصنيف الشاهد تلقائياً", {
-          description: "تم إضافته للبند الأول. يمكنك نقله يدوياً.",
-          duration: 5000,
+          description: `\ud83d\udcc1 ${r.fileName}\nتم إضافته للبند الأول. يمكنك نقله يدوياً باستخدام زر النقل.`,
+          duration: 6000,
         });
       }
     } else {
-      // ملخص الدفعة
-      const summaryLines = results.map(r => 
-        `${r.success ? '✅' : '⚠️'} ${r.fileName} → ${r.criterion || 'البند الأول'}`
-      ).join('\n');
+      // ملخص الدفعة مع مسارات التصنيف
+      const summaryLines = results.map(r => {
+        if (r.success) {
+          const pathParts = [r.criterion, r.indicator].filter(Boolean);
+          return `\u2705 ${r.fileName}\n   \u2192 ${pathParts.join(' \u2190 ')}`;
+        }
+        return `\u26a0\ufe0f ${r.fileName} \u2192 البند الأول (لم يُصنّف)`;
+      }).join('\n');
       
       if (successCount === totalFiles) {
-        toast.success(`تم تصنيف ${totalFiles} شواهد بنجاح!`, {
-          description: summaryLines,
-          duration: 8000,
+        toast.success(`\u2728 تم تصنيف ${totalFiles} شواهد بنجاح!`, {
+          description: `${summaryLines}\n\n\u270f\ufe0f يمكنك تعديل التصنيف من زر النقل`,
+          duration: 10000,
         });
       } else if (successCount > 0) {
         toast.info(`تم تصنيف ${successCount} من ${totalFiles} شواهد`, {
-          description: summaryLines,
-          duration: 8000,
+          description: `${summaryLines}\n\n\u270f\ufe0f يمكنك تعديل التصنيف من زر النقل`,
+          duration: 10000,
         });
       } else {
         toast.warning(`تم إضافة ${totalFiles} شواهد للبند الأول`, {
-          description: "لم يتمكن النظام من تصنيفها تلقائياً. يمكنك نقلها يدوياً.",
+          description: "لم يتمكن النظام من تصنيفها تلقائياً. يمكنك نقلها يدوياً باستخدام زر النقل.",
           duration: 6000,
         });
       }
@@ -3268,14 +3337,21 @@ export default function PerformanceEvidence() {
                   </button>
                 </div>
                 <div className="p-2 overflow-y-auto max-h-[60vh]">
+                  <div className="px-3 py-2 mb-2 text-[10px] text-muted-foreground bg-muted/30 rounded-lg">
+                    اختر البند الفرعي المناسب لنقل الشاهد إليه. النقل اليدوي يحسّن دقة التصنيف الذكي مستقبلاً.
+                  </div>
                   {allCriteria.map((crit) => {
                     const critData = criteriaData[crit.id];
-                    const allSubs = [...crit.subEvidences, ...(critData?.customSubEvidences || [])];
+                    const defaultSubs = crit.subEvidences;
+                    const customSubs = critData?.customSubEvidences || [];
                     const isCurrent = crit.id === showMoveDialog.fromCriterionId;
                     return (
                       <div key={crit.id} className={`mb-1 ${isCurrent ? 'opacity-50' : ''}`}>
-                        <div className="px-3 py-2 text-xs font-bold text-muted-foreground">{crit.title}</div>
-                        {allSubs.map((sub) => (
+                        <div className="px-3 py-2 text-xs font-bold text-muted-foreground flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0"></span>
+                          {crit.title}
+                        </div>
+                        {defaultSubs.map((sub) => (
                           <button type="button" key={sub.id}
                             disabled={isCurrent && showMoveDialog.evidence.subEvidenceId === sub.id}
                             onClick={() => moveEvidenceToCriterion(showMoveDialog.evidence, showMoveDialog.fromCriterionId, crit.id, sub.id)}
@@ -3284,6 +3360,19 @@ export default function PerformanceEvidence() {
                             <span className="text-sm truncate">{sub.title}</span>
                             {isCurrent && showMoveDialog.evidence.subEvidenceId === sub.id && (
                               <Badge variant="secondary" className="text-[9px] mr-auto">الموقع الحالي</Badge>
+                            )}
+                          </button>
+                        ))}
+                        {customSubs.map((sub) => (
+                          <button type="button" key={sub.id}
+                            disabled={isCurrent && showMoveDialog.evidence.subEvidenceId === sub.id}
+                            onClick={() => moveEvidenceToCriterion(showMoveDialog.evidence, showMoveDialog.fromCriterionId, crit.id, sub.id)}
+                            className="w-full text-right px-4 py-2.5 hover:bg-muted/80 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                            <Layers className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            <span className="text-sm truncate">{sub.title}</span>
+                            <Badge variant="outline" className="text-[8px] mr-auto border-amber-300 text-amber-600">مخصص</Badge>
+                            {isCurrent && showMoveDialog.evidence.subEvidenceId === sub.id && (
+                              <Badge variant="secondary" className="text-[9px]">الموقع الحالي</Badge>
                             )}
                           </button>
                         ))}

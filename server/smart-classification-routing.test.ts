@@ -560,14 +560,194 @@ describe("Smart Classification Routing - Improved Algorithm", () => {
     });
   });
 
-  describe("Server-side: Enhanced prompt includes all 11 standards with details", () => {
-    it("should include detailed standard descriptions in system prompt", async () => {
+  describe("Server-side: Dynamic job-based classification", () => {
+    it("should accept jobTitle and use it in system prompt", async () => {
       const classification = {
         standardId: "std-1",
         standardNumber: 1,
-        standardName: "أداء الواجبات الوظيفية",
+        standardName: "\u0623\u062f\u0627\u0621 \u0627\u0644\u0648\u0627\u062c\u0628\u0627\u062a \u0627\u0644\u0648\u0638\u064a\u0641\u064a\u0629",
         indicatorIndex: 1,
-        indicatorText: "التقيد بالدوام الرسمي",
+        indicatorText: "\u0627\u0644\u062a\u0642\u064a\u062f \u0628\u0627\u0644\u062f\u0648\u0627\u0645",
+        subIndicatorIndex: 0,
+        subIndicatorText: "",
+        confidence: 0.9,
+        reasoning: "test",
+        contentDescription: "test",
+        suggestedPriority: "essential",
+        suggestedKeywords: ["test"],
+      };
+
+      mockedInvokeLLM.mockResolvedValueOnce({
+        id: "test-job-title",
+        created: Date.now(),
+        model: "test",
+        choices: [{ index: 0, message: { role: "assistant", content: JSON.stringify(classification) }, finish_reason: "stop" }],
+      });
+
+      const ctx = createAuthContext();
+      const caller = appRouter.createCaller(ctx);
+
+      await caller.ai.classifyEvidence({
+        description: "test",
+        fileName: "test.pdf",
+        jobId: "supervisor",
+        jobTitle: "\u0645\u0634\u0631\u0641 \u062a\u0631\u0628\u0648\u064a",
+      });
+
+      const callArgs = mockedInvokeLLM.mock.calls[0][0];
+      const systemMessage = callArgs.messages.find((m: any) => m.role === "system");
+      expect(systemMessage.content).toContain("\u0645\u0634\u0631\u0641 \u062a\u0631\u0628\u0648\u064a");
+    });
+
+    it("should accept criteriaList and include dynamic criteria in prompt", async () => {
+      const classification = {
+        standardId: "std-1",
+        standardNumber: 1,
+        standardName: "test",
+        indicatorIndex: 1,
+        indicatorText: "test",
+        subIndicatorIndex: 0,
+        subIndicatorText: "",
+        confidence: 0.9,
+        reasoning: "test",
+        contentDescription: "test",
+        suggestedPriority: "essential",
+        suggestedKeywords: ["test"],
+      };
+
+      mockedInvokeLLM.mockResolvedValueOnce({
+        id: "test-criteria-list",
+        created: Date.now(),
+        model: "test",
+        choices: [{ index: 0, message: { role: "assistant", content: JSON.stringify(classification) }, finish_reason: "stop" }],
+      });
+
+      const ctx = createAuthContext();
+      const caller = appRouter.createCaller(ctx);
+
+      await caller.ai.classifyEvidence({
+        description: "test",
+        fileName: "test.pdf",
+        jobTitle: "\u0645\u0639\u0644\u0645",
+        criteriaList: [
+          {
+            id: "std-1",
+            title: "\u0623\u062f\u0627\u0621 \u0627\u0644\u0648\u0627\u062c\u0628\u0627\u062a \u0627\u0644\u0648\u0638\u064a\u0641\u064a\u0629",
+            subEvidences: [
+              { id: "std-1-item-1", title: "\u0627\u0644\u062a\u0642\u064a\u062f \u0628\u0627\u0644\u062f\u0648\u0627\u0645" },
+              { id: "std-1-custom-1", title: "\u0628\u0646\u062f \u0645\u062e\u0635\u0635 \u062c\u062f\u064a\u062f", isCustom: true },
+            ],
+          },
+        ],
+      });
+
+      const callArgs = mockedInvokeLLM.mock.calls[0][0];
+      const systemMessage = callArgs.messages.find((m: any) => m.role === "system");
+      // Should include the dynamic criteria
+      expect(systemMessage.content).toContain("\u0623\u062f\u0627\u0621 \u0627\u0644\u0648\u0627\u062c\u0628\u0627\u062a \u0627\u0644\u0648\u0638\u064a\u0641\u064a\u0629");
+      expect(systemMessage.content).toContain("\u0627\u0644\u062a\u0642\u064a\u062f \u0628\u0627\u0644\u062f\u0648\u0627\u0645");
+      // Should include custom sub with [\u0645\u062e\u0635\u0635] tag
+      expect(systemMessage.content).toContain("\u0628\u0646\u062f \u0645\u062e\u0635\u0635 \u062c\u062f\u064a\u062f");
+      expect(systemMessage.content).toContain("[\u0645\u062e\u0635\u0635");
+    });
+
+    it("should accept learningContext and include it in prompt", async () => {
+      const classification = {
+        standardId: "std-2",
+        standardNumber: 2,
+        standardName: "test",
+        indicatorIndex: 5,
+        indicatorText: "\u0627\u0644\u0625\u0646\u062a\u0627\u062c \u0627\u0644\u0645\u0639\u0631\u0641\u064a",
+        subIndicatorIndex: 0,
+        subIndicatorText: "",
+        confidence: 0.9,
+        reasoning: "test",
+        contentDescription: "test",
+        suggestedPriority: "essential",
+        suggestedKeywords: ["test"],
+      };
+
+      mockedInvokeLLM.mockResolvedValueOnce({
+        id: "test-learning",
+        created: Date.now(),
+        model: "test",
+        choices: [{ index: 0, message: { role: "assistant", content: JSON.stringify(classification) }, finish_reason: "stop" }],
+      });
+
+      const ctx = createAuthContext();
+      const caller = appRouter.createCaller(ctx);
+
+      await caller.ai.classifyEvidence({
+        description: "\u0625\u0646\u062a\u0627\u062c \u0645\u0639\u0631\u0641\u064a",
+        fileName: "\u0627\u0646\u062a\u0627\u062c.pdf",
+        learningContext: [
+          {
+            fileName: "\u0634\u0647\u0627\u062f\u0629_\u062f\u0648\u0631\u0629.pdf",
+            criterionId: "std-2",
+            criterionTitle: "\u0627\u0644\u062a\u0641\u0627\u0639\u0644 \u0645\u0639 \u0627\u0644\u0645\u062c\u062a\u0645\u0639 \u0627\u0644\u0645\u0647\u0646\u064a",
+            subEvidenceId: "std-2-item-4",
+            subEvidenceTitle: "\u062d\u0636\u0648\u0631 \u0627\u0644\u062f\u0648\u0631\u0627\u062a",
+          },
+        ],
+      });
+
+      const callArgs = mockedInvokeLLM.mock.calls[0][0];
+      const systemMessage = callArgs.messages.find((m: any) => m.role === "system");
+      // Should include learning context
+      expect(systemMessage.content).toContain("\u0633\u062c\u0644 \u0627\u0644\u062a\u0635\u0646\u064a\u0641\u0627\u062a \u0627\u0644\u0633\u0627\u0628\u0642\u0629");
+      expect(systemMessage.content).toContain("\u0634\u0647\u0627\u062f\u0629_\u062f\u0648\u0631\u0629.pdf");
+      expect(systemMessage.content).toContain("\u062d\u0636\u0648\u0631 \u0627\u0644\u062f\u0648\u0631\u0627\u062a");
+    });
+
+    it("should fallback to default standards when no criteriaList provided", async () => {
+      const classification = {
+        standardId: "std-1",
+        standardNumber: 1,
+        standardName: "test",
+        indicatorIndex: 1,
+        indicatorText: "test",
+        subIndicatorIndex: 0,
+        subIndicatorText: "",
+        confidence: 0.9,
+        reasoning: "test",
+        contentDescription: "test",
+        suggestedPriority: "essential",
+        suggestedKeywords: ["test"],
+      };
+
+      mockedInvokeLLM.mockResolvedValueOnce({
+        id: "test-fallback",
+        created: Date.now(),
+        model: "test",
+        choices: [{ index: 0, message: { role: "assistant", content: JSON.stringify(classification) }, finish_reason: "stop" }],
+      });
+
+      const ctx = createAuthContext();
+      const caller = appRouter.createCaller(ctx);
+
+      await caller.ai.classifyEvidence({
+        description: "test",
+        fileName: "test.pdf",
+        // No criteriaList, no jobTitle
+      });
+
+      const callArgs = mockedInvokeLLM.mock.calls[0][0];
+      const systemMessage = callArgs.messages.find((m: any) => m.role === "system");
+      // Should use default teacher job title
+      expect(systemMessage.content).toContain("\u0645\u0639\u0644\u0645 / \u0645\u0639\u0644\u0645\u0629");
+      // Should include fallback message for no criteria
+      expect(systemMessage.content).toContain("\u0644\u0645 \u064a\u062a\u0645 \u062a\u0632\u0648\u064a\u062f \u0628\u0646\u0648\u062f \u0645\u062d\u062f\u062f\u0629");
+    });
+  });
+
+  describe("Server-side: Enhanced prompt includes standard details when criteriaList provided", () => {
+    it("should include detailed standard descriptions when criteriaList is provided", async () => {
+      const classification = {
+        standardId: "std-1",
+        standardNumber: 1,
+        standardName: "\u0623\u062f\u0627\u0621 \u0627\u0644\u0648\u0627\u062c\u0628\u0627\u062a \u0627\u0644\u0648\u0638\u064a\u0641\u064a\u0629",
+        indicatorIndex: 1,
+        indicatorText: "\u0627\u0644\u062a\u0642\u064a\u062f \u0628\u0627\u0644\u062f\u0648\u0627\u0645 \u0627\u0644\u0631\u0633\u0645\u064a",
         subIndicatorIndex: 0,
         subIndicatorText: "",
         confidence: 0.9,
@@ -599,20 +779,78 @@ describe("Smart Classification Routing - Improved Algorithm", () => {
       await caller.ai.classifyEvidence({
         description: "test",
         fileName: "test.pdf",
+        jobTitle: "\u0645\u0639\u0644\u0645",
+        criteriaList: [
+          {
+            id: "std-1",
+            title: "\u0623\u062f\u0627\u0621 \u0627\u0644\u0648\u0627\u062c\u0628\u0627\u062a \u0627\u0644\u0648\u0638\u064a\u0641\u064a\u0629",
+            subEvidences: [
+              { id: "std-1-item-1", title: "\u0627\u0644\u062a\u0642\u064a\u062f \u0628\u0627\u0644\u062f\u0648\u0627\u0645" },
+            ],
+          },
+          {
+            id: "std-2",
+            title: "\u0627\u0644\u062a\u0641\u0627\u0639\u0644 \u0645\u0639 \u0627\u0644\u0645\u062c\u062a\u0645\u0639 \u0627\u0644\u0645\u0647\u0646\u064a",
+            subEvidences: [
+              { id: "std-2-item-5", title: "\u0627\u0644\u0625\u0646\u062a\u0627\u062c \u0627\u0644\u0645\u0639\u0631\u0641\u064a" },
+            ],
+          },
+        ],
       });
 
       const callArgs = mockedInvokeLLM.mock.calls[0][0];
       const systemMessage = callArgs.messages.find((m: any) => m.role === "system");
       expect(systemMessage).toBeDefined();
 
-      // Verify the system prompt includes detailed standard info
+      // Verify the system prompt includes the dynamic criteria
       expect(systemMessage.content).toContain("std-1");
       expect(systemMessage.content).toContain("std-2");
-      expect(systemMessage.content).toContain("std-11");
       expect(systemMessage.content).toContain("indicatorIndex");
       expect(systemMessage.content).toContain("subIndicatorIndex");
-      expect(systemMessage.content).toContain("الإنتاج المعرفي");
+      expect(systemMessage.content).toContain("\u0627\u0644\u0625\u0646\u062a\u0627\u062c \u0627\u0644\u0645\u0639\u0631\u0641\u064a");
       expect(systemMessage.content).toContain("subIndicatorIndex = 0");
+    });
+
+    it("should use fallback text when no criteriaList provided", async () => {
+      const classification = {
+        standardId: "std-1",
+        standardNumber: 1,
+        standardName: "test",
+        indicatorIndex: 1,
+        indicatorText: "test",
+        subIndicatorIndex: 0,
+        subIndicatorText: "",
+        confidence: 0.9,
+        reasoning: "test",
+        contentDescription: "test",
+        suggestedPriority: "essential",
+        suggestedKeywords: ["test"],
+      };
+
+      mockedInvokeLLM.mockResolvedValueOnce({
+        id: "test-no-criteria",
+        created: Date.now(),
+        model: "test",
+        choices: [{ index: 0, message: { role: "assistant", content: JSON.stringify(classification) }, finish_reason: "stop" }],
+      });
+
+      const ctx = createAuthContext();
+      const caller = appRouter.createCaller(ctx);
+
+      await caller.ai.classifyEvidence({
+        description: "test",
+        fileName: "test.pdf",
+      });
+
+      const callArgs = mockedInvokeLLM.mock.calls[0][0];
+      const systemMessage = callArgs.messages.find((m: any) => m.role === "system");
+      // Without criteriaList, should show fallback message
+      expect(systemMessage.content).toContain("\u0644\u0645 \u064a\u062a\u0645 \u062a\u0632\u0648\u064a\u062f \u0628\u0646\u0648\u062f \u0645\u062d\u062f\u062f\u0629");
+      // But user message should still have default standards list
+      const userMessage = callArgs.messages.find((m: any) => m.role === "user");
+      expect(userMessage).toBeDefined();
+      const userContent = typeof userMessage.content === 'string' ? userMessage.content : '';
+      expect(userContent).toContain("std-1");
     });
   });
 });

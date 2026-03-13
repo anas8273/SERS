@@ -423,109 +423,79 @@ export const appRouter = router({
         fileType: z.string().optional(),
         fileUrl: z.string().optional(),
         linkUrl: z.string().optional(),
+        // بيانات الوظيفة والبنود الفعلية
+        jobId: z.string().optional(),
+        jobTitle: z.string().optional(),
+        // البنود الفعلية للوظيفة المختارة (بدلاً من hardcode المعلم فقط)
+        criteriaList: z.array(z.object({
+          id: z.string(),
+          title: z.string(),
+          subEvidences: z.array(z.object({
+            id: z.string(),
+            title: z.string(),
+            isCustom: z.boolean().optional(),
+          })),
+        })).optional(),
+        // سجل التعلم: تصنيفات ناجحة سابقة لتحسين الدقة
+        learningContext: z.array(z.object({
+          fileName: z.string(),
+          criterionId: z.string(),
+          criterionTitle: z.string(),
+          subEvidenceId: z.string(),
+          subEvidenceTitle: z.string(),
+        })).max(10).optional(),
       }))
       .mutation(async ({ input }) => {
-        const SYSTEM_PROMPT = `أنت نظام تصنيف ذكي متقدم لشواهد الأداء الوظيفي للمعلمين وفق معايير وزارة التعليم السعودية 1447هـ.
+        // بناء prompt ديناميكي حسب الوظيفة
+        const jobTitle = input.jobTitle || 'معلم / معلمة';
+        const hasDynamicCriteria = input.criteriaList && input.criteriaList.length > 0;
+        
+        // بناء قائمة البنود ديناميكياً من البيانات المرسلة
+        let dynamicStandardsList = '';
+        if (hasDynamicCriteria) {
+          dynamicStandardsList = input.criteriaList!.map((c, i) => {
+            let entry = `${i + 1}. ${c.title} (${c.id}):`;
+            if (c.subEvidences.length > 0) {
+              entry += '\n' + c.subEvidences.map((s, j) => {
+                const customTag = s.isCustom ? ' [مخصص - أضافه المستخدم]' : '';
+                return `   - البند ${j + 1} (indicatorIndex=${j + 1}): ${s.title}${customTag}`;
+              }).join('\n');
+            }
+            return entry;
+          }).join('\n\n');
+        }
+        
+        // بناء سياق سجل التعلم
+        let learningContextText = '';
+        if (input.learningContext && input.learningContext.length > 0) {
+          learningContextText = `\n\nسجل التصنيفات السابقة الناجحة (استخدمها كمرجع لتحسين دقة التصنيف):\n` +
+            input.learningContext.map(l => 
+              `- "${l.fileName}" → ${l.criterionTitle} → ${l.subEvidenceTitle}`
+            ).join('\n');
+        }
+
+        const SYSTEM_PROMPT = `أنت نظام تصنيف ذكي متقدم لشواهد الأداء الوظيفي وفق معايير وزارة التعليم السعودية 1447هـ.
+الوظيفة الحالية: ${jobTitle}
 
 مهمتك:
 1. حلل المحتوى بعمق (صورة، ملف، رابط، نص، فيديو) واستخرج المعلومات الرئيسية
-2. حدد المعيار الأنسب من المعايير الـ 11 (المستوى الأول) - استخدم standardId الموضح بين الأقواس
-3. حدد البند الأنسب داخل المعيار (المستوى الثاني) - استخدم رقم البند indicatorIndex
+2. حدد المعيار/البند الأنسب من البنود المتاحة (المستوى الأول) - استخدم standardId الموضح بين الأقواس
+3. حدد البند الفرعي الأنسب داخل المعيار (المستوى الثاني) - استخدم رقم البند indicatorIndex
 4. حدد البند الفرعي الأنسب داخل البند (المستوى الثالث) - استخدم رقم الفرعي subIndicatorIndex
 
 قواعد مهمة جداً:
-- استخدم standardId الموضح بين الأقواس بالضبط (مثل: std-1, std-2, ..., std-11)
+- استخدم standardId الموضح بين الأقواس بالضبط
 - indicatorIndex يبدأ من 1 ويمثل رقم البند داخل المعيار
 - subIndicatorIndex يبدأ من 1 ويمثل رقم البند الفرعي. إذا لم تستطع تحديد الفرعي بدقة، ضع 0
 - إذا كان subIndicatorIndex = 0، سيتم إدراج الشاهد تحت البند الرئيسي مباشرة (وهذا سلوك صحيح)
 - indicatorText يجب أن يكون النص الفعلي للبند كما هو موضح أدناه
-- عند تحليل الفيديو: حلل اسم الملف ونوعه لتحديد السياق التعليمي (مثل: درس تطبيقي، نشاط صفي، ورشة عمل)
+- عند تحليل الفيديو: حلل اسم الملف ونوعه لتحديد السياق التعليمي
+- البنود المعلمة بـ [مخصص] هي بنود فرعية أضافها المستخدم - اعطها أولوية إذا كان المحتوى مناسباً لها
+${learningContextText}
 
-المعايير الـ 11 وبنودها الفعلية:
+البنود المتاحة لوظيفة "${jobTitle}":
 
-1. أداء الواجبات الوظيفية (std-1):
-   - البند 1 (indicatorIndex=1): التقيد بالدوام الرسمي
-   - البند 2 (indicatorIndex=2): تأدية الحصص الدراسية وفق الجدول
-   - البند 3 (indicatorIndex=3): المشاركة في الإشراف والمناوبة وحصص الانتظار
-   - البند 4 (indicatorIndex=4): إعداد ومتابعة الدروس والواجبات والاختبارات
-   - البند 5 (indicatorIndex=5): المشاركة في اللجان المدرسية وتفعيلها
-   - البند 6 (indicatorIndex=6): المشاركة في الأنشطة والمناسبات الوطنية
-   - البند 7 (indicatorIndex=7): تفعيل الإذاعة الصباحية والطابور الصباحي
-   - البند 8 (indicatorIndex=8): الالتزام بالسلوك المهني وأخلاقيات المهنة
-   - البند 9 (indicatorIndex=9): تفعيل منصة مدرستي والأنظمة الإلكترونية
-   - البند 10 (indicatorIndex=10): الاطلاع والالتزام بالتعاميم واللوائح
-
-2. التفاعل مع المجتمع المهني (std-2):
-   - البند 1 (indicatorIndex=1): المشاركة الفاعلة في مجتمعات التعلم المهنية
-     └ فرعي 1 (subIndicatorIndex=1): حضور اجتماعات مجتمعات التعلم
-     └ فرعي 2 (subIndicatorIndex=2): المشاركة بأوراق عمل وعروض
-   - البند 2 (indicatorIndex=2): تبادل الزيارات الصفية مع الزملاء
-     └ فرعي 1 (subIndicatorIndex=1): زيارات صفية للزملاء
-     └ فرعي 2 (subIndicatorIndex=2): استقبال زيارات الزملاء
-   - البند 3 (indicatorIndex=3): تنفيذ الدروس التطبيقية وبحث الدرس
-     └ فرعي 1 (subIndicatorIndex=1): تنفيذ دروس تطبيقية
-     └ فرعي 2 (subIndicatorIndex=2): المشاركة في بحث الدرس
-   - البند 4 (indicatorIndex=4): حضور الدورات والورش التدريبية
-     └ فرعي 1 (subIndicatorIndex=1): حضور دورات تدريبية
-     └ فرعي 2 (subIndicatorIndex=2): تنفيذ ورش عمل للزملاء
-   - البند 5 (indicatorIndex=5): الإنتاج المعرفي (أوراق عمل، عروض تقديمية، ملازم)
-     └ فرعي 1 (subIndicatorIndex=1): إعداد أوراق عمل وعروض
-   - البند 6 (indicatorIndex=6): الحصول على شهادات مهنية معتمدة
-     └ فرعي 1 (subIndicatorIndex=1): شهادات مهنية
-   - البند 7 (indicatorIndex=7): إطلاق مبادرات تعليمية لتحسين جودة التعليم
-     └ فرعي 1 (subIndicatorIndex=1): تنفيذ مبادرات تعليمية
-
-3. التفاعل مع أولياء الأمور (std-3):
-   - البند 1 (indicatorIndex=1): التواصل الفعال مع أولياء الأمور
-   - البند 2 (indicatorIndex=2): تزويد أولياء الأمور بمستويات الطلبة
-   - البند 3 (indicatorIndex=3): المشاركة في الجمعية العمومية
-   - البند 4 (indicatorIndex=4): تفعيل الخطة الأسبوعية
-   - البند 5 (indicatorIndex=5): إيصال الملاحظات الهامة لأولياء الأمور
-
-4. التنويع في استراتيجيات التدريس (std-4):
-   - البند 1 (indicatorIndex=1): استخدام استراتيجيات متنوعة
-   - البند 2 (indicatorIndex=2): مراعاة الفروق الفردية
-   - البند 3 (indicatorIndex=3): تطبيق التعلم القائم على المشاريع
-   - البند 4 (indicatorIndex=4): استخدام الوسائل البصرية والسمعية
-
-5. تحسين نتائج المتعلمين (std-5):
-   - البند 1 (indicatorIndex=1): معالجة الفاقد التعليمي
-   - البند 2 (indicatorIndex=2): وضع الخطط العلاجية
-   - البند 3 (indicatorIndex=3): وضع الخطط الإثرائية
-   - البند 4 (indicatorIndex=4): تكريم الطلبة المتميزين
-
-6. إعداد وتنفيذ خطة التعلم (std-6):
-   - البند 1 (indicatorIndex=1): توزيع المنهج وإعداد الخطة الفصلية
-   - البند 2 (indicatorIndex=2): إعداد الدروس اليومية
-   - البند 3 (indicatorIndex=3): إعداد الواجبات والأنشطة
-   - البند 4 (indicatorIndex=4): تنفيذ الدروس وفق الخطة
-
-7. توظيف تقنيات ووسائل التعلم (std-7):
-   - البند 1 (indicatorIndex=1): دمج التقنية في التعليم
-   - البند 2 (indicatorIndex=2): التنويع في الوسائل التعليمية
-
-8. تهيئة البيئة التعليمية (std-8):
-   - البند 1 (indicatorIndex=1): مراعاة حاجات الطلبة وأنماط تعلمهم
-   - البند 2 (indicatorIndex=2): التهيئة النفسية والتحفيز
-   - البند 3 (indicatorIndex=3): توفير متطلبات الدرس وتجهيز الفصل
-
-9. الإدارة الصفية (std-9):
-   - البند 1 (indicatorIndex=1): ضبط سلوك الطلبة وإدارة الصف
-   - البند 2 (indicatorIndex=2): شد انتباه الطلبة واستثمار وقت الحصة
-   - البند 3 (indicatorIndex=3): مراعاة الفروق الفردية في الإدارة الصفية
-   - البند 4 (indicatorIndex=4): متابعة الحضور والغياب والتأخر
-
-10. تحليل نتائج المتعلمين (std-10):
-   - البند 1 (indicatorIndex=1): تحليل نتائج الاختبارات الفترية والنهائية
-   - البند 2 (indicatorIndex=2): تصنيف الطلبة وفق نتائجهم
-   - البند 3 (indicatorIndex=3): معالجة الفاقد التعليمي بناءً على التحليل
-   - البند 4 (indicatorIndex=4): تحديد نقاط القوة والضعف
-
-11. تنوع أساليب التقويم (std-11):
-   - البند 1 (indicatorIndex=1): تطبيق الاختبارات الورقية والإلكترونية
-   - البند 2 (indicatorIndex=2): مشاريع الطلبة والمهام الأدائية
-   - البند 3 (indicatorIndex=3): ملفات إنجاز الطلبة
-   - البند 4 (indicatorIndex=4): التقويم التكويني والختامي
+${hasDynamicCriteria ? dynamicStandardsList : `لم يتم تزويد بنود محددة - استخدم المعايير الافتراضية للمعلم`}
 
 عند تحليل الصور:
 - اقرأ أي نص عربي أو إنجليزي ظاهر في الصورة
@@ -548,7 +518,10 @@ export const appRouter = router({
           { role: "system", content: SYSTEM_PROMPT },
         ];
 
-        const STANDARDS_LIST = `1. أداء الواجبات الوظيفية (std-1)
+        // بناء قائمة مختصرة للبنود لرسائل المستخدم
+        const STANDARDS_LIST = hasDynamicCriteria 
+          ? input.criteriaList!.map((c, i) => `${i + 1}. ${c.title} (${c.id})`).join('\n')
+          : `1. أداء الواجبات الوظيفية (std-1)
 2. التفاعل مع المجتمع المهني (std-2)
 3. التفاعل مع أولياء الأمور (std-3)
 4. التنويع في استراتيجيات التدريس (std-4)
