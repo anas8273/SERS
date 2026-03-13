@@ -18,6 +18,12 @@ const SharedPortfolio = lazy(() => import("./pages/SharedPortfolio"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const TemplateManager = lazy(() => import("./pages/TemplateManager"));
 const SharedTemplate = lazy(() => import("./pages/SharedTemplate"));
+const Store = lazy(() => import("./pages/Store"));
+const PortfolioBuilder = lazy(() => import("./pages/PortfolioBuilder"));
+const ReportCenter = lazy(() => import("./pages/ReportCenter"));
+const SchoolRadio = lazy(() => import("./pages/SchoolRadio"));
+const SmartCV = lazy(() => import("./pages/SmartCV"));
+const ExamBuilder = lazy(() => import("./pages/ExamBuilder"));
 
 function LoadingFallback() {
   return (
@@ -45,6 +51,12 @@ function Router() {
         <Route path={"/admin"} component={AdminDashboard} />
         <Route path={"/admin/templates"} component={TemplateManager} />
         <Route path={"/shared-template/:token"} component={SharedTemplate} />
+        <Route path={"/store"} component={Store} />
+        <Route path={"/portfolio"} component={PortfolioBuilder} />
+        <Route path={"/reports"} component={ReportCenter} />
+        <Route path={"/school-radio"} component={SchoolRadio} />
+        <Route path={"/smart-cv"} component={SmartCV} />
+        <Route path={"/exams"} component={ExamBuilder} />
         <Route path={"/404"} component={NotFound} />
         <Route component={NotFound} />
       </Switch>
