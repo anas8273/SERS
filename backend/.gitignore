@@ -22,3 +22,23 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# [FIX-C03] Security: Ignore session files and debug scripts
+storage/framework/sessions/*
+!storage/framework/sessions/.gitkeep
+read_log.php
+test_*.php
+test-*.php
+verify-*.php
+
+# Database files
+database/database.sqlite
+database/*.sqlite-journal
+*_output.txt
+*_output*.txt
+
+# Firebase credentials
+storage/app/firebase/service-account.json
+
+# Cache
+.phpunit.result.cache

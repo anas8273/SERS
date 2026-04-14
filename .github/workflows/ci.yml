@@ -1,0 +1,162 @@
+name: SERS CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  PHP_VERSION: '8.2'
+  NODE_VERSION: '20'
+
+jobs:
+  # ═══════════════════════════════════════════
+  # Backend — Laravel (PHP 8.2)
+  # ═══════════════════════════════════════════
+  backend:
+    name: 🔧 Backend (Laravel)
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testing
+          MYSQL_DATABASE: sers_testing
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -ptest"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP ${{ env.PHP_VERSION }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, pdo_mysql, bcmath, gd, zip
+          coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: backend/vendor
+          key: composer-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Copy environment
+        run: cp .env.example .env || echo "APP_KEY=" > .env
+
+      - name: Generate key
+        run: php artisan key:generate
+
+      - name: Configure testing database
+        run: |
+          echo "DB_CONNECTION=mysql" >> .env
+          echo "DB_HOST=127.0.0.1" >> .env
+          echo "DB_PORT=3306" >> .env
+          echo "DB_DATABASE=sers_testing" >> .env
+          echo "DB_USERNAME=root" >> .env
+          echo "DB_PASSWORD=testing" >> .env
+
+      - name: Run migrations
+        run: php artisan migrate --force
+
+      # [FIX D-02] Cache config/routes/views to mirror production — catches config-cache bugs early
+      - name: Optimize application (mirrors production)
+        run: |
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+        env:
+          APP_ENV: testing
+          APP_DEBUG: false
+          STRIPE_SECRET_KEY: sk_test_placeholder
+
+      # [FIX D-03] APP_DEBUG guard — fail CI if APP_DEBUG=true sneaks into production config
+      - name: Assert APP_DEBUG is false in production config
+        run: |
+          DEBUG_VAL=$(php -r "define('LARAVEL_START', microtime(true)); require 'bootstrap/app.php'; echo config('app.debug') ? 'true' : 'false';")
+          if [ "$DEBUG_VAL" = "true" ]; then
+            echo "❌ FAIL: APP_DEBUG=true detected in production cached config!"
+            exit 1
+          fi
+          echo "✅ APP_DEBUG=false confirmed"
+
+      - name: PHP Syntax Check
+        run: |
+          ERRORS=$(find app -name "*.php" -exec php -l {} \; 2>&1 | grep -v "No syntax errors" | grep -v "^$")
+          if [ -n "$ERRORS" ]; then
+            echo "$ERRORS"
+            exit 1
+          fi
+          echo "✅ No syntax errors found"
+
+      - name: Run PHPUnit tests
+        run: php artisan test --parallel
+
+  # ═══════════════════════════════════════════
+  # Frontend — Next.js (TypeScript)
+  # ═══════════════════════════════════════════
+  frontend:
+    name: 🎨 Frontend (Next.js)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript type check
+        run: npx tsc --noEmit
+
+      - name: Build production bundle
+        run: npm run build
+        env:
+          NEXT_PUBLIC_BACKEND_URL: http://localhost:8001
+          NEXT_PUBLIC_FIREBASE_API_KEY: test
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: test
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: test
+
+  # ═══════════════════════════════════════════
+  # Security — Dependency Audit
+  # ═══════════════════════════════════════════
+  security:
+    name: 🔒 Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHP Security Audit
+        working-directory: backend
+        run: |
+          composer install --no-interaction --prefer-dist
+          composer audit
+
+      - name: Node.js Security Audit
+        working-directory: frontend
+        run: npm audit --audit-level=high || true

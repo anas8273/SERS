@@ -1,0 +1,483 @@
+openapi: 3.0.3
+info:
+  title: SERS — Smart Educational Records System API
+  description: |
+    RESTful API for the SERS educational SaaS platform.
+    Covers authentication, templates, orders, payments, AI services,
+    wallet management, referrals, and admin operations.
+    
+    **Authentication:** All protected endpoints require a Bearer token
+    via Laravel Sanctum. Obtain a token via `POST /api/auth/login` or `POST /api/auth/register`.
+  version: 1.0.0
+  contact:
+    name: SERS Development Team
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:8001/api
+    description: Local Development
+  - url: https://sers.app/api
+    description: Production
+
+tags:
+  - name: Auth
+    description: Authentication (register, login, logout, profile)
+  - name: Templates
+    description: Template marketplace (browse, search, purchase)
+  - name: Orders
+    description: Order management (create, pay, history)
+  - name: Wallet
+    description: Digital wallet (balance, topup, transactions, transfer)
+  - name: AI
+    description: AI-powered features (suggestions, analysis, chat)
+  - name: Services
+    description: Educational services (analyses, certificates, plans, etc.)
+  - name: Referrals
+    description: Referral system (codes, earnings, withdrawals)
+  - name: Admin
+    description: Admin operations (users, templates, stats)
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ═══════════════════════════════════════
+  # AUTH
+  # ═══════════════════════════════════════
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password, password_confirmation]
+              properties:
+                name: { type: string, example: "أحمد محمد" }
+                email: { type: string, format: email, example: "ahmed@example.com" }
+                password: { type: string, minLength: 8 }
+                password_confirmation: { type: string }
+                phone: { type: string, nullable: true }
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "422":
+          description: Validation error
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login with email/password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+                remember_me: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+        "403":
+          description: Account disabled
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get authenticated user profile
+      responses:
+        "200":
+          description: User profile
+        "401":
+          description: Unauthenticated
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout (revoke current token)
+      responses:
+        "200":
+          description: Logged out
+
+  # ═══════════════════════════════════════
+  # TEMPLATES
+  # ═══════════════════════════════════════
+  /templates:
+    get:
+      tags: [Templates]
+      summary: List marketplace templates
+      security: []
+      parameters:
+        - name: category_id
+          in: query
+          schema: { type: string }
+        - name: section_id
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [created_at, price, name_ar] }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, default: 12, maximum: 50 }
+      responses:
+        "200":
+          description: Paginated template list
+
+  /templates/{slug}:
+    get:
+      tags: [Templates]
+      summary: Get template details
+      security: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Template details
+        "404":
+          description: Template not found
+
+  # ═══════════════════════════════════════
+  # ORDERS
+  # ═══════════════════════════════════════
+  /orders:
+    post:
+      tags: [Orders]
+      summary: Create a new order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      template_id: { type: string, format: uuid }
+                coupon_code: { type: string, nullable: true }
+                payment_method: { type: string, enum: [stripe, wallet] }
+      responses:
+        "201":
+          description: Order created
+        "422":
+          description: Validation error
+    get:
+      tags: [Orders]
+      summary: List user's orders
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, completed, cancelled] }
+        - name: page
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Paginated order list
+
+  # ═══════════════════════════════════════
+  # WALLET
+  # ═══════════════════════════════════════
+  /wallet/balance:
+    get:
+      tags: [Wallet]
+      summary: Get wallet balance
+      responses:
+        "200":
+          description: Current balance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      balance: { type: number, example: 150.50 }
+
+  /wallet/transactions:
+    get:
+      tags: [Wallet]
+      summary: Get transaction history
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer }
+        - name: per_page
+          in: query
+          schema: { type: integer, default: 10 }
+      responses:
+        "200":
+          description: Paginated transaction list
+
+  /wallet/topup:
+    post:
+      tags: [Wallet]
+      summary: Create Stripe topup payment intent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount]
+              properties:
+                amount: { type: number, minimum: 10, maximum: 10000 }
+      responses:
+        "200":
+          description: Stripe client secret returned
+
+  /wallet/transfer:
+    post:
+      tags: [Wallet]
+      summary: Transfer balance to another user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recipient_email, amount]
+              properties:
+                recipient_email: { type: string, format: email }
+                amount: { type: number, minimum: 1 }
+                note: { type: string, nullable: true }
+      responses:
+        "200":
+          description: Transfer successful
+        "400":
+          description: Insufficient balance
+
+  # ═══════════════════════════════════════
+  # AI
+  # ═══════════════════════════════════════
+  /ai/suggest:
+    post:
+      tags: [AI]
+      summary: Get AI suggestion for a template field
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                field_name: { type: string }
+                context: { type: object }
+      responses:
+        "200":
+          description: AI suggestion
+
+  /ai/chat:
+    post:
+      tags: [AI]
+      summary: Send a message to AI chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message: { type: string }
+                conversation_id: { type: string, nullable: true }
+      responses:
+        "200":
+          description: AI response
+
+  /ai/async:
+    post:
+      tags: [AI]
+      summary: Submit async AI request (queued)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt]
+              properties:
+                prompt: { type: string, maxLength: 10000 }
+                json_mode: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Job submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      job_id: { type: string, format: uuid }
+
+  /ai/jobs/{jobId}:
+    get:
+      tags: [AI]
+      summary: Poll async AI job status
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Job status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      status: { type: string, enum: [pending, processing, completed, failed] }
+                      result: { type: string, nullable: true }
+                      error: { type: string, nullable: true }
+        "404":
+          description: Job not found
+
+  # ═══════════════════════════════════════
+  # EDUCATIONAL SERVICES
+  # ═══════════════════════════════════════
+  /services/{serviceType}:
+    get:
+      tags: [Services]
+      summary: List user's educational service items
+      parameters:
+        - name: serviceType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [analyses, certificates, plans, achievements, performances, tests, distributions]
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Paginated service items
+    post:
+      tags: [Services]
+      summary: Create a new educational service item
+      parameters:
+        - name: serviceType
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string }
+                description: { type: string, nullable: true }
+                type: { type: string, nullable: true }
+                status: { type: string, nullable: true }
+      responses:
+        "201":
+          description: Item created
+
+  # ═══════════════════════════════════════
+  # REFERRALS
+  # ═══════════════════════════════════════
+  /referrals/stats:
+    get:
+      tags: [Referrals]
+      summary: Get referral dashboard statistics
+      responses:
+        "200":
+          description: Referral stats
+
+  /referrals/generate-code:
+    post:
+      tags: [Referrals]
+      summary: Generate a new referral code
+      responses:
+        "200":
+          description: Referral code generated
+
+  /referrals/earnings:
+    get:
+      tags: [Referrals]
+      summary: List referral earnings
+      responses:
+        "200":
+          description: Earnings list
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum Token
+
+  schemas:
+    AuthResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        data:
+          type: object
+          properties:
+            user:
+              type: object
+              properties:
+                id: { type: string, format: uuid }
+                name: { type: string }
+                email: { type: string }
+                role: { type: string }
+            token: { type: string }
+
+    PaginationMeta:
+      type: object
+      properties:
+        current_page: { type: integer }
+        last_page: { type: integer }
+        per_page: { type: integer }
+        total: { type: integer }

@@ -1,0 +1,19 @@
+{
+  "name": "sers",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SERS - Smart Educational Records System",
+  "scripts": {
+    "dev":         "node dev.js --prod --skip-build",
+    "dev:hot":     "node dev.js",
+    "start":       "node dev.js --prod --skip-build",
+    "build":       "npm --prefix frontend run build",
+    "rebuild":     "npm --prefix frontend run build && node dev.js --prod --skip-build",
+    "lint":        "npm --prefix frontend run lint",
+    "install:frontend": "npm --prefix frontend install",
+    "install:backend":  "cd backend && composer install",
+    "install:all":      "npm --prefix frontend install && cd backend && composer install",
+    "clean":       "node -e \"require('fs').rmSync('frontend/.next',{recursive:true,force:true});console.log('✅ Cleaned .next cache')\""
+  }
+
+}

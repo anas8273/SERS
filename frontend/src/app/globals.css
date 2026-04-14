@@ -1,0 +1,1186 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 260 30% 6%;
+    --card: 0 0% 100%;
+    --card-foreground: 260 30% 6%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 260 30% 6%;
+    --primary: 262 83% 58%;
+    --primary-foreground: 260 20% 98%;
+    --secondary: 260 30% 96%;
+    --secondary-foreground: 260 30% 12%;
+    --muted: 260 30% 96%;
+    --muted-foreground: 260 10% 46%;
+    --accent: 260 30% 96%;
+    --accent-foreground: 260 30% 12%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 260 20% 91%;
+    --input: 260 20% 91%;
+    --ring: 262 83% 58%;
+    --radius: 0.5rem;
+    /* Chart tooltip — Light Mode */
+    --tooltip-bg: #ffffff;
+    --tooltip-border: #e5e7eb;
+    --tooltip-text: #1f2937;
+  }
+
+  .dark {
+    --background: 260 30% 8%;
+    --foreground: 260 10% 98%;
+    --card: 260 25% 14%;
+    --card-foreground: 260 10% 98%;
+    --popover: 260 25% 14%;
+    --popover-foreground: 260 10% 98%;
+    --primary: 262 83% 65%;
+    --primary-foreground: 260 30% 8%;
+    --secondary: 260 25% 14%;
+    --secondary-foreground: 260 10% 98%;
+    --muted: 260 25% 14%;
+    --muted-foreground: 260 15% 65%;
+    --accent: 260 25% 14%;
+    --accent-foreground: 260 10% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 260 25% 18%;
+    --input: 260 25% 18%;
+    --ring: 262 76% 55%;
+    /* Chart tooltip — Dark Mode */
+    --tooltip-bg: #1f2937;
+    --tooltip-border: #374151;
+    --tooltip-text: #f9fafb;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  /* Branded text selection */
+  ::selection {
+    background-color: hsl(262 83% 58% / 0.2);
+    color: inherit;
+  }
+
+  /* Navbar height CSS variable — used to offset scroll-padding and sticky elements */
+  :root {
+    --navbar-height: 4rem; /* 64px = h-16 */
+  }
+
+  html {
+    scroll-behavior: smooth;
+    /* Prevents anchors from hiding behind the fixed navbar */
+    scroll-padding-top: var(--navbar-height);
+  }
+
+  body {
+    @apply bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-50 transition-colors duration-300;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    /* ⚠️ IMPORTANT: Use overflow-x: clip NOT hidden!
+       overflow-x: hidden creates a new Stacking Context which breaks
+       position:fixed and position:sticky — causing ghost overlay on mobile scroll.
+       overflow-x: clip has the same visual effect WITHOUT the stacking context bug. */
+    overflow-x: clip;
+    /* Full-width guarantee */
+    min-width: 320px;
+  }
+
+
+  /* Smooth focus ring across all interactive elements */
+  :focus-visible {
+    @apply outline-none ring-2 ring-primary/40 ring-offset-2 ring-offset-white dark:ring-offset-gray-900;
+    transition: box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* Smooth link underlines across the app */
+  a {
+    text-decoration-skip-ink: auto;
+  }
+
+  /* Premium image rendering */
+  img {
+    image-rendering: -webkit-optimize-contrast;
+  }
+
+  /*
+   * ╔══════════════════════════════════════════════════════╗
+   * ║  GHOST OVERLAY FIX — Mobile Scroll Artifacts        ║
+   * ╚══════════════════════════════════════════════════════╝
+   * 
+   * Problem: When a container has BOTH `overflow: hidden` AND
+   * `transform` (or `will-change: transform`), it becomes a
+   * "containing block" for position:fixed children — breaking
+   * the navbar's fixed positioning and causing a ghost layer
+   * that persists after scrolling back to top on mobile.
+   *
+   * Fix: Ensure the fixed navbar always uses GPU compositing
+   * correctly by isolating transform-heavy sections to their
+   * own stacking context WITHOUT affecting fixed positioning.
+   *
+   * The key rule: position:fixed elements should ONLY be
+   * contained by the initial containing block (viewport).
+   * Never put will-change:transform on ancestors of fixed elements.
+   */
+
+  /* Prevent hero sections from creating a containing block */
+  section[class*="overflow-hidden"],
+  div[class*="overflow-hidden"] {
+    /* Use 'clip' pathway instead of creating containing block */
+    isolation: auto;
+  }
+}
+
+/* =============================================
+   DESIGN SYSTEM COMPONENTS
+   Premium, reusable classes for 2026 SaaS look
+   ============================================= */
+
+@layer components {
+
+  /* === LAYOUT COMPONENTS === */
+  .admin-layout {
+    @apply min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300;
+  }
+
+  .admin-card {
+    @apply bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 transition-all duration-300 hover:shadow-md;
+  }
+
+  .admin-card-interactive {
+    @apply bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+  }
+
+  /* Glass header — ALWAYS below the fixed Navbar (top-16 = 4rem) */
+  .glass-header {
+    @apply sticky z-30 backdrop-blur-md bg-white/80 dark:bg-gray-900/80 border-b border-gray-200 dark:border-gray-800;
+    top: 4rem; /* matches navbar h-16 */
+  }
+
+  .glass-card {
+    @apply backdrop-blur-md bg-white/70 dark:bg-gray-800/70 rounded-2xl border border-white/20 dark:border-gray-700/50 shadow-xl;
+  }
+
+  /* ============================================
+     RESPONSIVE TABLES — wraps overflow on mobile
+     Usage: <div class="responsive-table"><table>...</table></div>
+     ============================================ */
+  .responsive-table {
+    @apply w-full overflow-x-auto -mx-0;
+    -webkit-overflow-scrolling: touch;
+  }
+  .responsive-table table {
+    @apply min-w-full;
+  }
+
+  /* ============================================
+     PAGE WRAPPER — consistent page padding
+     Usage: <div class="page-wrapper">...</div>
+     ============================================ */
+  .page-wrapper {
+    @apply w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6;
+  }
+
+  /* Tighter wrapper for narrow pages (auth, etc.) */
+  .page-wrapper-sm {
+    @apply w-full max-w-md mx-auto px-4 py-8;
+  }
+
+  /* ============================================
+     RESPONSIVE GRID — auto-fit columns
+     ============================================ */
+  .responsive-grid-2 {
+    @apply grid grid-cols-1 sm:grid-cols-2 gap-4;
+  }
+  .responsive-grid-3 {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4;
+  }
+  .responsive-grid-4 {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4;
+  }
+
+  /* ============================================
+     MOBILE CARD — full-width on xs, card on sm+
+     ============================================ */
+  .mobile-card {
+    @apply w-full rounded-none sm:rounded-2xl border-x-0 sm:border-x;
+  }
+
+  /* ============================================
+     TRUNCATE HELPERS
+     ============================================ */
+  .text-clamp-1 { display: -webkit-box; -webkit-line-clamp: 1; line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+  .text-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .text-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+
+  /* === BUTTON COMPONENTS === */
+  .btn-primary {
+    @apply bg-gradient-to-r from-violet-600 to-purple-500 hover:from-violet-700 hover:to-purple-600 text-white font-medium py-2.5 px-5 rounded-lg shadow-lg shadow-violet-500/30 active:scale-95 transition-all duration-200;
+  }
+
+  .btn-success {
+    @apply bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white font-medium py-2.5 px-5 rounded-lg shadow-lg shadow-green-500/30 active:scale-95 transition-all duration-200;
+  }
+
+  .btn-danger {
+    @apply bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white font-medium py-2.5 px-5 rounded-lg shadow-lg shadow-red-500/30 active:scale-95 transition-all duration-200;
+  }
+
+  .btn-ghost {
+    @apply text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 font-medium py-2 px-4 rounded-lg transition-all duration-200;
+  }
+
+  /* === INPUT COMPONENTS === */
+  .input-field {
+    @apply w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all duration-200 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500;
+  }
+
+  .input-field-error {
+    @apply w-full bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all duration-200;
+  }
+
+  /* === STATUS BADGES === */
+  .status-badge-success {
+    @apply bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide;
+  }
+
+  .status-badge-warning {
+    @apply bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide;
+  }
+
+  .status-badge-danger {
+    @apply bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide;
+  }
+
+  .status-badge-info {
+    @apply bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide;
+  }
+
+  .status-badge-neutral {
+    @apply bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide;
+  }
+
+  /* === STAT CARDS === */
+  .stat-card {
+    @apply bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 transition-all duration-300 hover:shadow-md;
+  }
+
+  .stat-icon {
+    @apply p-3 rounded-xl text-2xl flex items-center justify-center;
+  }
+
+  .stat-icon-green {
+    @apply bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400;
+  }
+
+  .stat-icon-blue {
+    @apply bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400;
+  }
+
+  .stat-icon-purple {
+    @apply bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400;
+  }
+
+  .stat-icon-orange {
+    @apply bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400;
+  }
+
+  /* === TABLE COMPONENTS === */
+  .table-header {
+    @apply bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 text-sm font-semibold;
+  }
+
+  .table-row {
+    @apply hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors duration-150 border-b border-gray-100 dark:border-gray-700;
+  }
+
+  .table-cell {
+    @apply px-4 py-4 text-gray-900 dark:text-gray-100;
+  }
+
+  /* === SIDEBAR COMPONENTS === */
+  .sidebar-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200;
+  }
+
+  .sidebar-item-active {
+    @apply bg-primary/5 dark:bg-primary/20 text-primary;
+  }
+
+  .sidebar-item-inactive {
+    @apply text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white;
+  }
+}
+
+/* Custom Animations */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4);
+  }
+
+  50% {
+    box-shadow: 0 0 0 10px rgba(139, 92, 246, 0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.4s ease-out forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
+
+/* Gradient text utility */
+.gradient-text {
+  @apply bg-gradient-to-r from-violet-600 to-fuchsia-500 bg-clip-text text-transparent;
+}
+
+/* Scrollbar styling */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-gray-100 dark:bg-gray-800 rounded-full;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 dark:bg-gray-600 rounded-full hover:bg-gray-400 dark:hover:bg-gray-500;
+}
+
+/* =============================================
+   PREMIUM ANIMATIONS
+   ============================================= */
+
+/* Smooth scroll — handled via data-scroll-behavior attr on <html> */
+
+/* Fixed navbar body padding */
+body.has-fixed-nav {
+  padding-top: 4rem;
+}
+
+/* Dropdown fade + scale */
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Shimmer effect for skeletons */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 25%, rgba(139,92,246,0.08) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Card glow on hover */
+@keyframes cardGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+  50% { box-shadow: 0 0 20px 2px rgba(139, 92, 246, 0.15); }
+}
+
+/* Float animation for decorative elements */
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  33% { transform: translateY(-8px) rotate(1deg); }
+  66% { transform: translateY(4px) rotate(-1deg); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Premium card hover */
+.premium-card {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.premium-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 60px -15px rgba(0, 0, 0, 0.15),
+              0 0 0 1px rgba(139, 92, 246, 0.1);
+}
+
+/* Stagger animation utility */
+.stagger-1 { animation-delay: 50ms; }
+.stagger-2 { animation-delay: 100ms; }
+.stagger-3 { animation-delay: 150ms; }
+.stagger-4 { animation-delay: 200ms; }
+.stagger-5 { animation-delay: 250ms; }
+.stagger-6 { animation-delay: 300ms; }
+
+/* Button ripple effect */
+.btn-ripple {
+  position: relative;
+  overflow: hidden;
+}
+.btn-ripple::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--ripple-x, 50%) var(--ripple-y, 50%), rgba(255,255,255,0.3) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.btn-ripple:active::after {
+  opacity: 1;
+}
+
+/* Bottom sheet slide-up */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* =============================================
+   PREMIUM VISUAL ATMOSPHERE
+   Noise, gradient mesh, glass, typography
+   ============================================= */
+
+/* Heading font — Cairo for all h1-h6 */
+h1, h2, h3, h4, h5, h6,
+.font-heading {
+  font-family: var(--font-cairo), 'Cairo', sans-serif;
+}
+
+/* SVG noise overlay — adds texture and depth to any element */
+.noise-overlay {
+  position: relative;
+}
+.noise-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  mix-blend-mode: overlay;
+}
+.dark .noise-overlay::before {
+  opacity: 0.06;
+}
+
+/* Gradient mesh — multi-stop radial gradients for atmospheric backgrounds */
+.gradient-mesh {
+  background:
+    radial-gradient(ellipse at 15% 20%, rgba(139, 92, 246, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 30%, rgba(168, 85, 247, 0.08) 0%, transparent 45%),
+    radial-gradient(ellipse at 50% 80%, rgba(124, 58, 237, 0.06) 0%, transparent 55%),
+    radial-gradient(ellipse at 30% 60%, rgba(192, 132, 252, 0.05) 0%, transparent 40%);
+}
+.dark .gradient-mesh {
+  background:
+    radial-gradient(ellipse at 15% 20%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 30%, rgba(168, 85, 247, 0.05) 0%, transparent 45%),
+    radial-gradient(ellipse at 50% 80%, rgba(124, 58, 237, 0.04) 0%, transparent 55%);
+}
+
+/* Premium glass panel — frosted glass with subtle border */
+.premium-glass {
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow:
+    0 8px 32px rgba(139, 92, 246, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+.dark .premium-glass {
+  background: rgba(17, 12, 36, 0.65);
+  border: 1px solid rgba(139, 92, 246, 0.12);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Scroll-triggered reveal animation */
+@keyframes revealUp {
+  from {
+    opacity: 0;
+    transform: translateY(32px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.reveal {
+  opacity: 0;
+  transform: translateY(32px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Asymmetric card layout — alternating sizes */
+.asymmetric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: auto;
+  gap: 1.25rem;
+}
+.asymmetric-grid > :nth-child(5n + 1) {
+  grid-column: span 2;
+}
+@media (max-width: 1024px) {
+  .asymmetric-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .asymmetric-grid > :nth-child(5n + 1) {
+    grid-column: span 1;
+  }
+}
+@media (max-width: 640px) {
+  .asymmetric-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Diagonal accent line — FIX RTL: inset-inline-end is the logical equivalent of right */
+.diagonal-accent::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  inset-inline-end: 0;
+  width: 80px;
+  height: 4px;
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.8), transparent);
+  border-radius: 999px;
+}
+
+/* Floating glow pulse */
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(139, 92, 246, 0.15); }
+  50% { box-shadow: 0 0 40px rgba(139, 92, 246, 0.3), 0 0 60px rgba(168, 85, 247, 0.1); }
+}
+.glow-pulse {
+  animation: glowPulse 3s ease-in-out infinite;
+}
+
+/* =============================================
+   MICRO-INTERACTIONS
+   Premium hover / active / transition utilities
+   ============================================= */
+
+/* Hover lift — subtle card hover effect */
+.hover-lift {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px -10px rgba(139, 92, 246, 0.12),
+              0 4px 12px -2px rgba(0, 0, 0, 0.06);
+}
+.hover-lift:active {
+  transform: translateY(-1px);
+}
+
+
+/* Smooth appear on scroll — controlled by IntersectionObserver */
+.smooth-appear {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.smooth-appear.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Interactive button micro-animation */
+.btn-interactive {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-interactive:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -2px rgba(139, 92, 246, 0.25);
+}
+.btn-interactive:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: none;
+}
+
+/* Icon spin on hover (for refresh/settings buttons) */
+.icon-spin-hover:hover svg,
+.icon-spin-hover:hover .lucide {
+  animation: spin 0.6s ease-in-out;
+}
+
+/* Gradient border — used for featured items */
+.gradient-border {
+  position: relative;
+}
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.5), rgba(168, 85, 247, 0.3), rgba(236, 72, 153, 0.3));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Cart icon bounce when item added */
+@keyframes cart-bounce {
+  0%   { transform: scale(1); }
+  20%  { transform: scale(1.35); }
+  40%  { transform: scale(0.9); }
+  60%  { transform: scale(1.15); }
+  80%  { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+.cart-bounce {
+  animation: cart-bounce 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ═══ Custom Scrollbar ═══ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.3); /* Primary color with opacity */
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.7);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.4);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.8);
+}
+
+
+/* ═════════════════════════════════════════════════════════════════════
+   3D EFFECTS & SPATIAL UI (2026)
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* Perspective container for 3D cards */
+.tilt-3d-wrapper {
+  perspective: 1000px;
+  transform-style: preserve-3d;
+}
+
+.tilt-3d-inner {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.2s ease-out;
+}
+
+/* Depth shadow — multi-layer shadow for 3D feel */
+.depth-shadow {
+  box-shadow:
+    0 1px 2px rgba(0,0,0,0.04),
+    0 4px 8px rgba(0,0,0,0.04),
+    0 12px 24px rgba(0,0,0,0.06),
+    0 24px 48px rgba(0,0,0,0.08);
+}
+
+.depth-shadow-hover:hover {
+  box-shadow:
+    0 2px 4px rgba(0,0,0,0.04),
+    0 8px 16px rgba(0,0,0,0.06),
+    0 20px 40px rgba(0,0,0,0.08),
+    0 32px 64px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+
+/* 3D float keyframes */
+@keyframes float3d {
+  0%, 100% {
+    transform: translateY(0px) rotateX(0deg) rotateY(0deg);
+  }
+  25% {
+    transform: translateY(-8px) rotateX(2deg) rotateY(-1deg);
+  }
+  50% {
+    transform: translateY(-4px) rotateX(-1deg) rotateY(2deg);
+  }
+  75% {
+    transform: translateY(-10px) rotateX(1deg) rotateY(-2deg);
+  }
+}
+
+.animate-float-3d {
+  animation: float3d 8s ease-in-out infinite;
+  transform-style: preserve-3d;
+}
+
+/* Card 3D flip on hover */
+.card-3d-hover {
+  perspective: 800px;
+}
+.card-3d-hover > * {
+  transition: transform 0.6s cubic-bezier(0.16,1,0.3,1);
+  transform-style: preserve-3d;
+}
+.card-3d-hover:hover > * {
+  transform: rotateY(5deg) rotateX(2deg) scale(1.02);
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+   BENTO GRID LAYOUT SYSTEM (2026)
+   ═════════════════════════════════════════════════════════════════════ */
+
+.bento-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: minmax(120px, auto);
+}
+
+/* Bento cell sizes */
+.bento-sm   { grid-column: span 1; grid-row: span 1; }
+.bento-md   { grid-column: span 2; grid-row: span 1; }
+.bento-lg   { grid-column: span 2; grid-row: span 2; }
+.bento-wide { grid-column: span 3; grid-row: span 1; }
+.bento-full { grid-column: span 4; grid-row: span 1; }
+.bento-tall { grid-column: span 1; grid-row: span 2; }
+
+@media (max-width: 1024px) {
+  .bento-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .bento-wide { grid-column: span 2; }
+  .bento-full { grid-column: span 2; }
+  .bento-lg   { grid-column: span 2; }
+}
+
+@media (max-width: 640px) {
+  .bento-grid {
+    grid-template-columns: 1fr;
+    grid-auto-rows: auto;
+  }
+  .bento-sm, .bento-md, .bento-lg,
+  .bento-wide, .bento-full, .bento-tall {
+    grid-column: span 1;
+    grid-row: span 1;
+  }
+}
+
+/* Bento card base style */
+.bento-card {
+  border-radius: 1.5rem;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+  position: relative;
+}
+
+.bento-card:hover {
+  transform: translateY(-3px);
+}
+
+/* Adaptive gradient overlay — changes with time of day */
+.adaptive-gradient-morning {
+  background: linear-gradient(135deg,
+    hsl(35 100% 96%) 0%,
+    hsl(25 100% 94%) 100%
+  );
+}
+.dark .adaptive-gradient-morning {
+  background: linear-gradient(135deg,
+    hsl(35 30% 12%) 0%,
+    hsl(25 30% 10%) 100%
+  );
+}
+
+.adaptive-gradient-afternoon {
+  background: linear-gradient(135deg,
+    hsl(245 100% 97%) 0%,
+    hsl(260 100% 95%) 100%
+  );
+}
+.dark .adaptive-gradient-afternoon {
+  background: linear-gradient(135deg,
+    hsl(245 30% 12%) 0%,
+    hsl(260 30% 10%) 100%
+  );
+}
+
+.adaptive-gradient-evening {
+  background: linear-gradient(135deg,
+    hsl(270 100% 96%) 0%,
+    hsl(290 100% 94%) 100%
+  );
+}
+.dark .adaptive-gradient-evening {
+  background: linear-gradient(135deg,
+    hsl(270 30% 12%) 0%,
+    hsl(290 30% 10%) 100%
+  );
+}
+
+.adaptive-gradient-night {
+  background: linear-gradient(135deg,
+    hsl(220 50% 95%) 0%,
+    hsl(230 50% 92%) 100%
+  );
+}
+.dark .adaptive-gradient-night {
+  background: linear-gradient(135deg,
+    hsl(220 30% 10%) 0%,
+    hsl(230 30% 8%) 100%
+  );
+}
+
+/* ═══ Print-Friendly Styles ═══ */
+@media print {
+  /* Hide non-essential UI elements */
+  header, footer, nav,
+  .back-to-top, .whatsapp-button, .global-ai-button,
+  .cookie-consent, .page-progress,
+  [data-no-print], button:not([data-print]) {
+    display: none !important;
+  }
+
+  /* Reset background and text colors */
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt;
+  }
+
+  /* Remove shadows, borders, and transforms */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  /* Ensure links show their URL */
+  a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    color: #666;
+  }
+  a[href^="#"]::after,
+  a[href^="javascript"]::after {
+    content: "";
+  }
+
+  /* Force page breaks */
+  .page-break-before { page-break-before: always; }
+  .page-break-after { page-break-after: always; }
+  .no-page-break { page-break-inside: avoid; }
+
+  /* Full width */
+  main, .container {
+    width: 100% !important;
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}
+
+/* =============================================
+   RESPONSIVE DESIGN UTILITIES
+   Global responsive fixes for all devices
+   ============================================= */
+
+/* Safe area insets — handled by header element directly, NOT body padding */
+/* Body padding causes double-offset with layout pt-16. Use env() only on fixed elements. */
+@supports (padding: env(safe-area-inset-top)) {
+  /* Header already handles top inset via paddingTop style prop */
+  /* Only handle left/right safe areas on body for landscape notch */
+  body {
+    /* Do NOT add padding-top here — dashboard layout and navbar handle it */
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* Prevent text overflow globally */
+@layer base {
+  h1, h2, h3, h4, h5, h6, p, span, a, li, td, th, label, button {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+}
+
+/* Ensure minimum touch target on mobile */
+@media (max-width: 768px) {
+  button, a, [role="button"], input[type="checkbox"], input[type="radio"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Reduce oversized hero paddings on mobile */
+  .noise-overlay {
+    min-height: auto !important;
+  }
+}
+
+/* Small mobile (< 375px) adjustments */
+@media (max-width: 375px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+/* Prevent images/media from overflowing containers */
+img, video, iframe, svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Smooth horizontal scroll containers (category pills, tabs) */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Ensure modals/dialogs don't overflow on mobile */
+@media (max-width: 640px) {
+  [role="dialog"], [data-radix-popper-content-wrapper] {
+    max-width: calc(100vw - 2rem) !important;
+    max-height: calc(100vh - 4rem) !important;
+  }
+}
+
+/* =============================================
+   NAVBAR & STICKY FIXES
+   Prevent content overlap with fixed navbar
+   ============================================= */
+
+/* Navbar safe area — accounts for iPhone notch/Dynamic Island */
+header.fixed {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* The main navbar is h-16 = 4rem. All sub-page sticky bars must sit below it */
+.sub-sticky {
+  position: sticky;
+  top: 4rem; /* = h-16 */
+  z-index: 30;
+}
+
+/* Override: glass-header inside dashboard should respect navbar height */
+.glass-header {
+  position: sticky;
+  top: 4rem !important; /* below fixed navbar */
+  z-index: 30 !important;
+}
+
+/* Prevent body padding-top conflict with layout — safe-area only for sides */
+@supports (padding: env(safe-area-inset-top)) {
+  body {
+    /* Reinforce: no body padding-top — layouts handle it */
+    padding-top: 0 !important;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Touch improvements for mobile scrolling */
+@media (max-width: 1024px) {
+  .scrollable-x {
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+  }
+
+  /* Prevent sticky elements from stacking over each other */
+  [class*="sticky"] {
+    will-change: transform;
+  }
+
+  /* Ensure minimum button sizes on mobile */
+  button, a[role="button"], .btn {
+    min-height: 40px;
+  }
+
+  /* Full-width cards on mobile */
+  .card-mobile-full {
+    width: 100%;
+    margin-inline: 0;
+  }
+}
+
+/* Very small screens: reduce font scale slightly */  
+@media (max-width: 360px) {
+  html { font-size: 13px; }
+  .text-2xl { font-size: 1.25rem !important; }
+  .text-3xl { font-size: 1.5rem !important; }
+}
+
+/* =============================================
+   GLOBAL RESPONSIVE TABLE FIX
+   Makes ALL tables scroll on mobile without
+   editing every admin page individually
+   ============================================= */
+
+/* Wrap any [data-table-container] or admin card that has a table */
+.admin-card table,
+[class*="admin"] table,
+.rounded-2xl table,
+.rounded-xl table {
+  min-width: 600px; /* Trigger horizontal scroll before breaking layout */
+}
+
+/* Auto-scroll any direct table parent that has overflow */
+@media (max-width: 768px) {
+  /* Make table containers scroll horizontally */
+  div:has(> table),
+  div:has(> [class*="Table"]) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent admin cards from being too narrow */
+  .admin-card, .admin-card-interactive {
+    padding: 1rem;
+  }
+
+  /* Stack action buttons vertically on mobile */
+  .admin-actions-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* =============================================
+   GLOBAL OVERFLOW PROTECTION
+   Prevent any element from breaking horizontal layout
+   ============================================= */
+/* 
+  ⚠️ Use overflow-x: clip NOT overflow-x: hidden!
+  Reason: overflow-x: hidden creates a new Stacking Context which causes:
+  1. position:fixed elements (navbar, modals) to behave incorrectly
+  2. position:sticky to stop working inside the container
+  3. On mobile: a "ghost transparent overlay" that persists after scroll
+  overflow-x: clip clips content WITHOUT creating a stacking context.
+*/
+main {
+  overflow-x: clip;
+  max-width: 100vw;
+}
+
+/* Safe image containers */
+.image-container {
+  overflow: hidden;
+  max-width: 100%;
+}
+
+/* =============================================
+   NOTIFICATIONS PAGE — header responsive fix
+   ============================================= */
+@media (max-width: 480px) {
+  /* Notifications header: stack vertically on very small screens */
+  .notifications-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+}
+
+/* =============================================
+   DASHBOARD PAGE — Quick stats grid fix  
+   ============================================= */
+@media (max-width: 360px) {
+  /* Force 1 column on very small phones */
+  .grid-cols-2 {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* =============================================
+   SAFE AREA — footer bottom padding for iPhone
+   ============================================= */
+footer {
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem));
+}
+

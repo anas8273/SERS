@@ -1,0 +1,12 @@
+vendor
+node_modules
+.env
+.env.backup
+storage/logs/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/framework/cache/*
+tests
+.git
+.gitignore
+README.md

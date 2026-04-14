@@ -34,5 +34,24 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    
+    'firebase' => [
+        'credentials' => env('FIREBASE_CREDENTIALS'), // مسار ملف المفاتيح
+        'project_id' => env('FIREBASE_PROJECT_ID'),   // معرف المشروع
+    ],
+
+    // Stripe Payment Gateway
+    'stripe' => [
+        'key' => env('STRIPE_KEY'),
+        'secret' => env('STRIPE_SECRET'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+    ],
+
+    // AI Services — Groq (unified provider)
+    'openai' => [
+        'api_key' => env('GROQ_API_KEY', env('OPENAI_API_KEY')),
+        'base_url' => env('OPENAI_BASE_URL', 'https://api.groq.com/openai/v1'),
+        'model' => env('OPENAI_MODEL', 'llama-3.3-70b-versatile'),
+    ],
 
 ];

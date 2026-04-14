@@ -1,0 +1,44 @@
+{
+    "name": "SERS - سوق السجلات التعليمية الذكية",
+    "short_name": "SERS",
+    "description": "منصة رقمية متكاملة للقوالب التعليمية التفاعلية والقابلة للتحميل",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#7c3aed",
+    "orientation": "portrait-primary",
+    "lang": "ar",
+    "dir": "rtl",
+    "categories": ["education", "productivity"],
+    "icons": [
+        {
+            "src": "/logo.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/logo.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "screenshots": [],
+    "shortcuts": [
+        {
+            "name": "متجر القوالب",
+            "short_name": "المتجر",
+            "description": "تصفح مئات القوالب التعليمية",
+            "url": "/marketplace",
+            "icons": [{ "src": "/icon.svg", "sizes": "96x96" }]
+        },
+        {
+            "name": "الخدمات التعليمية",
+            "short_name": "الخدمات",
+            "description": "الخدمات التفاعلية المدعومة بالذكاء الاصطناعي",
+            "url": "/services",
+            "icons": [{ "src": "/icon.svg", "sizes": "96x96" }]
+        }
+    ]
+}

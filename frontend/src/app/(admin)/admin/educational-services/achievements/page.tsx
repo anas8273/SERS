@@ -1,0 +1,209 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { api } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import toast from 'react-hot-toast';
+import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
+import { ta, tDate } from '@/i18n/auto-translations';
+import { Star, Search, Trash2, Edit, Eye, Loader2, FileText, RefreshCw, ArrowRight, CheckCircle2, XCircle } from 'lucide-react';
+import Link from 'next/link';
+import { useTranslation } from '@/i18n/useTranslation';
+
+const ACHIEVEMENT_TYPES: Record<string, string> = { daily: 'يومي', weekly: 'أسبوعي', monthly: 'شهري', semester: 'فصلي', annual: ta('سنوي', 'Yearly') };
+const ACHIEVEMENT_CATEGORIES: Record<string, string> = { teaching: 'تدريس', administrative: 'إداري', professional: 'مهني', community: 'مجتمعي', creative: 'إبداعي', other: ta('أخرى', 'Other') };
+
+interface Achievement {
+    id: string; user_id?: string; user_name?: string;
+    title: string; type: string; category: string;
+    description?: string; date: string; is_verified?: boolean;
+    goals?: string[];
+}
+
+export default function AdminAchievementsPage() {
+    const { dir, t } = useTranslation();
+    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+    const [entries, setEntries] = useState<Achievement[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [search, setSearch] = useState('');
+    const [filterType, setFilterType] = useState('all');
+    const [filterVerified, setFilterVerified] = useState('all');
+    const [editingEntry, setEditingEntry] = useState<Achievement | null>(null);
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editForm, setEditForm] = useState({ title: '', type: 'daily', category: 'teaching', description: '', date: '' });
+    const [isSaving, setIsSaving] = useState(false);
+    const [viewEntry, setViewEntry] = useState<Achievement | null>(null);
+
+    const fetchEntries = async () => {
+        setIsLoading(true);
+        try { const res = await api.get('/admin/educational-services/achievements') as any; setEntries(res.data || res || []); }
+        catch { setEntries([]); toast.error(t('common.error')); } finally { setIsLoading(false); }
+    };
+    useEffect(() => { fetchEntries(); }, []);
+
+    const handleDelete = async (id: string) => {
+        if (!confirm(ta('هل أنت متأكد من الحذف؟', 'Are you sure you want to delete?'))) return;
+        try { await api.delete(`/admin/educational-services/achievements/${id}`); toast.success(t('common.delete')); fetchEntries(); }
+        catch { toast.error(t('common.error')); }
+    };
+
+    const handleToggleVerify = async (entry: Achievement) => {
+        try {
+            await api.put(`/admin/educational-services/achievements/${entry.id}`, { is_verified: !entry.is_verified }) as any;
+            toast.success(entry.is_verified ? ta('تم إلغاء التوثيق', 'Verification removed') : ta('تم توثيق الإنجاز ✓', 'Achievement verified ✓'));
+            fetchEntries();
+        } catch { toast.error(ta('فشل تغيير حالة التوثيق', 'Verification toggle failed')); }
+    };
+
+    const handleOpenEdit = (entry: Achievement) => {
+        setEditingEntry(entry);
+        setEditForm({ title: entry.title, type: entry.type, category: entry.category, description: entry.description || '', date: entry.date });
+        setIsEditOpen(true);
+    };
+    const handleSaveEdit = async () => {
+        if (!editingEntry) return; setIsSaving(true);
+        try { await api.put(`/admin/educational-services/achievements/${editingEntry.id}`, editForm) as any; toast.success(ta('تم التحديث', 'Updated')); setIsEditOpen(false); fetchEntries(); }
+        catch { toast.error(ta('فشل التحديث', 'Update failed')); } finally { setIsSaving(false); }
+    };
+
+    const filtered = entries.filter(e => {
+        const matchSearch = e.title.toLowerCase().includes(search.toLowerCase()) || (e.user_name || '').includes(search);
+        const matchType = filterType === 'all' || e.type === filterType;
+        const matchVerified = filterVerified === 'all' || (filterVerified === 'verified' ? e.is_verified : !e.is_verified);
+        return matchSearch && matchType && matchVerified;
+    });
+
+    const typeColors: Record<string, string> = { daily: 'bg-blue-100 text-blue-700', weekly: 'bg-green-100 text-green-700', monthly: 'bg-purple-100 text-purple-700', semester: 'bg-orange-100 text-orange-700', annual: 'bg-red-100 text-red-700' };
+
+    return (
+        <div className="space-y-6" dir={dir}>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                    <Link href="/admin/educational-services" className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-gray-200 transition-colors"><ArrowRight className="w-4 h-4" /></Link>
+                    <div className="w-10 h-10 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg shadow-yellow-500/20"><Star className="w-5 h-5 text-white" /></div>
+                    <div><h1 className="text-xl font-black text-gray-900 dark:text-white">{ta('الإنجازات', 'Achievements')}</h1><p className="text-xs text-gray-500 dark:text-gray-400">{ta('إدارة وتوثيق إنجازات المعلمين', 'Manage teacher achievements')}</p></div>
+                </div>
+                <Button variant="outline" size="sm" onClick={fetchEntries} className="gap-2 rounded-xl"><RefreshCw className="w-4 h-4" /> {ta('تحديث', 'Refresh')}</Button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {[
+                    { label: ta('إجمالي الإنجازات', 'Total Achievements'), value: entries.length, color: 'from-yellow-500 to-amber-600' },
+                    { label: ta('موثقة', 'Verified'), value: entries.filter(e => e.is_verified).length, color: 'from-emerald-500 to-green-600' },
+                    { label: ta('غير موثقة', 'Unverified'), value: entries.filter(e => !e.is_verified).length, color: 'from-gray-500 to-slate-600' },
+                    { label: ta('المعلمون', 'Teachers'), value: new Set(entries.map(e => e.user_id)).size, color: 'from-violet-500 to-purple-600' },
+                ].map((s, i) => (
+                    <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center shadow flex-shrink-0`}><FileText className="w-5 h-5 text-white" /></div>
+                        <div><p className="text-xs text-gray-500 dark:text-gray-400">{s.label}</p><p className="text-xl font-black text-gray-900 dark:text-white">{s.value}</p></div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1"><Search className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><Input placeholder={ta("بحث...", "Search...")} className="pr-10 rounded-xl" value={search} onChange={e => setSearch(e.target.value)} /></div>
+                <Select value={filterType} onValueChange={setFilterType}>
+                    <SelectTrigger className="w-[160px] rounded-xl"><SelectValue placeholder={ta("النوع", "Type")} /></SelectTrigger>
+                    <SelectContent><SelectItem value="all">{ta('جميع الأنواع', 'All Types')}</SelectItem>{Object.entries(ACHIEVEMENT_TYPES).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
+                </Select>
+                <Select value={filterVerified} onValueChange={setFilterVerified}>
+                    <SelectTrigger className="w-[160px] rounded-xl"><SelectValue placeholder={ta("التوثيق", "Verification")} /></SelectTrigger>
+                    <SelectContent><SelectItem value="all">{ta('الجميع', 'All')}</SelectItem><SelectItem value="verified">{ta('موثقة', 'Verified')}</SelectItem><SelectItem value="unverified">{ta('غير موثقة', 'Unverified')}</SelectItem></SelectContent>
+                </Select>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700"><p className="text-sm font-bold text-gray-900 dark:text-white">{filtered.length} {ta('نتيجة', 'results')}</p></div>
+                {isLoading ? <div className="flex items-center justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-amber-500" /></div>
+                : filtered.length === 0 ? <div className="flex flex-col items-center justify-center py-16"><Star className="w-12 h-12 text-gray-200 dark:text-gray-700 mb-3" /><p className="text-sm font-bold text-gray-500">{ta('لا توجد إنجازات', 'No achievements')}</p></div>
+                : <div className="overflow-x-auto"><table className="w-full text-sm">
+                    <thead className="bg-gray-50 dark:bg-gray-700/50 text-xs font-bold text-gray-500 dark:text-gray-400">
+                        <tr><th className="text-start px-5 py-3">{ta('العنوان', 'Title')}</th><th className="text-start px-5 py-3">{ta('المعلم', 'Teacher')}</th><th className="text-start px-5 py-3">{ta('النوع', 'Type')}</th><th className="text-start px-5 py-3">{ta('التاريخ', 'Date')}</th><th className="text-start px-5 py-3">{ta('التوثيق', 'Verification')}</th><th className="px-5 py-3"></th></tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
+                        {filtered.map(entry => (
+                            <tr key={entry.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                                <td className="px-5 py-3 font-medium text-gray-900 dark:text-white max-w-[200px] truncate">{entry.title}</td>
+                                <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{entry.user_name || '—'}</td>
+                                <td className="px-5 py-3"><Badge className={typeColors[entry.type] || 'bg-gray-100 text-gray-700'}>{ACHIEVEMENT_TYPES[entry.type] || entry.type}</Badge></td>
+                                <td className="px-5 py-3 text-gray-500 dark:text-gray-400 text-xs">{tDate(entry.date)}</td>
+                                <td className="px-5 py-3">
+                                    <button onClick={() => handleToggleVerify(entry)} className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-lg transition-colors ${entry.is_verified ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                                        {entry.is_verified ? <><CheckCircle2 className="w-3.5 h-3.5" /> {ta('موثق', 'Verified')}</> : <><XCircle className="w-3.5 h-3.5" /> {ta('غير موثق', 'Unverified')}</>}
+                                    </button>
+                                </td>
+                                <td className="px-5 py-3"><div className="flex items-center gap-2">
+                                    <Button variant="ghost" size="icon" className="w-8 h-8 text-blue-500 hover:bg-blue-50" onClick={() => setViewEntry(entry)}><Eye className="w-4 h-4" /></Button>
+                                    <Button variant="ghost" size="icon" className="w-8 h-8 text-emerald-500 hover:bg-emerald-50" onClick={() => handleOpenEdit(entry)}><Edit className="w-4 h-4" /></Button>
+                                    <Button variant="ghost" size="icon" className="w-8 h-8 text-red-500 hover:bg-red-50" onClick={() => setDeleteConfirmId(entry.id)}><Trash2 className="w-4 h-4" /></Button>
+                                </div></td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table></div>}
+            </div>
+
+            <Dialog open={isEditOpen} onOpenChange={open => { setIsEditOpen(open); if (!open) setEditingEntry(null); }}>
+                <DialogContent className="max-w-lg" dir={dir}>
+                    <DialogHeader><DialogTitle>{ta('تعديل الإنجاز', 'Edit Achievement')}</DialogTitle><DialogDescription>{ta('تعديل بيانات الإنجاز', 'Edit achievement data')}</DialogDescription></DialogHeader>
+                    <div className="grid gap-4 py-2">
+                        <div className="grid gap-2"><Label>{ta('العنوان *', 'Title')}</Label><Input value={editForm.title} onChange={e => setEditForm({ ...editForm, title: e.target.value })} /></div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="grid gap-2"><Label>{ta('النوع', 'Type')}</Label>
+                                <Select value={editForm.type} onValueChange={v => setEditForm({ ...editForm, type: v })}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>{Object.entries(ACHIEVEMENT_TYPES).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid gap-2"><Label>{ta('التصنيف', 'Category')}</Label>
+                                <Select value={editForm.category} onValueChange={v => setEditForm({ ...editForm, category: v })}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>{Object.entries(ACHIEVEMENT_CATEGORIES).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <div className="grid gap-2"><Label>{ta('التاريخ', 'Date')}</Label><Input type="date" value={editForm.date} onChange={e => setEditForm({ ...editForm, date: e.target.value })} /></div>
+                        <div className="grid gap-2"><Label>{ta('الوصف', 'Description')}</Label><Textarea value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })} className="min-h-[80px]" /></div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsEditOpen(false)}>{t('common.cancel')}</Button>
+                        <Button onClick={handleSaveEdit} disabled={isSaving} className="bg-amber-600 hover:bg-amber-700">{isSaving ? <><Loader2 className="w-4 h-4 animate-spin ms-2" />{t('common.loading')}</> : t('common.save')}</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={!!viewEntry} onOpenChange={open => { if (!open) setViewEntry(null); }}>
+                <DialogContent className="max-w-lg" dir={dir}>
+                    <DialogHeader><DialogTitle>{viewEntry?.title}</DialogTitle></DialogHeader>
+                    {viewEntry && <div className="space-y-3 text-sm">
+                        <div className="flex gap-4 flex-wrap">
+                            <div className="flex gap-2"><span className="font-bold text-gray-500">{ta('النوع:', 'Type:')}</span><Badge className={typeColors[viewEntry.type] || 'bg-gray-100 text-gray-700'}>{ACHIEVEMENT_TYPES[viewEntry.type]}</Badge></div>
+                            <div className="flex gap-2"><span className="font-bold text-gray-500">{ta('التوثيق:', 'Verification:')}</span><Badge className={viewEntry.is_verified ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'}>{viewEntry.is_verified ? ta('موثق', 'Verified') : ta('غير موثق', 'Unverified')}</Badge></div>
+                        </div>
+                        <div className="flex gap-2"><span className="font-bold text-gray-500">{ta('التاريخ:', 'Date:')}</span><span>{tDate(viewEntry.date)}</span></div>
+                        {viewEntry.description && <div><p className="font-bold text-gray-500 mb-1">{ta('الوصف:', 'Description:')}</p><p className="text-gray-700 dark:text-gray-300 leading-relaxed">{viewEntry.description}</p></div>}
+                        {viewEntry.goals && viewEntry.goals.length > 0 && <div><p className="font-bold text-gray-500 mb-1">{ta('الأهداف:', 'Objectives:')}</p><ul className="list-disc list-inside space-y-1">{viewEntry.goals.map((g, i) => <li key={i} className="text-gray-700 dark:text-gray-300">{g}</li>)}</ul></div>}
+                    </div>}
+                </DialogContent>
+            </Dialog>
+        
+            <ConfirmDialog
+                open={!!deleteConfirmId}
+                title={ta('تأكيد الحذف', 'Confirm Delete')}
+                message={ta('هل أنت متأكد من حذف هذا العنصر نهائياً؟ لا يمكن التراجع عن هذا الإجراء.', 'Are you sure you want to permanently delete this item? This action cannot be undone.')}
+                confirmLabel={ta('حذف نهائياً', 'Delete Permanently')}
+                onConfirm={() => {
+                    if (deleteConfirmId) handleDelete(deleteConfirmId);
+                    setDeleteConfirmId(null);
+                }}
+                onCancel={() => setDeleteConfirmId(null)}
+            />
+        </div>
+    );
+}

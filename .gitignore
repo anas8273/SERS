@@ -1,41 +1,72 @@
 # SERS/.gitignore
 
-# --- ملفات عامة للنظام (Windows/Mac) ---
+# --- OS files ---
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# --- ملفات برامج الكود (VS Code / JetBrains) ---
+# --- IDE ---
 .idea/
 .vscode/
 *.swp
 *.swo
 
-# --- ملفات الاعتماديات (خط أحمر لا ترفع) ---
+# --- Dependencies ---
 node_modules/
 vendor/
 
-# --- ملفات الإعدادات السرية (أهم شيء) ---
+# --- Environment secrets ---
 .env
 .env.local
 .env.*.local
 backend/.env
 frontend/.env.local
 
-# --- ملفات Firebase السرية ---
+# --- Firebase secrets ---
 **/firebase-service-account.json
 **/service-account.json
 storage/app/firebase/
 
-# --- ملفات البناء (Builds) ---
+# --- Build artifacts ---
 .next/
 build/
 dist/
 public/build
 public/hot
+tsconfig.tsbuildinfo
 
-# --- سجلات الأخطاء ---
+# --- Logs & output ---
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*_output.txt
+*_output*.txt
+
+# --- Test & cache ---
+.phpunit.result.cache
+.phpunit.cache/
+*.result.cache
+
+# --- Binaries ---
+*.exe
+*.dll
+
+# --- Database (local dev) ---
+*.sqlite
+*.sqlite-journal
+
+# --- Temporary fix scripts ---
+fix-*.js
+rtl-*.js
+*-batch.js
+*-final.js
+*-complete.js
+*-remaining.js
+translate_*.js
+list-all-*.js
+find-*.js
+remaining-critical.txt
+
+# --- Archive (cleanup) ---
+_archive/

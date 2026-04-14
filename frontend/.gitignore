@@ -1,0 +1,36 @@
+# Frontend/.gitignore
+
+# Vercel
+.vercel
+
+# Lock files (using npm)
+pnpm-lock.yaml
+yarn.lock
+
+# Next.js build
+.next/
+out/
+
+# Dependencies
+node_modules/
+
+# Build cache
+tsconfig.tsbuildinfo
+
+# Environment
+.env.local
+.env.*.local
+
+# Debug logs
+npm-debug.log*
+
+# Temp fix scripts
+fix-*.js
+rtl-*.js
+*-batch.js
+*-final.js
+*-complete.js
+*-remaining.js
+translate_*.js
+*_output*.txt
+remaining-critical.txt
