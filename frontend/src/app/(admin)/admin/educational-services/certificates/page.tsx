@@ -105,11 +105,14 @@ export default function AdminCertificatesPage() {
     const openEdit = (e: Certificate) => { setEditingEntry(e); setEditForm({ title: e.title, type: e.type, recipient_name: e.recipient_name || '', description: e.description || '', issued_by: e.issued_by || '', date: e.date || '' }); setIsEditOpen(true); };
     const openAdd = () => { setEditingEntry(null); setEditForm({ ...EMPTY_FORM }); setIsAddOpen(true); };
     const handleSave = async () => {
-        if (!editForm.title.trim()) { toast.error(ta('العنوان مطلوب', 'Title is required')); return; }
+        // ── Smart Validation ──
+        if (!editForm.title.trim()) { toast.error(ta('⚠️ عنوان الشهادة مطلوب', '⚠️ Certificate title is required')); return; }
+        if (editForm.title.trim().length < 3) { toast.error(ta('⚠️ العنوان قصير جداً — 3 أحرف على الأقل', '⚠️ Title too short')); return; }
+        if (!editForm.recipient_name?.trim()) { toast.error(ta('⚠️ اسم المستلم مطلوب — لمن تُمنح هذه الشهادة؟', '⚠️ Recipient name is required')); return; }
         setIsSaving(true);
         try {
-            if (editingEntry) { await api.put(`/admin/educational-services/certificates/${editingEntry.id}`, editForm); toast.success(ta('تم التحديث', 'Updated')); setIsEditOpen(false); }
-            else { await api.post('/admin/educational-services/certificates', editForm); toast.success(ta('تمت الإضافة', 'Added')); setIsAddOpen(false); }
+            if (editingEntry) { await api.put(`/admin/educational-services/certificates/${editingEntry.id}`, editForm); toast.success(ta('تم التحديث ✅', 'Updated ✅')); setIsEditOpen(false); }
+            else { await api.post('/admin/educational-services/certificates', editForm); toast.success(ta('تمت إضافة الشهادة 🎉', 'Certificate added 🎉')); setIsAddOpen(false); }
             fetchEntries();
         } catch { toast.error(ta('فشلت العملية', 'Operation failed')); } finally { setIsSaving(false); }
     };
@@ -281,7 +284,7 @@ export default function AdminCertificatesPage() {
                 <DialogContent className="max-w-lg rounded-2xl" dir={dir}>
                     <DialogHeader><DialogTitle className="flex items-center gap-2"><PlusCircle className="w-5 h-5 text-amber-500" />{ta('إضافة شهادة جديدة', 'Add New Certificate')}</DialogTitle><DialogDescription>{ta('أدخل بيانات الشهادة', 'Enter certificate details')}</DialogDescription></DialogHeader>
                     <FormBody />
-                    <DialogFooter className="gap-2"><Button variant="outline" onClick={() => setIsAddOpen(false)}>{ta('إلغاء', 'Cancel')}</Button><Button onClick={handleSave} disabled={isSaving} className="bg-amber-600 hover:bg-amber-700 text-white gap-2">{isSaving ? <><Loader2 className="w-4 h-4 animate-spin" />{ta('جاري...', 'Saving...')}</> : <><PlusCircle className="w-4 h-4" />{ta(ta('إضافة', 'Add'), 'Add')}</>}</Button></DialogFooter>
+                    <DialogFooter className="gap-2"><Button variant="outline" onClick={() => setIsAddOpen(false)}>{ta('إلغاء', 'Cancel')}</Button><Button onClick={handleSave} disabled={isSaving} className="bg-amber-600 hover:bg-amber-700 text-white gap-2">{isSaving ? <><Loader2 className="w-4 h-4 animate-spin" />{ta('جاري...', 'Saving...')}</> : <><PlusCircle className="w-4 h-4" />{ta('إضافة', 'Add')}</>}</Button></DialogFooter>
                 </DialogContent>
             </Dialog>
 

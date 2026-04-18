@@ -7,6 +7,7 @@ import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+
 import { Badge } from '@/components/ui/badge';
 import {
     BarChart3, Award, ClipboardList, Trophy, FileQuestion, Bot, FileText, Users,
@@ -14,7 +15,7 @@ import {
     CheckCircle, TrendingUp, Zap, Clock, Shield, Layers, PieChart,
     LineChart, FolderOpen, Briefcase, Settings, Play, FileSpreadsheet, FolderArchive,
     CalendarDays, ClipboardCheck, ScrollText, Brain, Lightbulb, LayoutGrid, ArrowRight, Wrench,
-    Rocket, ChevronDown, ChevronUp, Eye,
+    Rocket, ChevronDown, ChevronUp, Eye, ShieldCheck,
 } from 'lucide-react';
 import type { ServiceDefinition } from '@/types';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
@@ -34,19 +35,49 @@ const ICON_MAP: Record<string, any> = {
     'Play': Play, 'FileSpreadsheet': FileSpreadsheet, 'FolderArchive': FolderArchive,
     'CalendarDays': CalendarDays, 'ClipboardCheck': ClipboardCheck,
     'ScrollText': ScrollText, 'Brain': Brain, 'Lightbulb': Lightbulb,
-    'LayoutGrid': LayoutGrid, 'ArrowRight': ArrowRight, 'Wrench': Wrench,
+    'LayoutGrid': LayoutGrid, 'ArrowRight': ArrowRight, 'Wrench': Wrench, 'ShieldCheck': ShieldCheck,
 };
 function getIcon(iconName: string) { return ICON_MAP[iconName] || FileText; }
 
 // ===== SMART GROUPS: Organize related services into logical sections =====
 const SMART_GROUPS = [
     {
+        id: 'analysis',
+        icon: BarChart3,
+        gradient: 'from-blue-500 to-indigo-600',
+        color: 'bg-blue-500',
+        borderColor: 'border-blue-400',
+        slugs: ['analyses', 'tests', 'question-bank', 'results-analysis-tools'],
+    },
+    {
         id: 'certificates',
         icon: Award,
         gradient: 'from-amber-500 to-orange-500',
         color: 'bg-amber-500',
         borderColor: 'border-amber-400',
-        slugs: ['certificates', 'appreciation-certificates', 'other-certificates'],
+        slugs: ['certificates', 'other-certificates'],
+    },
+    {
+        id: 'performance',
+        icon: ClipboardCheck,
+        gradient: 'from-violet-600 to-purple-700',
+        color: 'bg-violet-600',
+        borderColor: 'border-violet-400',
+        slugs: [
+            'perf-job-duties', 'perf-professional-community', 'perf-parents-interaction',
+            'perf-strategies', 'perf-improve-results', 'perf-learning-plan',
+            'perf-technical', 'perf-school-environment', 'perf-classroom-management',
+            'perf-results-analysis', 'perf-assessment-methods',
+        ],
+    },
+
+    {
+        id: 'records',
+        icon: FolderArchive,
+        gradient: 'from-purple-500 to-violet-600',
+        color: 'bg-purple-500',
+        borderColor: 'border-purple-400',
+        slugs: ['achievements', 'knowledge-production', 'follow-up-log', 'portfolio', 'documentation-forms', 'achievement-report-builder'],
     },
     {
         id: 'planning',
@@ -54,39 +85,7 @@ const SMART_GROUPS = [
         gradient: 'from-green-500 to-emerald-600',
         color: 'bg-green-500',
         borderColor: 'border-green-400',
-        slugs: ['plans', 'distributions', 'weekly-plan-builder', 'curriculum', 'improve-results', 'remedial-enrichment-plans'],
-    },
-    {
-        id: 'analysis',
-        icon: BarChart3,
-        gradient: 'from-blue-500 to-indigo-600',
-        color: 'bg-blue-500',
-        borderColor: 'border-blue-400',
-        slugs: ['analyses', 'tests', 'question-bank', 'results-analysis-tools', 'analyze-results'],
-    },
-    {
-        id: 'records',
-        icon: FolderArchive,
-        gradient: 'from-purple-500 to-violet-600',
-        color: 'bg-purple-500',
-        borderColor: 'border-purple-400',
-        slugs: ['achievements', 'portfolio', 'knowledge-production', 'follow-up-log', 'documentation-forms', 'achievement-report-builder'],
-    },
-    {
-        id: 'performance',
-        icon: ClipboardCheck,
-        gradient: 'from-rose-500 to-pink-600',
-        color: 'bg-rose-500',
-        borderColor: 'border-rose-400',
-        slugs: ['work-evidence', 'performance-evidence-forms', 'teacher-evaluation-forms', 'job-duties-forms'],
-    },
-    {
-        id: 'community',
-        icon: Users,
-        gradient: 'from-sky-500 to-blue-600',
-        color: 'bg-sky-500',
-        borderColor: 'border-sky-400',
-        slugs: ['professional-community', 'school-initiatives', 'school-environment', 'parents-interaction'],
+        slugs: ['plans', 'distributions', 'weekly-plan-builder', 'academic-calendars', 'remedial-enrichment-plans'],
     },
     {
         id: 'tools',
@@ -94,28 +93,27 @@ const SMART_GROUPS = [
         gradient: 'from-slate-500 to-gray-600',
         color: 'bg-slate-500',
         borderColor: 'border-slate-400',
-        slugs: ['worksheets', 'my-templates', 'signs-banners', 'learning-style-surveys', 'academic-calendars', 'edu-tools'],
+        slugs: ['worksheets', 'signs-banners', 'learning-style-surveys', 'edu-tools', 'my-templates'],
     },
 ];
 
 // Translation keys for smart groups
 const GROUP_NAMES: Record<string, { ar: string; en: string }> = {
-    certificates: { ar: 'الشهادات والتقدير', en: 'Certificates & Appreciation' },
-    planning: { ar: 'التخطيط والتوزيعات', en: 'Planning & Distributions' },
     analysis: { ar: 'التحليل والاختبارات', en: 'Analysis & Tests' },
-    records: { ar: 'السجلات والتوثيق', en: 'Records & Documentation' },
-    performance: { ar: 'تقييم الأداء الوظيفي', en: 'Performance Evaluation' },
-    community: { ar: 'المجتمع والبيئة المدرسية', en: 'School Community & Environment' },
+    certificates: { ar: 'الشهادات المتنوعة', en: 'Various Certificates' },
+    performance: { ar: 'شواهد الأداء الوظيفي', en: 'Job Performance Evidence' },
+    records: { ar: 'السجلات والملفات المدرسية', en: 'School Records & Files' },
+
+    planning: { ar: 'التخطيط والتوزيعات', en: 'Planning & Distributions' },
     tools: { ar: 'أدوات ومصادر تعليمية', en: 'Educational Tools & Resources' },
 };
 
 const GROUP_DESCS: Record<string, { ar: string; en: string }> = {
-    certificates: { ar: 'إنشاء وطباعة جميع أنواع الشهادات الاحترافية', en: 'Create and print all types of professional certificates' },
+    analysis: { ar: 'تحليل نتائج الاختبارات وبنك الأسئلة', en: 'Test results analysis and question bank' },
+    certificates: { ar: 'إنشاء وطباعة جميع أنواع الشهادات الاحترافية — شكر وتقدير، تخرج، دورات', en: 'Create and print all certificate types — appreciation, graduation, courses' },
+    performance: { ar: 'البنود الـ 11 المعتمدة والمبادرات المدرسية والبيئة التعليمية والتفاعل المهني', en: 'All 11 items, school initiatives, educational environment & professional interaction' },
+    records: { ar: 'التوثيق والإنجازات والإنتاج المعرفي والسجلات', en: 'Documentation, achievements, knowledge production, and records' },
     planning: { ar: 'خطط تعليمية وتوزيعات وخطط علاجية وإثرائية', en: 'Educational plans, distributions, remedial & enrichment plans' },
-    analysis: { ar: 'تحليل النتائج والاختبارات وبنك الأسئلة', en: 'Result analysis, tests, and question bank' },
-    records: { ar: 'توثيق الإنجازات والسجلات والتقارير المهنية', en: 'Document achievements, records, and professional reports' },
-    performance: { ar: 'شواهد وعناصر تقييم الأداء الوظيفي للمعلمين', en: 'Performance evidence and evaluation elements for teachers' },
-    community: { ar: 'المجتمعات المهنية والمبادرات والبيئة التعليمية', en: 'Professional communities, initiatives, and school environment' },
     tools: { ar: 'أدوات تعليمية متنوعة وقوالب وموارد جاهزة', en: 'Various educational tools, templates, and ready resources' },
 };
 
@@ -135,31 +133,46 @@ export default function ServicesPage() {
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(SMART_GROUPS.map(g => g.id)));
     const [services, setServices] = useState<ServiceDefinition[]>(DEFAULT_SERVICES as any);
 
-    // Background refresh from Firestore
+    // ── Whitelist: only slugs that belong to a group are valid ──
+    const VALID_SLUGS = useMemo(() => {
+        const set = new Set<string>();
+        SMART_GROUPS.forEach(g => g.slugs.forEach(s => set.add(s)));
+        set.add('ai-assistant');
+        return set;
+    }, []);
+
+    // Background refresh from Firestore — MERGE into defaults, never replace
     useEffect(() => {
         let cancelled = false;
         const loadServices = async () => {
             try {
                 const fsServices = await getServices();
                 if (cancelled || !fsServices || fsServices.length === 0) return;
-                const sanitized = fsServices.map((s: ServiceDefinition) => ({
-                    ...s,
-                    slug: s.slug?.replace(/[^\x00-\x7F]/g, '').trim() || s.id,
-                }));
-                const unique = sanitized.filter(
-                    (s: ServiceDefinition, i: number, arr: ServiceDefinition[]) =>
-                        arr.findIndex((x: ServiceDefinition) => x.slug === s.slug) === i
-                );
-                const deduped = unique.filter(
-                    (s: ServiceDefinition, i: number, arr: ServiceDefinition[]) =>
-                        arr.findIndex((x: ServiceDefinition) => x.route === s.route) === i
-                );
-                if (deduped.length > 0) setServices(deduped);
+
+                // Merge: for each DEFAULT service, override with Firestore data if it exists
+                const fsMap = new Map<string, ServiceDefinition>();
+                fsServices.forEach((s: ServiceDefinition) => {
+                    const slug = s.slug?.replace(/[^\x00-\x7F]/g, '').trim() || s.id;
+                    if (VALID_SLUGS.has(slug)) {
+                        fsMap.set(slug, { ...s, slug });
+                    }
+                });
+
+                const merged = DEFAULT_SERVICES.map((def: any) => {
+                    const fsVersion = fsMap.get(def.slug);
+                    // DEFAULT controls structure; Firestore overrides display + admin can hide
+                    return fsVersion
+                        ? { ...def, ...fsVersion, slug: def.slug, id: def.id, route: def.route,
+                            is_active: fsVersion.is_active === false ? false : def.is_active }
+                        : def;
+                });
+
+                if (!cancelled) setServices(merged as any);
             } catch { /* Keep defaults */ }
         };
         loadServices();
         return () => { cancelled = true; };
-    }, []);
+    }, [VALID_SLUGS]);
 
     const activeServices = useMemo(() => services.filter(s => s.is_active), [services]);
 
@@ -256,7 +269,7 @@ export default function ServicesPage() {
                                 <div className="relative">
                                     <Search className={`absolute ${isRTL ? 'right-4' : 'left-4'} top-1/2 -translate-y-1/2 h-5 w-5 text-white/40`} />
                                     <Input
-                                        placeholder={t('services.searchPlaceholder' as any)}
+                                        placeholder={isRTL ? 'ابحث عن خدمة...' : 'Search services...'}
                                         className={`${isRTL ? 'pr-12' : 'pl-12'} py-5 sm:py-6 rounded-2xl border-0 bg-white/10 backdrop-blur-md border border-white/10 text-white placeholder:text-white/40 shadow-xl focus:bg-white/15 transition-colors text-base`}
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -421,7 +434,7 @@ export default function ServicesPage() {
 
 
                     {/* ═══════════════════ AI ASSISTANT SECTION (One time only) ═══════════════════ */}
-                    {!searchQuery && (
+                    {(
                         <ScrollReveal delay={0.1}>
                             <div className="relative mt-8 sm:mt-10 rounded-2xl sm:rounded-3xl overflow-hidden">
                                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-purple-600 to-violet-700" />

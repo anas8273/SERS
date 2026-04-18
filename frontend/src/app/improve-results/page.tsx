@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useFirestoreForms } from '@/hooks/useFirestoreForms';
 import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
@@ -173,7 +172,6 @@ function FormFill({ form, onBack }: { form: FormDef; onBack: () => void }) {
 
 export default function ImproveResultsPage() {
     const { dir } = useTranslation();
-    const { forms: dynamicForms } = useFirestoreForms('improve-results', FORMS);
     const [selected, setSelected] = useState<FormDef | null>(null);
     if (selected) return <FormFill form={selected} onBack={() => setSelected(null)} />;
 
@@ -193,7 +191,7 @@ export default function ImproveResultsPage() {
                         <h1 className="text-4xl md:text-5xl font-black mb-4">{ta('تحسين نتائج المتعلمين', 'Improve Learner Results')}</h1>
                         <p className="text-lg text-white/70 mb-6">{ta('نماذج توثيق جهود تحسين نتائج الطلاب وتكريم المتفوقين', 'Documentation forms for student improvement efforts and honoring excellent students')}</p>
                         <div className="flex items-center justify-center gap-6 text-sm text-white/60">
-                            <span className="flex items-center gap-1.5"><FileText className="w-4 h-4" />{dynamicForms.length} {ta('نماذج', 'forms')}</span>
+                            <span className="flex items-center gap-1.5"><FileText className="w-4 h-4" />{FORMS.length} {ta('نماذج', 'forms')}</span>
                             <span className="flex items-center gap-1.5"><Download className="w-4 h-4" />{ta('تحميل PDF', 'Download PDF')}</span>
                             <span className="flex items-center gap-1.5"><Eye className="w-4 h-4" />{ta('معاينة فورية', 'Live Preview')}</span>
                         </div>
@@ -202,7 +200,7 @@ export default function ImproveResultsPage() {
 
                 <div className="container mx-auto px-4 py-12">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {dynamicForms.map(form => (
+                        {FORMS.map(form => (
                             <Card key={form.id} className="group hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden border-0 bg-white dark:bg-gray-800" onClick={() => setSelected(form)}>
                                 <div className={`h-2 bg-gradient-to-l ${form.gradient}`} />
                                 <CardHeader className="pb-3">

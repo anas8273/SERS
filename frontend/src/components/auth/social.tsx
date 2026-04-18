@@ -69,7 +69,12 @@ export const Social = ({ isPending }: SocialProps) => {
             // Using window.location instead of router.push prevents white-page
             // caused by hydration conflicts when auth state hasn't fully propagated
             const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
-            window.location.href = returnUrl || '/dashboard';
+            const currentUser = useAuthStore.getState().user;
+            if (currentUser?.role === 'admin') {
+              window.location.href = '/admin';
+            } else {
+              window.location.href = returnUrl || '/dashboard';
+            }
 
         } catch (error: any) {
             // ─── Elegant Error Handling (Zero White-Screen Policy) ───

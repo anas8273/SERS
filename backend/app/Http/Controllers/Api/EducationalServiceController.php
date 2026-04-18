@@ -30,6 +30,7 @@ class EducationalServiceController extends Controller
 
     // Valid service types
     protected array $validServices = [
+        // Core educational services
         'analyses',
         'certificates', 
         'plans',
@@ -49,6 +50,27 @@ class EducationalServiceController extends Controller
         'lesson-preparations',
         'unit-plans',
         'portfolio-sections',
+        // Performance evidence & community
+        'performance-evidence-forms',
+        'professional-community',
+        'school-initiatives',
+        'school-environment',
+        'parents-interaction',
+        // Planning & tools
+        'weekly-plan-builder',
+        'academic-calendars',
+        'improve-results',
+        'remedial-enrichment-plans',
+        'job-duties-forms',
+        'other-certificates',
+        'signs-banners',
+        'learning-style-surveys',
+        'documentation-forms',
+        'results-analysis-tools',
+        // Portfolio & templates
+        'portfolio',
+        'my-templates',
+        'ai-assistant',
     ];
 
     /**
@@ -132,7 +154,85 @@ class EducationalServiceController extends Controller
             'section_name', 'section_type', 'content', 'attachments',
             'order', 'notes',
         ],
+        // Performance evidence & community
+        'performance-evidence-forms' => [
+            'criterion', 'evidence_text', 'item_number', 'item_title',
+            'rating', 'notes', 'date', 'category', 'attachments',
+            'supporting_docs', 'reflections', 'goals', 'data',
+        ],
+        'professional-community' => [
+            'community_name', 'members', 'meeting_date', 'discussion_topics',
+            'recommendations', 'visit_type', 'visiting_teacher', 'visited_teacher',
+            'observations', 'notes', 'attachments', 'data',
+        ],
+        'school-initiatives' => [
+            'initiative_name', 'initiative_type', 'start_date', 'end_date',
+            'objectives', 'activities', 'outcomes', 'participants',
+            'notes', 'attachments', 'budget', 'data',
+        ],
+        'school-environment' => [
+            'area', 'improvement', 'resources_needed', 'responsible',
+            'date', 'status', 'notes', 'attachments', 'data',
+        ],
+        'parents-interaction' => [
+            'parent_name', 'student_name', 'meeting_date', 'discussion_topics',
+            'decisions', 'follow_up', 'notes', 'attachments', 'data',
+        ],
+        // Planning & tools
+        'weekly-plan-builder' => [
+            'week_number', 'subject', 'grade', 'objectives', 'activities',
+            'resources', 'assessment', 'start_date', 'end_date', 'notes', 'data',
+        ],
+        'academic-calendars' => [
+            'academic_year', 'semester', 'events', 'weeks',
+            'start_date', 'end_date', 'notes', 'data',
+        ],
+        'improve-results' => [
+            'subject', 'grade', 'strategy', 'target_students',
+            'current_level', 'target_level', 'timeline', 'notes', 'data',
+        ],
+        'remedial-enrichment-plans' => [
+            'plan_type', 'subject', 'grade', 'student_name', 'objectives',
+            'activities', 'assessment', 'duration', 'notes', 'data',
+        ],
+        'job-duties-forms' => [
+            'duty_type', 'date', 'topic', 'details',
+            'participants', 'notes', 'attachments', 'data',
+        ],
+        'other-certificates' => [
+            'recipient_name', 'certificate_type', 'date', 'reason',
+            'issuer_name', 'organization', 'notes', 'data',
+        ],
+        'signs-banners' => [
+            'sign_type', 'content_text', 'size', 'location',
+            'color_scheme', 'notes', 'data',
+        ],
+        'learning-style-surveys' => [
+            'student_name', 'survey_type', 'responses', 'result',
+            'learning_style', 'date', 'notes', 'data',
+        ],
+        'documentation-forms' => [
+            'form_type', 'content', 'date', 'category',
+            'attachments', 'notes', 'data',
+        ],
+        'results-analysis-tools' => [
+            'tool_type', 'subject', 'grade', 'data',
+            'results', 'notes', 'recommendations',
+        ],
+        // Portfolio & templates
+        'portfolio' => [
+            'section_name', 'section_type', 'content', 'attachments',
+            'order', 'notes', 'data',
+        ],
+        'my-templates' => [
+            'template_id', 'template_name', 'category', 'content',
+            'notes', 'data',
+        ],
+        'ai-assistant' => [
+            'prompt', 'response', 'context', 'notes', 'data',
+        ],
     ];
+
 
     // Common fields allowed for ALL service types
     protected array $commonFields = [

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useFirestoreForms } from '@/hooks/useFirestoreForms';
 import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
@@ -163,6 +164,12 @@ function ExamRoomSignsForm({ onBack }: { onBack: () => void }) {
 // ===== Main Page =====
 export default function SignsBannersPage() {
   const { dir } = useTranslation();
+    // Firestore dynamic sync — admin can manage this tool's metadata
+    useFirestoreForms('signs-banners', [{
+        id: 'exam-room-signs', title: ta('لوحات لجان الاختبارات', 'Exam Committee Boards'),
+        description: ta('لوحات إرشادية لقاعات الامتحانات', 'Guidance boards for exam halls'),
+        icon: null, color: '', gradient: 'from-slate-600 to-gray-700', fields: [],
+    }]);
     const [showForm, setShowForm] = useState(false);
     if (showForm) return <ExamRoomSignsForm onBack={() => setShowForm(false)} />;
 

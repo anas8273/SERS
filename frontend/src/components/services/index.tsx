@@ -41,7 +41,7 @@ export function ServiceCard({
       <div
         className={cn(
           'w-12 h-12 rounded-lg flex items-center justify-center mb-4 transition-transform group-hover:scale-110',
-          `bg-${color}/10 text-${color}`
+          'bg-primary/10 text-primary'
         )}
       >
         {icon}
@@ -68,32 +68,25 @@ export function ServiceCard({
 export function ServicesSection() {
   const services = [
     {
-      title: 'تحليل النتائج',
-      description: 'تحليل ذكي لنتائج الاختبارات مع تقارير مفصلة وتوصيات',
+      title: ta('تحليل النتائج', 'Results Analysis'),
+      description: ta('تحليل نتائج الاختبارات واستخراج التقارير والإحصائيات التفصيلية مع رسوم بيانية تفاعلية', 'Analyze test results with detailed reports, statistics, and interactive charts'),
       icon: <BarChart3 className="w-6 h-6" />,
-      href: '/services/analyses',
-      features: ['تحليل تلقائي', 'رسوم بيانية', 'توصيات ذكية'],
+      href: '/analyze-results',
+      features: [ta('تحليل تلقائي', 'Auto Analysis'), ta('رسوم بيانية', 'Charts'), ta('توصيات ذكية', 'Smart Recommendations')],
     },
     {
-      title: 'الشهادات والتقدير',
-      description: 'إنشاء شهادات شكر وتقدير احترافية للطلاب والمعلمين',
-      icon: <Award className="w-6 h-6" />,
-      href: '/services/certificates',
-      features: ['قوالب متنوعة', 'تخصيص كامل', 'طباعة عالية الجودة'],
-    },
-    {
-      title: 'الخطط التعليمية',
-      description: 'إنشاء خطط علاجية وإثرائية مخصصة لكل طالب',
+      title: ta('شواهد الأداء الوظيفي', 'Performance Evidence'),
+      description: ta('البنود الـ 11 المعتمدة لتقييم الأداء الوظيفي مع نماذج وتقارير جاهزة', 'All 11 approved job performance items with ready forms and reports'),
       icon: <ClipboardList className="w-6 h-6" />,
-      href: '/services/educational-plans',
-      features: ['خطط علاجية', 'خطط إثرائية', 'متابعة التقدم'],
+      href: '/performance-evidence-forms',
+      features: [ta('11 بند معتمد', '11 Items'), ta('نماذج جاهزة', 'Ready Forms'), ta('تحميل PDF', 'PDF Download')],
     },
     {
-      title: 'ملف الإنجاز',
-      description: 'توثيق الإنجازات والشواهد بشكل منظم واحترافي',
+      title: ta('التوثيق والإنجازات', 'Documentation & Achievements'),
+      description: ta('توثيق الإنجازات مع نماذج وتقارير توثيق احترافية', 'Document achievements with professional documentation forms'),
       icon: <FileText className="w-6 h-6" />,
-      href: '/services/achievements',
-      features: ['توثيق شامل', 'تنظيم تلقائي', 'تصدير PDF'],
+      href: '/achievements',
+      features: [ta('توثيق شامل', 'Comprehensive'), ta('تنظيم تلقائي', 'Auto Organize'), ta('تصدير PDF', 'Export PDF')],
     },
   ];
 

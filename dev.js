@@ -82,12 +82,58 @@ function isPortAvailable(port) {
     });
 }
 
+/**
+ * [SMART] Force-clean a port by killing any stale process using it.
+ * This prevents the "dual server" problem where old instances linger.
+ */
+async function forceCleanPort(port, label) {
+    if (await isPortAvailable(port)) return; // Port is free, nothing to do
+    
+    console.log(`  🧹 ${label} port ${port} is occupied — cleaning up stale process...`);
+    try {
+        if (process.platform === 'win32') {
+            // Find the PID using the port and kill it
+            const result = execSync(
+                `netstat -ano | findstr ":${port}" | findstr "LISTENING"`,
+                { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
+            ).trim();
+            const lines = result.split('\n').filter(l => l.trim());
+            const pids = new Set();
+            for (const line of lines) {
+                const parts = line.trim().split(/\s+/);
+                const pid = parseInt(parts[parts.length - 1]);
+                if (pid && pid !== 0 && pid !== process.pid) pids.add(pid);
+            }
+            for (const pid of pids) {
+                try {
+                    execSync(`taskkill /pid ${pid} /f /t`, { stdio: 'ignore' });
+                    console.log(`  ✅ Killed stale process PID ${pid} on port ${port}`);
+                } catch { /* already dead */ }
+            }
+        } else {
+            execSync(`lsof -ti:${port} | xargs kill -9`, { stdio: 'ignore' });
+        }
+        // Wait a moment for the port to be released
+        await new Promise(r => setTimeout(r, 1500));
+    } catch {
+        console.log(`  ⚠️  Could not auto-clean port ${port} — will try next port`);
+    }
+}
+
 async function findAvailablePort(startPort, label) {
     let port = parseInt(startPort);
+    
+    // [SMART] First, try to clean the preferred port
+    await forceCleanPort(port, label);
+    if (await isPortAvailable(port)) return port;
+    
+    // Fallback: try next ports
     const maxPort = port + MAX_PORT_TRIES - 1;
-    for (let p = port; p <= maxPort; p++) {
-        if (await isPortAvailable(p)) return p;
-        console.log(`   ⚡ Port ${p} in use, trying ${p + 1}...`);
+    for (let p = port + 1; p <= maxPort; p++) {
+        if (await isPortAvailable(p)) {
+            console.log(`   ⚡ Using port ${p} for ${label}`);
+            return p;
+        }
     }
     throw new Error(`No available port for ${label} in range ${port}-${maxPort}`);
 }
@@ -136,13 +182,49 @@ function computeSourceFingerprint() {
     return crypto.createHash('md5').update(entries.join('\n')).digest('hex');
 }
 
-function needsBuild() {
+/**
+ * [SMART] Validate that the .next build is complete and not corrupted.
+ * Checks for BUILD_ID + routes-manifest.json integrity.
+ */
+function isBuildValid() {
     const buildId = path.join(__dirname, 'frontend', '.next', 'BUILD_ID');
-    const buildExists = fs.existsSync(buildId);
-    if (SKIP_BUILD && buildExists) { console.log('  ⚡ --skip-build: using existing build.\n'); return false; }
-    if (SKIP_BUILD && !buildExists) { console.log('  ⚠️  --skip-build but no build found — building now...\n'); return true; }
+    if (!fs.existsSync(buildId)) return false;
+
+    // Check routes-manifest.json has required keys
+    const routesManifest = path.join(__dirname, 'frontend', '.next', 'routes-manifest.json');
+    try {
+        if (!fs.existsSync(routesManifest)) return false;
+        const manifest = JSON.parse(fs.readFileSync(routesManifest, 'utf-8'));
+        // Next.js requires these arrays to exist
+        if (!Array.isArray(manifest.staticRoutes) || !Array.isArray(manifest.dynamicRoutes)) {
+            console.log('  ⚠️  Build is corrupted (routes-manifest incomplete) — rebuilding...');
+            return false;
+        }
+    } catch {
+        console.log('  ⚠️  Build is corrupted (cannot read routes-manifest) — rebuilding...');
+        return false;
+    }
+
+    // Check pages-manifest.json exists (required for production start)
+    const pagesManifest = path.join(__dirname, 'frontend', '.next', 'server', 'pages-manifest.json');
+    if (!fs.existsSync(pagesManifest)) {
+        // App Router projects may not have pages-manifest — check app-paths-manifest instead
+        const appManifest = path.join(__dirname, 'frontend', '.next', 'server', 'app-paths-manifest.json');
+        if (!fs.existsSync(appManifest)) {
+            console.log('  ⚠️  Build is corrupted (missing app manifest) — rebuilding...');
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function needsBuild() {
+    const buildValid = isBuildValid();
+    if (SKIP_BUILD && buildValid) { console.log('  ⚡ --skip-build: using existing build.\n'); return false; }
+    if (SKIP_BUILD && !buildValid) { console.log('  ⚠️  --skip-build but build is missing/corrupted — building now...\n'); return true; }
     if (FORCE_BUILD) { console.log('  🔨 Force build requested.'); return true; }
-    if (!buildExists) return true;
+    if (!buildValid) return true;
 
     const currentHash = computeSourceFingerprint();
     try {

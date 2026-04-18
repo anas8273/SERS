@@ -23,7 +23,7 @@ import {
 import {
   Sparkles, Flame, Wand2, Loader2, LayoutGrid,
   X as XIcon, Star, Package,
-  SlidersHorizontal, Search, Quote,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 /* ═══ CSS ═══ */
@@ -212,31 +212,6 @@ function FilterBar({
       {/* ═══ Desktop bar ═══ */}
       <div ref={ref} className="hidden md:flex sticky top-[4.5rem] z-30 items-center justify-between">
         <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-2xl rounded-2xl border border-gray-100 dark:border-gray-800 shadow-lg px-4 py-3 flex items-center gap-3 w-full">
-          {/* Search input with exact phrase toggle */}
-          <div className="relative flex items-center flex-1 min-w-0">
-            <Search className="absolute right-3 w-4 h-4 text-gray-400 pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => onSetSearch(e.target.value)}
-              placeholder={t('market.searchInStore')}
-              className="w-full ps-24 pe-10 py-2 rounded-xl text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-400 transition-all"
-            />
-            <button
-              onClick={onToggleExactPhrase}
-              title={exactPhrase ? t('market.exactMatchOff') : t('market.exactMatchOn')}
-              className={cn(
-                'absolute left-2 flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-all',
-                exactPhrase
-                  ? 'bg-violet-500 text-white shadow-sm'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-500 hover:bg-violet-50 hover:text-violet-600'
-              )}
-            >
-              <Quote className="w-3 h-3" />
-              <span>{exactPhrase ? t('market.exactMatch') : t('market.smart')}</span>
-            </button>
-          </div>
-
           <span className="text-xs text-gray-400 font-medium shrink-0">{resultCount} {t('market.results')}</span>
 
           {selectedSection && (

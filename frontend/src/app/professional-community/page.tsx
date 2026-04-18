@@ -1,24 +1,20 @@
-﻿'use client';
-import dynamic from 'next/dynamic';
-import { useTranslation } from '@/i18n/useTranslation';
+'use client';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
-function Skeleton() {
-  const { dir } = useTranslation();
+/**
+ * [REDIRECT] This page has been merged into performance-evidence-forms → بند ٢.
+ * Automatically redirects visitors to the unified performance evidence page.
+ */
+export default function ProfessionalCommunityRedirect() {
+    const router = useRouter();
+    useEffect(() => { router.replace('/performance-evidence-forms?section=professional-community'); }, [router]);
     return (
-        <div dir={dir} className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-blue-500/20 animate-pulse" />
-                <div className="h-3 w-32 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+        <div className="min-h-screen flex items-center justify-center bg-gray-950 text-white">
+            <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-indigo-400 mx-auto mb-4" />
+                <p className="text-gray-400">جارٍ التحويل إلى شواهد الأداء الوظيفي...</p>
             </div>
         </div>
     );
-}
-
-const ProfessionalContent = dynamic(
-    () => import('./_ProfessionalContent'),
-    { loading: () => <Skeleton />, ssr: false }
-);
-
-export default function ProfessionalCommunityPage() {
-    return <ProfessionalContent />;
 }

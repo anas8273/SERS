@@ -71,7 +71,8 @@ class AuthController extends Controller
                 'email_verified_at' => null,
             ]);
 
-            $token = $user->createToken('auth_token')->plainTextToken;
+            // [SESSION] Register token expires after 7 days (not infinite)
+            $token = $user->createToken('auth_token', ['*'], now()->addDays(7))->plainTextToken;
 
             Log::info("User registered", ['user_id' => $user->id, 'email' => $user->email]);
 
@@ -176,11 +177,15 @@ class AuthController extends Controller
                 ], 403);
             }
 
-            // Remember Me: 30-day token vs. 1-day session token
+            // [SESSION] Smart expiry: Admin gets shorter sessions for security
             $rememberMe = (bool) $request->input('remember_me', false);
-            $expiresAt  = $rememberMe
-                ? now()->addDays(30)
-                : now()->addDay();
+            $isAdmin    = strtolower($user->role) === 'admin';
+            
+            if ($rememberMe) {
+                $expiresAt = $isAdmin ? now()->addDays(7) : now()->addDays(30);
+            } else {
+                $expiresAt = $isAdmin ? now()->addHours(8) : now()->addDay();
+            }
 
             $token = $user->createToken('auth_token', ['*'], $expiresAt)->plainTextToken;
 
@@ -344,8 +349,8 @@ class AuthController extends Controller
                 ], 403);
             }
 
-            // Issue Sanctum token (30-day expiry for social login)
-            $token = $user->createToken('auth_token', ['*'], now()->addDays(30))->plainTextToken;
+            // [SESSION] Social login token: 14 days (shorter than remember-me)
+            $token = $user->createToken('auth_token', ['*'], now()->addDays(14))->plainTextToken;
 
             Log::info('User social login successful', [
                 'user_id'      => $user->id,

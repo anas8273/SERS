@@ -106,7 +106,9 @@ function AdminTemplatesPageInner() {
         const totalRevenue = templates.reduce((sum, t) => sum + (Number(t.price) || 0), 0);
         const totalDownloads = templates.reduce((sum, t) => sum + (t.downloads_count || 0), 0);
         const featured = templates.filter(t => t.is_featured).length;
-        return { total: templates.length, active, totalRevenue, totalDownloads, featured };
+        const missingSection = templates.filter(t => !(t as any).section_id).length;
+        const missingCategory = templates.filter(t => !(t as any).category_id).length;
+        return { total: templates.length, active, totalRevenue, totalDownloads, featured, missingSection, missingCategory };
     }, [templates]);
 
     // Single delete
@@ -230,7 +232,9 @@ function AdminTemplatesPageInner() {
             (statusFilter === 'active' && t.is_active) ||
             (statusFilter === 'inactive' && !t.is_active) ||
             (statusFilter === 'featured' && t.is_featured) ||
-            (statusFilter === 'free' && Number(t.price) <= 0);
+            (statusFilter === 'free' && Number(t.price) <= 0) ||
+            (statusFilter === 'noSection' && !(t as any).section_id) ||
+            (statusFilter === 'noCategory' && !(t as any).category_id);
         return matchesSearch && matchesCategory && matchesSection && matchesStatus;
     });
 
@@ -363,6 +367,8 @@ function AdminTemplatesPageInner() {
                     <option value="inactive">{ta('🚫 معطل', '🚫 Disabled')}</option>
                     <option value="featured">{ta('⭐ مميز', '⭐ Featured')}</option>
                     <option value="free">{ta('🆓 مجاني', '🆓 Free')}</option>
+                    <option value="noSection">{ta('⚠️ بدون قسم', '⚠️ No Section')}</option>
+                    <option value="noCategory">{ta('⚠️ بدون تصنيف', '⚠️ No Category')}</option>
                 </select>
 
                 {activeFilterCount > 0 && (
@@ -386,6 +392,38 @@ function AdminTemplatesPageInner() {
                 isAllSelected={isAllSelected}
                 entityName={ta("قالب", "templates")}
             />
+
+            {/* ═══════════ Smart Health Alerts ═══════════ */}
+            {!isLoading && (stats.missingSection > 0 || stats.missingCategory > 0) && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4">
+                    <div className="flex items-start gap-3">
+                        <span className="text-2xl">⚠️</span>
+                        <div className="flex-1">
+                            <h3 className="font-black text-amber-800 dark:text-amber-300 text-sm mb-1">
+                                {ta('تنبيه: قوالب غير مكتملة', 'Warning: Incomplete Templates')}
+                            </h3>
+                            <div className="flex flex-wrap gap-3 text-xs">
+                                {stats.missingSection > 0 && (
+                                    <button
+                                        onClick={() => setStatusFilter('noSection')}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg font-bold hover:bg-red-200 transition-colors"
+                                    >
+                                        🔴 {stats.missingSection} {ta('قالب بدون قسم — لن يظهر في المتجر!', 'templates without section — won\'t appear in store!')}
+                                    </button>
+                                )}
+                                {stats.missingCategory > 0 && (
+                                    <button
+                                        onClick={() => setStatusFilter('noCategory')}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-lg font-bold hover:bg-amber-200 transition-colors"
+                                    >
+                                        🟡 {stats.missingCategory} {ta('قالب بدون تصنيف — قد لا يظهر في الفلاتر', 'templates without category — may not appear in filters')}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ═══════════ Templates Table ═══════════ */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
@@ -486,10 +524,16 @@ function AdminTemplatesPageInner() {
                                         </td>
                                         {/* القسم = Section (MySQL) */}
                                         <td className="py-4 px-4 hidden lg:table-cell">
-                                            <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded-lg">
-                                                <FolderOpen className="w-3 h-3" />
-                                                {getSectionName((template as any).section_id)}
-                                            </span>
+                                            {(template as any).section_id ? (
+                                                <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded-lg">
+                                                    <FolderOpen className="w-3 h-3" />
+                                                    {getSectionName((template as any).section_id)}
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 text-xs font-bold text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-lg animate-pulse">
+                                                    ⚠️ {ta('بدون قسم!', 'No section!')}
+                                                </span>
+                                            )}
                                         </td>
                                         {/* الفئة = Category (Firestore) */}
                                         <td className="py-4 px-4 hidden sm:table-cell">

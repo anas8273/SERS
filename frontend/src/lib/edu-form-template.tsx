@@ -150,7 +150,7 @@ function EduFormFill({ form, gradient, onBack }: { form: EduFormDef; gradient: s
                         </CardContent>
                     </Card>
 
-                    <div className="sticky top-24 print:block">
+                    <div className="sticky top-20 print:block">
                         <p className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2"><Eye className="w-4 h-4" /> {ta('معاينة مباشرة', 'Live Preview')}</p>
                         {Object.keys(values).some(k => values[k]) || Object.keys(images).length > 0 ? (
                             <div className="bg-white rounded-2xl shadow-xl overflow-hidden border" style={{ fontFamily: 'Cairo, sans-serif', direction: 'rtl' }}>

@@ -172,7 +172,8 @@ export function useLocalizedTypes() {
     : { easy: 'سهل', medium: 'متوسط', hard: 'صعب' };
 
   // Portfolio section titles
-  const portfolioSections = {
+  const portfolioSections: Record<string, string> = {
+    'performance-evidence': isEn ? 'Performance Evidence' : 'شواهد الأداء الوظيفي',
     achievements:      isEn ? 'Achievements'         : 'الإنجازات',
     certificates:      isEn ? 'Certificates'         : 'الشهادات',
     'work-evidence':   isEn ? 'Work Evidence'        : 'شواهد الأداء',
@@ -181,6 +182,7 @@ export function useLocalizedTypes() {
     distributions:     isEn ? 'Distributions'        : 'التوزيعات والتحضير',
     tests:             isEn ? 'Tests'                : 'الاختبارات',
     'question-bank':   isEn ? 'Question Bank'        : 'بنك الأسئلة',
+    'school-initiatives': isEn ? 'School Initiatives' : 'المبادرات المدرسية',
   };
 
   return {

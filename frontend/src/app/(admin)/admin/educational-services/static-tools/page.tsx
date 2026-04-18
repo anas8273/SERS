@@ -171,8 +171,21 @@ export default function AdminStaticToolsPage() {
     // ── Submit tool (add/edit) ────────────────────────────────────────────────
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        // ── Smart Validation ──
         if (!formData.title_ar.trim()) {
-            toast.error(ta('اسم الأداة مطلوب', 'Tool name is required'));
+            toast.error(ta('⚠️ اسم الأداة مطلوب', '⚠️ Tool name is required'));
+            return;
+        }
+        if (formData.title_ar.trim().length < 3) {
+            toast.error(ta('⚠️ اسم الأداة قصير جداً — يجب أن يكون 3 أحرف على الأقل', '⚠️ Name too short'));
+            return;
+        }
+        if (!formData.description_ar?.trim()) {
+            toast.error(ta('⚠️ يرجى إضافة وصف للأداة', '⚠️ Please add a description'));
+            return;
+        }
+        if (!formData.href?.trim() || formData.href === '/') {
+            toast.error(ta('⚠️ مسار الصفحة مطلوب — أدخل مساراً صالحاً مثل /documentation-forms', '⚠️ Page route is required'));
             return;
         }
         setSaving(true);
@@ -183,6 +196,12 @@ export default function AdminStaticToolsPage() {
             } else {
                 await createStaticTool({ ...formData, forms: [] });
                 toast.success(ta('تم إضافة الأداة ✅', 'Tool added ✅'));
+            }
+            // Smart post-save feedback
+            if (formData.is_active) {
+                toast(ta('🟢 الأداة مرئية الآن — ستظهر للمستخدمين في صفحة الخدمات', '🟢 Tool visible on services page'), { duration: 4000, icon: '🔧' });
+            } else {
+                toast(ta('⚠️ الأداة محفوظة لكنها مخفية — لن تظهر للمستخدمين', '⚠️ Tool saved but hidden'), { duration: 4000, icon: '⏸️' });
             }
             resetForm();
             await loadTools();

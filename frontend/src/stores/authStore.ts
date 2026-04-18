@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { api } from '@/lib/api';
-import { clearAuthCookies, syncAuthCookies, purgeAllAuthState } from '@/lib/auth-helpers';
+import { clearAuthCookies, syncAuthCookies, purgeAllAuthState, updateLastActive, isSessionIdle } from '@/lib/auth-helpers';
 
 interface User {
     id: string;
@@ -120,7 +120,6 @@ const mergeGuestCart = async () => {
     }
 };
 
-// Helper to process auth response and update state
 const handleAuthSuccess = (
     set: (state: Partial<AuthState>) => void,
     // [FIX TS-03] Proper AuthResponse type instead of `any`
@@ -133,7 +132,10 @@ const handleAuthSuccess = (
     set({ user: user ?? null, token: token ?? null, isAuthenticated: !!user, isLoading: false, rememberMe, _lastCheckTime: Date.now() });
     persistToken(token ?? null, rememberMe);
     // [AUTH-HIGH-01 FIX] Sync token+role to cookies for Edge middleware
-    syncAuthCookies(token ?? null, user?.role ?? null);
+    // [SESSION] Pass rememberMe so cookie expiry matches backend token
+    syncAuthCookies(token ?? null, user?.role ?? null, rememberMe);
+    // [SESSION] Initialize activity tracker
+    updateLastActive();
     // Merge guest cart after login (non-blocking)
     mergeGuestCart();
 };
@@ -236,16 +238,26 @@ export const useAuthStore = create<AuthState>()(
                     // After 5 min, silently re-fetch to detect role changes (admin promotion etc.)
                 }
 
-                // Smart session check
+                // [SESSION] Smart session checks
                 if (typeof window !== 'undefined') {
                     const rememberMe = localStorage.getItem('auth_remember') === 'true';
                     const sessionActive = sessionStorage.getItem('auth_session_active');
                     
+                    // [SESSION] Check 1: Browser was closed without "Remember Me"
                     if (!rememberMe && !sessionActive && get().token) {
                         set({ user: null, token: null, isAuthenticated: false, isLoading: false });
-                        localStorage.removeItem('auth_token');
-                        clearAuthCookies();
+                        purgeAllAuthState();
                         return;
+                    }
+
+                    // [SESSION] Check 2: Idle timeout — admin 30min, user 60min
+                    if (get().isAuthenticated && get().user) {
+                        const userIsAdmin = get().user?.role?.toLowerCase() === 'admin';
+                        if (isSessionIdle(userIsAdmin)) {
+                            set({ user: null, token: null, isAuthenticated: false, isLoading: false });
+                            purgeAllAuthState();
+                            return;
+                        }
                     }
 
                     // No token at all — skip API call
@@ -276,6 +288,8 @@ export const useAuthStore = create<AuthState>()(
                             _hasHydrated: true,
                             _lastCheckTime: now,
                         });
+                        // [SESSION] Update activity on successful auth check
+                        updateLastActive();
                     } else {
                         // Valid response but no user — clear session
                         set({
@@ -286,8 +300,7 @@ export const useAuthStore = create<AuthState>()(
                             _hasHydrated: true,
                         });
                         if (typeof window !== 'undefined') {
-                            localStorage.removeItem('auth_token');
-                            clearAuthCookies();
+                            purgeAllAuthState();
                         }
                     }
                 } catch {
@@ -300,8 +313,7 @@ export const useAuthStore = create<AuthState>()(
                         _hasHydrated: true,
                     });
                     if (typeof window !== 'undefined') {
-                        localStorage.removeItem('auth_token');
-                        clearAuthCookies();
+                        purgeAllAuthState();
                     }
                 }
             },

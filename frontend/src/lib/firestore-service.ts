@@ -29,6 +29,20 @@ import type {
   ServiceCategory,
 } from '@/types';
 
+/** Deep-strip all `undefined` values — Firestore rejects them */
+function stripUndefined<T>(obj: T): T {
+    if (obj === null || obj === undefined) return obj;
+    if (Array.isArray(obj)) return obj.map(stripUndefined) as unknown as T;
+    if (typeof obj === 'object' && obj !== null) {
+        const cleaned: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(obj)) {
+            if (value !== undefined) cleaned[key] = stripUndefined(value);
+        }
+        return cleaned as T;
+    }
+    return obj;
+}
+
 // ============================================================
 // TEMPLATE CANVAS
 // ============================================================
@@ -50,11 +64,11 @@ export async function getTemplateCanvas(templateId: string): Promise<TemplateCan
 export async function saveTemplateCanvas(templateId: string, canvas: TemplateCanvas): Promise<void> {
   try {
     const docRef = doc(db, 'template_canvas', templateId);
-    await setDoc(docRef, {
+    await setDoc(docRef, stripUndefined({
       ...canvas,
       template_id: templateId,
       updated_at: new Date().toISOString(),
-    });
+    }));
   } catch (error) {
     logger.error('Error saving template canvas:', error);
     throw error;
@@ -108,11 +122,11 @@ export async function getDynamicForm(templateId: string): Promise<DynamicFormCon
 export async function saveDynamicForm(templateId: string, formConfig: DynamicFormConfig): Promise<void> {
   try {
     const docRef = doc(db, 'dynamic_forms', templateId);
-    await setDoc(docRef, {
+    await setDoc(docRef, stripUndefined({
       ...formConfig,
       template_id: templateId,
       updated_at: new Date().toISOString(),
-    });
+    }));
   } catch (error) {
     logger.error('Error saving dynamic form:', error);
     throw error;
@@ -153,11 +167,11 @@ export async function getAIPromptConfig(templateId: string): Promise<AIPromptCon
 export async function saveAIPromptConfig(templateId: string, config: AIPromptConfig): Promise<void> {
   try {
     const docRef = doc(db, 'ai_prompts', templateId);
-    await setDoc(docRef, {
+    await setDoc(docRef, stripUndefined({
       ...config,
       template_id: templateId,
       updated_at: new Date().toISOString(),
-    });
+    }));
   } catch (error) {
     logger.error('Error saving AI prompt config:', error);
     throw error;
@@ -315,10 +329,10 @@ export async function getService(serviceId: string): Promise<ServiceDefinition |
 export async function saveService(serviceId: string, service: Partial<ServiceDefinition>): Promise<void> {
   try {
     const docRef = doc(db, 'services', serviceId);
-    await setDoc(docRef, {
+    await setDoc(docRef, stripUndefined({
       ...service,
       updated_at: new Date().toISOString(),
-    }, { merge: true });
+    }), { merge: true });
     // Invalidate caches
     cache.delete('firestore_all_services');
     cache.delete('firestore_services');
@@ -340,11 +354,11 @@ export async function createService(service: Omit<ServiceDefinition, 'id'>): Pro
       return docId; // Already exists — skip
     }
     
-    await setDoc(docRef, {
+    await setDoc(docRef, stripUndefined({
       ...service,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    });
+    }));
     // Invalidate caches
     cache.delete('firestore_all_services');
     cache.delete('firestore_services');
@@ -435,7 +449,7 @@ export async function getServiceCategories(): Promise<ServiceCategory[]> {
 export async function saveServiceCategory(categoryId: string, category: Partial<ServiceCategory>): Promise<void> {
   try {
     const docRef = doc(db, 'service_categories', categoryId);
-    await setDoc(docRef, { ...category, updated_at: new Date().toISOString() }, { merge: true });
+    await setDoc(docRef, stripUndefined({ ...category, updated_at: new Date().toISOString() }), { merge: true });
     // Invalidate cache
     cache.delete('firestore_service_categories');
   } catch (error) {

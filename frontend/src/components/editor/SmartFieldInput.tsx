@@ -33,6 +33,13 @@ import {
   ChevronDown,
 } from 'lucide-react';
 
+/** Read the active locale from the cookie — same logic as api.ts getLocale() */
+function getActiveLocale(): 'ar' | 'en' {
+  if (typeof document === 'undefined') return 'ar';
+  const match = document.cookie.match(/(?:^|;\s*)locale=(\w+)/);
+  return match?.[1] === 'en' ? 'en' : 'ar';
+}
+
 interface SmartFieldInputProps {
   field: {
     id?: string;
@@ -69,6 +76,9 @@ export function SmartFieldInput({
   const [isLoading, setIsLoading] = useState(false);
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [showSuggestion, setShowSuggestion] = useState(false);
+  // Track previous suggestions to prevent re-generate from producing the same content
+  const [prevSuggestions, setPrevSuggestions] = useState<string[]>([]);
+  const [attemptCount, setAttemptCount] = useState(0);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
 
   const fieldIcons = {
@@ -90,18 +100,33 @@ export function SmartFieldInput({
     setSuggestion(null);
 
     try {
-      const response = await api.post('/ai/suggest', {
-        template_id: templateId,
+      // Use locale-aware method — auto-detects language from cookie
+      const locale = getActiveLocale();
+      const fieldLabel = locale === 'en'
+        ? (field.label_en || field.label_ar)
+        : field.label_ar;
+
+      const response = await api.getAISuggestion({
+        template_id: templateId ? parseInt(templateId) : undefined,
         field_name: field.name,
         title: templateTitle || '',
         current_values: context,
-        field_label: field.label_ar,
+        field_label: fieldLabel,
         ai_hint: field.ai_prompt_hint,
-      }) as any;
+        locale,
+        // [ANTI-REPEAT] Pass previous suggestions so backend avoids repeating them
+        ...(prevSuggestions.length > 0 && {
+          previous_suggestion: prevSuggestions[prevSuggestions.length - 1],
+          attempt: attemptCount + 1,
+        }),
+      });
 
       if (response.success && response.data?.suggestion) {
-        setSuggestion(response.data.suggestion);
+        const newSuggestion = response.data.suggestion;
+        setSuggestion(newSuggestion);
         setShowSuggestion(true);
+        setPrevSuggestions(prev => [...prev.slice(-3), newSuggestion]); // keep last 3
+        setAttemptCount(prev => prev + 1);
       } else {
         toast.error(ta('لم نتمكن من توليد اقتراح، حاول مرة أخرى', 'Could not generate suggestion, please try again'));
       }
@@ -111,6 +136,12 @@ export function SmartFieldInput({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Reset suggestion history when the field value changes externally
+  const resetSuggestions = () => {
+    setPrevSuggestions([]);
+    setAttemptCount(0);
   };
 
   const acceptSuggestion = () => {

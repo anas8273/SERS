@@ -128,7 +128,7 @@ export function useMarketplace() {
       setIsLoading(true);
       try {
         const [templatesRes, sectionsRes, cats] = await Promise.all([
-          api.getTemplates({}).catch(() => ({ data: { data: [] } })),
+          api.getTemplates({ per_page: 200 }).catch(() => ({ data: { data: [] } })),
           api.getSections().catch(() => ({ data: [] })),
           getServiceCategories().catch(() => []),
         ]);

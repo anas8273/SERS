@@ -244,33 +244,37 @@ class User extends Authenticatable
      */
     public function addToWallet(float $amount, ?string $description = null, ?string $referenceId = null, ?string $referenceType = null): WalletTransaction
     {
-        // [BUG-05] Lock the user row to get accurate pre-increment balance
-        $freshUser = \Illuminate\Support\Facades\DB::table('users')
-            ->where('id', $this->id)
-            ->lockForUpdate()
-            ->first();
+        // [AUDIT FIX] Wrap in DB::transaction() — lockForUpdate() is a no-op without it.
+        // The transaction ensures the lock is held from the SELECT until the INSERT completes.
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($amount, $description, $referenceId, $referenceType) {
+            // [BUG-05] Lock the user row to get accurate pre-increment balance
+            $freshUser = \Illuminate\Support\Facades\DB::table('users')
+                ->where('id', $this->id)
+                ->lockForUpdate()
+                ->first();
 
-        $balanceBefore = (float) ($freshUser->wallet_balance ?? 0);
+            $balanceBefore = (float) ($freshUser->wallet_balance ?? 0);
 
-        // Atomic increment
-        \Illuminate\Support\Facades\DB::table('users')
-            ->where('id', $this->id)
-            ->increment('wallet_balance', $amount);
+            // Atomic increment
+            \Illuminate\Support\Facades\DB::table('users')
+                ->where('id', $this->id)
+                ->increment('wallet_balance', $amount);
 
-        $balanceAfter = $balanceBefore + $amount;
+            $balanceAfter = $balanceBefore + $amount;
 
-        // Refresh in-memory model
-        $this->refresh();
+            // Refresh in-memory model
+            $this->refresh();
 
-        return $this->walletTransactions()->create([
-            'type' => 'deposit',
-            'amount' => $amount,
-            'balance_before' => $balanceBefore,
-            'balance_after' => $balanceAfter,
-            'reference_id' => $referenceId,
-            'reference_type' => $referenceType,
-            'description' => $description,
-        ]);
+            return $this->walletTransactions()->create([
+                'type' => 'deposit',
+                'amount' => $amount,
+                'balance_before' => $balanceBefore,
+                'balance_after' => $balanceAfter,
+                'reference_id' => $referenceId,
+                'reference_type' => $referenceType,
+                'description' => $description,
+            ]);
+        });
     }
 
 
@@ -281,42 +285,45 @@ class User extends Authenticatable
      */
     public function deductFromWallet(float $amount, string $type = 'purchase', ?string $description = null, ?string $referenceId = null, ?string $referenceType = null): WalletTransaction
     {
-        // [SEC-01 FIX] Lock the user row to get accurate pre-decrement balance
-        // (same pattern as addToWallet — prevents stale ledger entries)
-        $freshUser = \Illuminate\Support\Facades\DB::table('users')
-            ->where('id', $this->id)
-            ->lockForUpdate()
-            ->first();
+        // [AUDIT FIX] Wrap in DB::transaction() — lockForUpdate() is a no-op without it.
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($amount, $type, $description, $referenceId, $referenceType) {
+            // [SEC-01 FIX] Lock the user row to get accurate pre-decrement balance
+            // (same pattern as addToWallet — prevents stale ledger entries)
+            $freshUser = \Illuminate\Support\Facades\DB::table('users')
+                ->where('id', $this->id)
+                ->lockForUpdate()
+                ->first();
 
-        $balanceBefore = (float) ($freshUser->wallet_balance ?? 0);
+            $balanceBefore = (float) ($freshUser->wallet_balance ?? 0);
 
-        if ($balanceBefore < $amount) {
-            throw new \Exception('رصيد المحفظة غير كافٍ');
-        }
+            if ($balanceBefore < $amount) {
+                throw new \Exception('رصيد المحفظة غير كافٍ');
+            }
 
-        // Atomic deduction — only succeeds if balance >= amount
-        $deducted = \Illuminate\Support\Facades\DB::table('users')
-            ->where('id', $this->id)
-            ->where('wallet_balance', '>=', $amount)
-            ->decrement('wallet_balance', $amount);
+            // Atomic deduction — only succeeds if balance >= amount
+            $deducted = \Illuminate\Support\Facades\DB::table('users')
+                ->where('id', $this->id)
+                ->where('wallet_balance', '>=', $amount)
+                ->decrement('wallet_balance', $amount);
 
-        if (!$deducted) {
-            throw new \Exception('رصيد المحفظة غير كافٍ');
-        }
+            if (!$deducted) {
+                throw new \Exception('رصيد المحفظة غير كافٍ');
+            }
 
-        $balanceAfter = $balanceBefore - $amount;
+            $balanceAfter = $balanceBefore - $amount;
 
-        // Refresh in-memory model
-        $this->refresh();
+            // Refresh in-memory model
+            $this->refresh();
 
-        return $this->walletTransactions()->create([
-            'type' => $type,
-            'amount' => -$amount,
-            'balance_before' => $balanceBefore,
-            'balance_after' => $balanceAfter,
-            'reference_id' => $referenceId,
-            'reference_type' => $referenceType,
-            'description' => $description,
-        ]);
+            return $this->walletTransactions()->create([
+                'type' => $type,
+                'amount' => -$amount,
+                'balance_before' => $balanceBefore,
+                'balance_after' => $balanceAfter,
+                'reference_id' => $referenceId,
+                'reference_type' => $referenceType,
+                'description' => $description,
+            ]);
+        });
     }
 }

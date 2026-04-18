@@ -3,6 +3,7 @@
 import { logger } from '@/lib/logger';
 
 import { useEffect, useState, useMemo } from 'react';
+import { useFirestoreForms } from '@/hooks/useFirestoreForms';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { getUserRecords, deleteUserRecord, createUserRecord } from '@/lib/firestore-service';
@@ -55,6 +56,12 @@ export default function MyTemplatesPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuthStore();
   const { dir, locale } = useTranslation();
   const [records, setRecords] = useState<UserRecord[]>([]);
+    // Firestore dynamic sync
+    useFirestoreForms('my-templates', [{
+        id: 'interactive-records', title: ta('سجلاتي التفاعلية', 'My Interactive Records'),
+        description: ta('السجلات والمستندات التي أنشأتها', 'Records and documents you created'),
+        icon: null, color: '', gradient: 'from-violet-500 to-purple-600', fields: [],
+    }]);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');

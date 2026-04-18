@@ -40,7 +40,9 @@ class TemplateController extends Controller
         // Public (non-authenticated) listings are safe to cache per-query-signature.
         // Authenticated users may see ownership state — we skip cache in that case.
         $isPublic = !$request->user();
-        $cacheKey = 'tpl_list_' . md5(json_encode($request->only([
+        // [FIX] Include cache version so CRUD operations invalidate all old caches
+        $cacheVersion = (int) cache()->get('tpl_cache_version', 0);
+        $cacheKey = 'tpl_list_v' . $cacheVersion . '_' . md5(json_encode($request->only([
             'category_id', 'section_id', 'section', 'type', 'search',
             'min_price', 'max_price', 'sort', 'direction', 'per_page', 'page',
         ])));
@@ -116,7 +118,7 @@ class TemplateController extends Controller
             $query->orderBy($sortBy, $sortDir);
         }
 
-        $perPage = min($request->input('per_page', 12), 50);
+        $perPage = min($request->input('per_page', 12), 200);
         $templates = $query->paginate($perPage);
 
         return [
@@ -460,7 +462,8 @@ class TemplateController extends Controller
                 'is_free' => (float)($validated['price']) <= 0,
                 'is_active' => filter_var($request->input('is_active', true), FILTER_VALIDATE_BOOLEAN),
                 'is_featured' => filter_var($request->input('is_featured', false), FILTER_VALIDATE_BOOLEAN),
-                'sort_order' => (int)($validated['sort_order'] ?? 0),
+                // [SORT] Smart auto-assign: if 0 or empty, place at end
+                'sort_order' => (int)($validated['sort_order'] ?? 0) ?: (Template::max('sort_order') + 1),
                 'thumbnail' => $thumbnailPath,
                 'ready_file' => $readyFilePath,
                 'file_type' => $detectedFileType,
@@ -636,9 +639,12 @@ class TemplateController extends Controller
 
     /**
      * Admin: Delete a template.
+     * [FIX] Now also reorders remaining templates to fill gaps.
      */
     public function destroy(Template $template): JsonResponse
     {
+        $deletedOrder = $template->sort_order;
+
         if ($template->thumbnail) {
             Storage::disk('public')->delete($template->thumbnail);
         }
@@ -648,7 +654,11 @@ class TemplateController extends Controller
 
         $template->delete();
 
-        // [PERF] Invalidate all marketplace caches after deletion
+        // [SORT] Reorder: shift templates that were after the deleted one
+        Template::where('sort_order', '>', $deletedOrder)
+            ->decrement('sort_order');
+
+        // [PERF] Invalidate ALL caches so users see the change immediately
         $this->clearMarketplaceCaches();
 
         return response()->json([
@@ -664,10 +674,8 @@ class TemplateController extends Controller
     {
         $template->update(['is_active' => !$template->is_active]);
 
-        // [FIX WARN-05] Invalidate ALL marketplace caches — sections listing
-        // also reflects active status, so both must be cleared together
-        cache()->forget('marketplace_sections');
-        cache()->forget('marketplace_featured_templates');
+        // [FIX] Clear ALL caches so status change reflects for users immediately
+        $this->clearMarketplaceCaches();
 
         return response()->json([
             'success' => true,
@@ -696,6 +704,7 @@ class TemplateController extends Controller
     /**
      * Clear all marketplace-related caches.
      * Called after any template CRUD operation.
+     * [FIX] Now actually clears tpl_list_* caches using a version key.
      */
     private function clearMarketplaceCaches(): void
     {
@@ -703,13 +712,9 @@ class TemplateController extends Controller
         cache()->forget('marketplace_sections');
         cache()->forget('public_homepage_stats');
 
-        // Clear paginated template list caches (pattern: tpl_list_*)
-        try {
-            $cacheDir = storage_path('framework/cache/data');
-            // File cache driver: flush specific keys is not natively supported,
-            // so we rely on short TTL (3 min) for tpl_list_* to expire naturally.
-        } catch (\Exception $e) {
-            // Ignore cache clearing errors
-        }
+        // [FIX] Increment a version counter — the index() method will use this
+        // to generate unique cache keys, effectively invalidating all old caches.
+        $currentVersion = (int) cache()->get('tpl_cache_version', 0);
+        cache()->forever('tpl_cache_version', $currentVersion + 1);
     }
 }

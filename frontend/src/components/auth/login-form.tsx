@@ -61,7 +61,7 @@ export const LoginForm = () => {
         // Hard navigation to prevent white-page from stale hydration
         const currentUser = useAuthStore.getState().user;
         if (currentUser?.role === 'admin') {
-          window.location.href = '/admin/dashboard';
+          window.location.href = '/admin';
         } else if (returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//')) {
           window.location.href = returnUrl;
         } else {

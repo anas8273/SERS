@@ -120,10 +120,18 @@ class AIService
             }
 
             $payload = [
-                'model'       => $this->model,
-                'messages'    => $messages,
-                'temperature' => $temperature,
-                'max_tokens'  => $maxTokens,
+                'model'             => $this->model,
+                'messages'          => $messages,
+                'temperature'       => $temperature,
+                'max_tokens'        => $maxTokens,
+                // [ANTI-REPEAT] Nucleus sampling: limits token pool to top-p probability mass.
+                // Combined with temperature, this is the most effective way to prevent
+                // repetitive outputs on re-generate without sacrificing coherence.
+                'top_p'             => 0.92,
+                // Penalise tokens that have already appeared — pushes the model
+                // to choose fresh vocabulary on subsequent generation attempts.
+                'frequency_penalty' => 0.5,
+                'presence_penalty'  => 0.4,
             ];
 
             // Only add response_format when JSON is required — Groq rejects null value

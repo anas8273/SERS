@@ -1108,17 +1108,26 @@ export interface StaticFormField {
     key: string;                   // machine key used for value lookup
     label_ar: string;
     label_en?: string;
-    type: 'text' | 'textarea' | 'image' | 'url' | 'date' | 'number' | 'select' | 'checkbox';
+    type: 'text' | 'textarea' | 'image' | 'url' | 'date' | 'number' | 'select' | 'checkbox' | 'radio' | 'rich-text';
     placeholder_ar?: string;
     placeholder_en?: string;
     required?: boolean;
     rows?: number;                 // for textarea
-    options?: string[];            // for select type
+    options?: string[];            // for select/radio type
     group?: string;                // grouping key
     group_label_ar?: string;       // label shown for the group header
     groupLabel?: string;           // alias for group_label_ar (legacy compatibility)
     sort_order: number;
     is_visible: boolean;
+    // ── Enhanced Properties ──
+    default_value?: string;        // default pre-filled value
+    help_text?: string;            // tooltip/help text shown to user
+    half_width?: boolean;          // display at 50% width (two columns)
+    min_length?: number;           // validation: minimum text length
+    max_length?: number;           // validation: maximum text length
+    min_value?: number;            // validation: minimum number value
+    max_value?: number;            // validation: maximum number value
+    pattern?: string;              // validation: regex pattern
 }
 
 /** A form/template inside a static tool (one tool can have multiple forms) */
@@ -1135,6 +1144,16 @@ export interface StaticForm {
     fields: StaticFormField[];
     sort_order: number;
     is_active: boolean;
+    /** Template design settings — header, logo, footer, colors */
+    template_settings?: {
+        header_text?: string;       // e.g. "وزارة التعليم — شاهد تقييم الأداء"
+        header_gradient?: string;   // e.g. "from-blue-600 to-indigo-700"
+        logo_url?: string;          // Custom logo URL
+        footer_text?: string;       // Footer text
+        show_qr?: boolean;          // Show QR code
+        show_watermark?: boolean;   // Show watermark
+        layout?: 'default' | 'compact' | 'landscape';
+    };
 }
 
 /** A static educational tool stored in Firestore `static_tools` collection */
@@ -1151,7 +1170,23 @@ export interface StaticTool {
     sort_order: number;
     is_active: boolean;
     forms: StaticForm[];
+    /** Sections support for pages like performance-evidence-forms (section → forms → fields) */
+    sections?: StaticSection[];
     // Meta
     created_at?: string;
     updated_at?: string;
+}
+
+/** A section inside a static tool (contains multiple forms) */
+export interface StaticSection {
+    id: string;
+    title_ar: string;
+    title_en?: string;
+    description_ar?: string;
+    description_en?: string;
+    gradient: string;
+    badge?: string;
+    is_active: boolean;
+    sort_order: number;
+    forms: StaticForm[];
 }

@@ -39,6 +39,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { getStaticTool, saveStaticTool } from '@/lib/firestore-static-tools';
 import type { StaticTool, StaticForm, StaticFormField } from '@/types';
+import { useAIFieldFill } from '@/hooks/useAIFieldFill';
 
 // ── Icon map ─────────────────────────────────────────────────────────────────
 const ICON_MAP: Record<string, any> = {
@@ -79,6 +80,7 @@ export default function DynamicFormPage({ toolSlug, customPreview, fallbackForms
     const [values, setValues] = useState<Record<string, string>>({});
     const [images, setImages] = useState<Record<string, string>>({});
     const [showPreview, setShowPreview] = useState(false);
+    const { fillField: aiFillField, fillAllFields: aiFillAll, loadingField: aiLoading } = useAIFieldFill();
 
     // ── Load tool from Firestore ─────────────────────────────────────────────
     const loadTool = useCallback(async () => {
@@ -248,14 +250,21 @@ export default function DynamicFormPage({ toolSlug, customPreview, fallbackForms
                     </div>
                 );
 
-            case 'textarea':
+            case 'textarea': {
+                const formTitle = isAr ? (activeForm?.title_ar || '') : (activeForm?.title_en || activeForm?.title_ar || '');
                 return (
                     <div key={field.id} className="space-y-2">
-                        <label className="flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-gray-300">
-                            <AlignLeft className="w-4 h-4 text-violet-500" />
-                            {label}
-                            {field.required && <span className="text-red-500">*</span>}
-                        </label>
+                        <div className="flex items-center justify-between">
+                            <label className="flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-gray-300">
+                                <AlignLeft className="w-4 h-4 text-violet-500" />
+                                {label}
+                                {field.required && <span className="text-red-500">*</span>}
+                            </label>
+                            <button type="button" disabled={!!aiLoading} onClick={() => aiFillField(field.key, label, formTitle, values, handleFieldChange)} className="flex items-center gap-1 text-xs font-bold text-violet-600 hover:text-violet-700 bg-violet-50 hover:bg-violet-100 px-2 py-0.5 rounded-lg transition-colors disabled:opacity-50">
+                                {aiLoading === field.key ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                {ta('تعبئة بالذكاء الاصطناعي', 'Fill with AI')}
+                            </button>
+                        </div>
                         <Textarea
                             value={values[field.key] || ''}
                             onChange={(e) => handleFieldChange(field.key, e.target.value)}
@@ -265,6 +274,7 @@ export default function DynamicFormPage({ toolSlug, customPreview, fallbackForms
                         />
                     </div>
                 );
+            }
 
             case 'select':
                 return (
@@ -433,7 +443,7 @@ export default function DynamicFormPage({ toolSlug, customPreview, fallbackForms
         <div dir={dir} className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900">
             <Navbar />
 
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-20 pb-8">
                 {/* Header */}
                 <div className="text-center mb-8">
                     <div className={`w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white shadow-xl mb-4`}>
@@ -489,7 +499,20 @@ export default function DynamicFormPage({ toolSlug, customPreview, fallbackForms
                                     .map(renderField)}
 
                                 {/* Action buttons */}
-                                <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+                                <div className="space-y-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+                                    <Button
+                                        disabled={!!aiLoading}
+                                        onClick={() => {
+                                            const fields = (activeForm.fields || []).filter(f => f.is_visible !== false && (f.type === 'textarea' || f.type === 'text'));
+                                            const formTitle = isAr ? activeForm.title_ar : (activeForm.title_en || activeForm.title_ar);
+                                            aiFillAll(fields.map(f => ({ key: f.key, label: isAr ? f.label_ar : (f.label_en || f.label_ar), type: f.type })), formTitle, values, handleFieldChange);
+                                        }}
+                                        className="w-full gap-2 bg-gradient-to-l from-violet-600 to-purple-700 text-white border-0 text-sm hover:opacity-90 rounded-xl"
+                                    >
+                                        {aiLoading === '__all__' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                                        {ta('تعبئة جميع الحقول بالذكاء الاصطناعي', 'Fill All Fields with AI')}
+                                    </Button>
+                                    <div className="flex flex-wrap gap-3">
                                     <Button
                                         onClick={() => setShowPreview(!showPreview)}
                                         className="flex-1 sm:flex-none bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl shadow-md gap-2"
@@ -513,13 +536,14 @@ export default function DynamicFormPage({ toolSlug, customPreview, fallbackForms
                                         <RotateCcw className="w-4 h-4" />
                                         {ta('إعادة تعيين', 'Reset')}
                                     </Button>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
 
                         {/* Preview */}
                         <div className={`${showPreview ? 'block' : 'hidden lg:block'}`}>
-                            <div className="sticky top-4">
+                            <div className="sticky top-20">
                                 <div className="flex items-center justify-between mb-3">
                                     <h3 className="text-sm font-bold text-gray-500 flex items-center gap-2">
                                         <Eye className="w-4 h-4" />

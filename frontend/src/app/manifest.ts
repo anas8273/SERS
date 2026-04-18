@@ -2,9 +2,9 @@ import { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'SERS - سوق السجلات التعليمية الذكية',
+    name: 'SERS - منصة الخدمات التعليمية الذكية',
     short_name: 'SERS',
-    description: 'منصة رقمية متكاملة للسجلات والقوالب التعليمية',
+    description: 'منصة رقمية شاملة للمعلمين — سجلات ونماذج وخطط وتقارير وشهادات وتحليل نتائج',
     start_url: '/',
     display: 'standalone',
     background_color: '#ffffff',

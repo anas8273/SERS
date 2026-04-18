@@ -19,6 +19,10 @@ interface Notification {
 /**
  * NotificationBell — Fully functional notification dropdown.
  * Shows unread count badge, fetches from backend, marks as read.
+ * 
+ * MOBILE FIX: Uses fixed positioning on small screens to prevent
+ * clipping/overflow. On desktop uses absolute positioning anchored
+ * to the bell icon.
  */
 export function NotificationBell() {
   const { token } = useAuthStore();
@@ -38,6 +42,17 @@ export function NotificationBell() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  // Close on escape key
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
+    if (isOpen) {
+      document.addEventListener('keydown', handler);
+      return () => document.removeEventListener('keydown', handler);
+    }
+  }, [isOpen]);
 
   // Fetch unread count on mount + interval
   // [PERF] Uses api.get which has built-in deduplication
@@ -136,22 +151,34 @@ export function NotificationBell() {
           "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300"
         )}
         aria-label="الإشعارات"
+        aria-expanded={isOpen}
       >
         <Bell className="w-5 h-5" />
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 shadow-lg shadow-red-500/30">
+          /* FIX RTL: Use -end-0.5 instead of -right-0.5 for RTL compatibility */
+          <span className="absolute -top-0.5 -end-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 shadow-lg shadow-red-500/30">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
 
-      {/* Dropdown */}
+      {/* Dropdown — MOBILE: fixed full-width at top, DESKTOP: absolute anchored to bell */}
       {isOpen && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+
+          {/* MOBILE: Full-width panel below navbar */}
           <div
-            className="absolute left-0 top-full mt-2 w-80 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl shadow-gray-200/50 dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700 z-20 overflow-hidden"
+            className={cn(
+              "z-50 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 overflow-hidden",
+              // Mobile: fixed below navbar, full width with margin
+              "fixed inset-x-3 top-[4.5rem] rounded-2xl shadow-2xl shadow-gray-900/20",
+              // Desktop (sm+): absolute positioned anchored to bell icon
+              "sm:fixed sm:inset-x-auto sm:top-auto sm:absolute sm:start-0 sm:top-full sm:mt-2 sm:w-80 sm:rounded-2xl sm:shadow-2xl sm:shadow-gray-200/50 sm:dark:shadow-gray-900/50"
+            )}
             style={{ animation: 'fadeInScale 0.2s ease-out forwards' }}
+            role="dialog"
+            aria-label="الإشعارات"
           >
             {/* Header */}
             <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/50">
@@ -171,7 +198,7 @@ export function NotificationBell() {
             </div>
 
             {/* Content */}
-            <div className="max-h-80 overflow-y-auto">
+            <div className="max-h-[60vh] sm:max-h-80 overflow-y-auto">
               {isLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="w-5 h-5 animate-spin text-primary" />

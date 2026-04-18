@@ -42,6 +42,16 @@ export function AIAssistant({
     const [suggestion, setSuggestion] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [prompt, setPrompt] = useState(initialPrompt || '');
+    // [ANTI-REPEAT] Track previous suggestions for re-generate differentiation
+    const [prevSuggestion, setPrevSuggestion] = useState<string | null>(null);
+    const [attemptCount, setAttemptCount] = useState(0);
+
+    /** Read locale cookie — same logic as api.ts getLocale() */
+    const getLocale = (): 'ar' | 'en' => {
+        if (typeof document === 'undefined') return 'ar';
+        const match = document.cookie.match(/(?:^|;\s*)locale=(\w+)/);
+        return match?.[1] === 'en' ? 'en' : 'ar';
+    };
 
     // Mode 1: Field Suggestion
     const getFieldSuggestion = async () => {
@@ -49,28 +59,54 @@ export function AIAssistant({
         setError(null);
         setSuggestion(null);
 
+        const locale = getLocale();
+        const newAttempt = attemptCount + 1;
+
         try {
             // If we have a recordId and fieldName, use the specific endpoint
             if (recordId && fieldName) {
                 const response = await api.getAISuggestion({
                     template_id: parseInt(recordId),
                     field_name: fieldName,
-                    title: '',
-                    current_values: context || {}
+                    title: (context?.title as string) || '',
+                    current_values: context || {},
+                    field_label: (context as any)?._fieldLabel || fieldName,
+                    ai_hint: (context as any)?._aiHint,
+                    locale,
+                    // [ANTI-REPEAT] pass previous on re-generate
+                    ...(prevSuggestion ? {
+                        previous_suggestion: prevSuggestion,
+                        attempt: newAttempt,
+                    } : {}),
                 });
-                setSuggestion(response.data.suggestion);
+                const newSug = response.data.suggestion;
+                setSuggestion(newSug);
+                setPrevSuggestion(newSug);
+                setAttemptCount(newAttempt);
             } else {
                 // Otherwise use the general suggestion endpoint
+                const locale = getLocale();
                 const response = await api.getAISuggestion({
                     template_id: undefined,
                     field_name: 'content',
-                    title: prompt || 'اكتب محتوى تعليمي إبداعي',
-                    current_values: context || {}
+                    title: prompt || (locale === 'en' ? 'Write creative educational content' : 'اكتب محتوى تعليمي إبداعي'),
+                    current_values: context || {},
+                    field_label: locale === 'en' ? 'General Content' : 'محتوى عام',
+                    locale,
+                    ...(prevSuggestion ? {
+                        previous_suggestion: prevSuggestion,
+                        attempt: newAttempt,
+                    } : {}),
                 });
-                setSuggestion(response.data.suggestion);
+                const newSug = response.data.suggestion;
+                setSuggestion(newSug);
+                setPrevSuggestion(newSug);
+                setAttemptCount(newAttempt);
             }
         } catch (err) {
-            setError('عذراً، واجهت مشكلة في الاتصال بمركز الذكاء الاصطناعي. يرجى المحاولة مرة أخرى.');
+            setError(getLocale() === 'en'
+                ? 'Sorry, we encountered a problem connecting to the AI center. Please try again.'
+                : 'عذراً، واجهت مشكلة في الاتصال بمركز الذكاء الاصطناعي. يرجى المحاولة مرة أخرى.');
         } finally {
             setIsLoading(false);
         }
@@ -153,10 +189,12 @@ export function AIAssistant({
                                 setIsLoading(true);
                                 setError(null);
                                 try {
+                                    const locale = getLocale();
                                     const response = await api.getAIFillAll({
                                         template_id: parseInt(template.id),
                                         title: formData?.title || '',
-                                        current_values: formData || {}
+                                        current_values: formData || {},
+                                        locale,
                                     });
                                     if (response.success && response.data?.suggestions && onSuggestion) {
                                         Object.entries(response.data.suggestions).forEach(([key, val]) => {

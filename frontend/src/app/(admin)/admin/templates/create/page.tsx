@@ -1,4 +1,5 @@
 'use client';
+export const dynamic = 'force-dynamic';
 import { ta } from '@/i18n/auto-translations';
 
 import TemplateForm from '@/components/admin/templates/TemplateForm';
@@ -24,7 +25,7 @@ export default function CreateTemplatePage() {
                 <div className="relative">
                     {/* Breadcrumb */}
                     <nav className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-4">
-                        <Link href="/admin/dashboard" className="hover:text-primary transition-colors">
+                        <Link href="/admin" className="hover:text-primary transition-colors">
                             {ta('لوحة التحكم', 'Admin Panel')}
                         </Link>
                         <ChevronLeft className="w-4 h-4" />

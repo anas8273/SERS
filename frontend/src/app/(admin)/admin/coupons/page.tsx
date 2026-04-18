@@ -80,13 +80,48 @@ export default function AdminCouponsPage() {
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
+        // ── Smart Validation ──
+        if (!newCoupon.code.trim()) {
+            toast.error(ta('⚠️ كود الخصم مطلوب — أدخل كوداً مثل SAVE20', '⚠️ Coupon code is required'));
+            return;
+        }
+        if (newCoupon.code.trim().length < 3) {
+            toast.error(ta('⚠️ كود الخصم قصير جداً — يجب أن يكون 3 أحرف على الأقل', '⚠️ Code too short — at least 3 characters'));
+            return;
+        }
+        // Check duplicate code
+        const codeExists = coupons.find(c => c.code.toLowerCase() === newCoupon.code.trim().toLowerCase());
+        if (codeExists) {
+            toast.error(ta(`⚠️ الكود "${newCoupon.code}" مستخدم بالفعل — اختر كوداً مختلفاً`, `⚠️ Code "${newCoupon.code}" already exists`));
+            return;
+        }
+        const discountVal = Number(newCoupon.discount_value);
+        if (!discountVal || discountVal <= 0) {
+            toast.error(ta('⚠️ قيمة الخصم مطلوبة ويجب أن تكون أكبر من صفر', '⚠️ Discount value must be greater than 0'));
+            return;
+        }
+        if (newCoupon.discount_type === 'percentage' && discountVal > 100) {
+            toast.error(ta('⚠️ نسبة الخصم لا يمكن أن تتجاوز 100%', '⚠️ Percentage discount cannot exceed 100%'));
+            return;
+        }
+        if (newCoupon.expires_at) {
+            const expiryDate = new Date(newCoupon.expires_at);
+            if (expiryDate <= new Date()) {
+                toast.error(ta('⚠️ تاريخ الانتهاء يجب أن يكون في المستقبل', '⚠️ Expiry date must be in the future'));
+                return;
+            }
+        }
+
         try {
             await api.createCoupon({
                 ...newCoupon,
-                discount_value: Number(newCoupon.discount_value),
+                discount_value: discountVal,
                 max_uses: newCoupon.max_uses ? Number(newCoupon.max_uses) : undefined,
             });
             toast.success(ta('تم إنشاء الكوبون بنجاح 🎉', 'Coupon created successfully 🎉'));
+            // Smart post-save feedback
+            const discountText = newCoupon.discount_type === 'percentage' ? `${discountVal}%` : `${discountVal} ر.س`;
+            toast(ta(`🟢 الكوبون "${newCoupon.code}" جاهز — خصم ${discountText}`, `🟢 Coupon "${newCoupon.code}" ready — ${discountText} discount`), { duration: 4000, icon: '🎫' });
             setIsCreating(false);
             setNewCoupon({ code: '', discount_type: 'percentage', discount_value: '', max_uses: '', expires_at: '' });
             fetchCoupons();

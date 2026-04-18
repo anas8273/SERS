@@ -16,6 +16,22 @@ import type { StaticTool, StaticForm, StaticFormField } from '@/types';
 const COLLECTION = 'static_tools';
 const CACHE_KEY  = 'firestore_static_tools';
 
+/** Deep-strip all `undefined` values from an object/array (Firestore rejects them) */
+function stripUndefined<T>(obj: T): T {
+    if (obj === null || obj === undefined) return obj;
+    if (Array.isArray(obj)) return obj.map(stripUndefined) as unknown as T;
+    if (typeof obj === 'object' && obj !== null) {
+        const cleaned: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(obj)) {
+            if (value !== undefined) {
+                cleaned[key] = stripUndefined(value);
+            }
+        }
+        return cleaned as T;
+    }
+    return obj;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  READ
 // ─────────────────────────────────────────────────────────────────────────────
@@ -77,11 +93,12 @@ export async function getStaticToolByHref(href: string): Promise<StaticTool | nu
 export async function createStaticTool(data: Omit<StaticTool, 'id'>): Promise<string> {
     try {
         const colRef = collection(db, COLLECTION);
-        const docRef = await addDoc(colRef, {
+        const cleanData = stripUndefined({
             ...data,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
         });
+        const docRef = await addDoc(colRef, cleanData);
         cache.delete(CACHE_KEY);
         return docRef.id;
     } catch (error) {
@@ -94,10 +111,11 @@ export async function createStaticTool(data: Omit<StaticTool, 'id'>): Promise<st
 export async function saveStaticTool(toolId: string, data: Partial<StaticTool>): Promise<void> {
     try {
         const docRef = doc(db, COLLECTION, toolId);
-        await setDoc(docRef, {
+        const cleanData = stripUndefined({
             ...data,
             updated_at: new Date().toISOString(),
-        }, { merge: true });
+        });
+        await setDoc(docRef, cleanData, { merge: true });
         cache.delete(CACHE_KEY);
     } catch (error) {
         logger.error('Error saving static tool:', error);

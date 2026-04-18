@@ -39,12 +39,12 @@ const plexArabic = IBM_Plex_Sans_Arabic({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://sers.sa'),
   title: {
-    default: 'SERS - سوق السجلات التعليمية الذكية',
+    default: 'SERS - منصة الخدمات التعليمية الذكية',
     template: '%s | SERS',
   },
-  description: 'منصة رقمية متكاملة للقوالب التعليمية التفاعلية والقابلة للتحميل مصممة للمعلمين في المملكة العربية السعودية',
+  description: 'منصة رقمية شاملة للمعلمين والإداريين وجميع العاملين في قطاع التعليم — سجلات ونماذج وخطط وتقارير وشهادات وتحليل نتائج مدعومة بالذكاء الاصطناعي',
   applicationName: 'SERS',
-  keywords: ['تعليم', 'سجلات تعليمية', 'قوالب', 'رياض أطفال', 'ابتدائي', 'متوسط', 'ثانوي', 'معلم', 'شهادات', 'محافظ'],
+  keywords: ['تعليم', 'سجلات تعليمية', 'نماذج', 'خطط تعليمية', 'تقارير', 'شهادات', 'تحليل نتائج', 'شواهد أداء', 'ملف إنجاز', 'معلم', 'معلمات', 'المنهج السعودي'],
   authors: [{ name: 'SERS Team' }],
   robots: { index: true, follow: true },
   icons: {
@@ -58,8 +58,8 @@ export const metadata: Metadata = {
     title: 'SERS',
   },
   openGraph: {
-    title: 'SERS - سوق السجلات التعليمية الذكية',
-    description: 'منصة رقمية متكاملة للقوالب التعليمية التفاعلية — شهادات، محافظ، اختبارات، خطط، تقارير',
+    title: 'SERS - منصة الخدمات التعليمية الذكية',
+    description: 'منصة رقمية شاملة للمعلمين والإداريين وجميع العاملين في قطاع التعليم — سجلات ونماذج وخطط وتقارير وشهادات وتحليل نتائج مدعومة بالذكاء الاصطناعي',
     type: 'website',
     locale: 'ar_SA',
     siteName: 'SERS',
@@ -72,8 +72,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'SERS - سوق السجلات التعليمية الذكية',
-    description: 'منصة رقمية متكاملة للقوالب التعليمية',
+    title: 'SERS - منصة الخدمات التعليمية الذكية',
+    description: 'منصة رقمية شاملة للمعلمين — سجلات ونماذج وخطط وتقارير مدعومة بالذكاء الاصطناعي',
     images: ['/logo.png'],
   },
 };
@@ -154,7 +154,7 @@ export default function RootLayout({
             <PageProgress />
 
             {/* Main Content */}
-            <main id="main-content" tabIndex={-1}>
+            <div id="main-content" role="main" tabIndex={-1}>
             <Suspense fallback={
               <div className="min-h-screen flex items-center justify-center">
                 <div className="animate-pulse w-8 h-8 rounded-xl bg-primary/20"></div>
@@ -169,7 +169,7 @@ export default function RootLayout({
               {/* Client-only overlays (CartDrawer, CommandPalette, etc.) */}
               <ClientOverlays />
             </Suspense>
-            </main>
+            </div>
             </AdaptiveUIProvider>
             </I18nProvider>
           </AuthProvider>

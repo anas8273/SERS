@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useFirestoreForms } from '@/hooks/useFirestoreForms';
 import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
@@ -369,6 +370,13 @@ function AnalysisTool({ onBack }: { onBack: () => void }) {
 // ===== Main Page =====
 export default function ResultsAnalysisPage() {
   const { dir } = useTranslation();
+    // Firestore dynamic sync
+    useFirestoreForms('results-analysis-tools', [{
+        id: 'single-subject-analysis',
+        title: ta('تحليل نتائج مادة لصف واحد', 'Analyze results for one subject per class'),
+        description: ta('إنشاء تحليل نتائج احترافي', 'Create professional results analysis'),
+        icon: null, color: '', gradient: 'from-cyan-600 to-teal-700', fields: [],
+    }]);
     const [showTool, setShowTool] = useState(false);
 
     if (showTool) return <AnalysisTool onBack={() => setShowTool(false)} />;

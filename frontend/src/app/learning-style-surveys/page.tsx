@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useFirestoreForms } from '@/hooks/useFirestoreForms';
 import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
@@ -256,15 +257,20 @@ export default function LearningStyleSurveysPage() {
   const { dir } = useTranslation();
     const [mode, setMode] = useState<'children' | 'adults' | 'roster' | null>(null);
 
-    if (mode === 'children') return <VARKSurvey type="children" onBack={() => setMode(null)} />;
-    if (mode === 'adults') return <VARKSurvey type="adults" onBack={() => setMode(null)} />;
-    if (mode === 'roster') return <VARKRoster onBack={() => setMode(null)} />;
-
     const CARDS = [
         { id: 'children' as const, title: ta('استبيان أنماط التعلم للأطفال', 'Learning Styles Survey for Children'), desc: 'استبيان VARK مخصص للأطفال لتحديد نمط التعلم المفضل (بصري، سمعي، قرائي، حركي)، أولياء الأمور يقومون بتعبئة الاستبيان', gradient: 'from-purple-600 to-violet-700' },
         { id: 'adults' as const, title: ta('استبيان أنماط التعلم للكبار', 'Learning Styles Survey for Adults'), desc: 'استبيان VARK للمتوسط والثانوي لتحديد أسلوب التعلم الأمثل، الطلاب يقومون بتعبئة الاستبيان', gradient: 'from-violet-600 to-indigo-700' },
         { id: 'roster' as const, title: ta('كشف التصنيف ونسبة الطلاب حسب نمط التعلم', 'Classification report and student percentage by learning style'), desc: 'كشف لتحليل نتائج تصنيف الطلاب وحساب النسب حسب أنماط التعلم المختلفة', gradient: 'from-indigo-600 to-blue-700' },
     ];
+
+    // Firestore dynamic sync — admin can edit card titles/descriptions
+    useFirestoreForms('learning-style-surveys', CARDS.map(c => ({
+        id: c.id, title: c.title, description: c.desc, icon: null, color: '', gradient: c.gradient, fields: [],
+    })));
+
+    if (mode === 'children') return <VARKSurvey type="children" onBack={() => setMode(null)} />;
+    if (mode === 'adults') return <VARKSurvey type="adults" onBack={() => setMode(null)} />;
+    if (mode === 'roster') return <VARKRoster onBack={() => setMode(null)} />;
 
     return (
         <div className="min-h-screen bg-white dark:bg-gray-950" dir={dir}>

@@ -274,10 +274,23 @@ export default function CheckoutPage() {
             // ─── Step 3: Success ───
             clearCart();
             toast.success(
-                isFreeOrder
-                    ? (dir === 'rtl' ? ta('تم الحصول على القالب المجاني بنجاح! 🎉', 'Free template obtained successfully! 🎉') : 'Free template obtained successfully! 🎉')
-                    : (dir === 'rtl' ? ta('تم الشراء بنجاح! القوالب جاهزة للتحميل 📥', 'Purchase successful! Templates ready for download 📥') : 'Purchase complete! Templates ready for download 📥'),
-                { duration: 4000 }
+                (tst) => (
+                    <div className="flex items-center gap-3">
+                        <span>
+                            {isFreeOrder
+                                ? (dir === 'rtl' ? 'تم الحصول على القالب بنجاح! 🎉' : 'Template obtained successfully! 🎉')
+                                : (dir === 'rtl' ? 'تم الشراء بنجاح! 📥' : 'Purchase successful! 📥')
+                            }
+                        </span>
+                        <button
+                            onClick={() => { toast.dismiss(tst.id); router.push('/orders'); }}
+                            className="font-bold text-primary underline underline-offset-2 whitespace-nowrap"
+                        >
+                            {dir === 'rtl' ? 'طلباتي' : 'My Orders'}
+                        </button>
+                    </div>
+                ),
+                { duration: 5000 }
             );
             router.push(`/order-success?id=${orderId}`);
 

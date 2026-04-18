@@ -35,8 +35,8 @@ interface FormTemplate {
     id: string;
     title: string;
     description: string;
-    icon: any;
-    color: string;
+    icon?: any;
+    color?: string;
     gradient: string;
     fields: FormField[];
     badge?: string;

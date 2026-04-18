@@ -43,15 +43,15 @@ class PaymentController extends Controller
             }, E_ALL);
         }
 
-        // [FIX S-04] Guard against missing Stripe key — fail fast in constructor
+        // [FIX S-04] Lazy Stripe initialization — only warn on missing key.
+        // [AUDIT FIX] Was throwing RuntimeException which blocked ALL routes
+        // (including wallet endpoints that don't need Stripe).
         $stripeKey = config('services.stripe.secret');
         if (empty($stripeKey)) {
-            throw new \RuntimeException(
-                '[SERS] Stripe secret key is not configured. Set STRIPE_SECRET_KEY in .env'
-            );
+            Log::warning('[SERS] Stripe secret key is not configured. Payment features will be unavailable.');
+        } else {
+            Stripe::setApiKey($stripeKey);
         }
-
-        Stripe::setApiKey($stripeKey);
     }
 
     /**

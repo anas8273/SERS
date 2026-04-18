@@ -59,6 +59,7 @@ import {
     Image,
     Sparkles,
     Paperclip,
+    Download,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -86,6 +87,7 @@ export default function AchievementsPage() {
         goals: '',
     });
     const [isUpdating, setIsUpdating] = useState(false);
+    const [previewAchievement, setPreviewAchievement] = useState<Achievement | null>(null);
     const [newAchievement, setNewAchievement] = useState({
         type: 'daily' as AchievementType,
         category: 'teaching' as AchievementCategory,
@@ -502,7 +504,7 @@ export default function AchievementsPage() {
                                 )}
 
                                 <div className="flex items-center gap-2">
-                                    <Button variant="outline" size="sm" className="flex-1 rounded-lg" onClick={() => handleOpenEdit(achievement)}>
+                                    <Button variant="outline" size="sm" className="flex-1 rounded-lg" onClick={() => setPreviewAchievement(achievement)}>
                                         <Eye className="h-4 w-4 ms-1" />
                                         {t('eduPage.btn.view')}
                                     </Button>
@@ -576,6 +578,68 @@ export default function AchievementsPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Preview Report Modal */}
+            {previewAchievement && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setPreviewAchievement(null)}>
+                    <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setPreviewAchievement(null)} className="absolute top-3 left-3 z-10 bg-white/90 shadow-lg rounded-full w-8 h-8 flex items-center justify-center text-gray-600 hover:text-red-500 transition-colors text-sm font-bold">✕</button>
+                        <div className="absolute top-3 right-3 z-10 flex gap-2">
+                            <Button size="sm" onClick={() => { toast.success(ta('جاري التحضير...', 'Preparing...')); setTimeout(() => window.print(), 400); }} className="gap-1.5 bg-gradient-to-l from-purple-600 to-violet-700 text-white border-0 text-xs shadow-lg rounded-xl">
+                                <Download className="w-3.5 h-3.5" /> {ta('تحميل PDF', 'Download PDF')}
+                            </Button>
+                        </div>
+                        <div className="bg-white rounded-2xl shadow-xl overflow-hidden border" style={{ fontFamily: 'Cairo, sans-serif', direction: 'rtl' }}>
+                            <div className="bg-gradient-to-l from-purple-600 to-violet-700 p-5 text-white">
+                                <p className="text-xs opacity-80 mb-1">{ta('وزارة التعليم — توثيق الإنجازات', 'Ministry of Education — Achievement Documentation')}</p>
+                                <h2 className="text-lg font-black">{previewAchievement.title}</h2>
+                                <div className="flex items-center gap-3 mt-2">
+                                    <span className="bg-white/20 rounded-full px-3 py-0.5 text-xs">{achievementTypes[previewAchievement.type]}</span>
+                                    {previewAchievement.category && <span className="bg-white/20 rounded-full px-3 py-0.5 text-xs">{achievementCategories[previewAchievement.category]}</span>}
+                                </div>
+                            </div>
+                            <div className="p-5 space-y-3 text-sm">
+                                <div className="flex gap-2 border-b border-gray-100 pb-2">
+                                    <span className="font-bold text-gray-600 min-w-[100px] shrink-0">{ta('التاريخ:', 'Date:')}</span>
+                                    <span className="text-gray-800">{new Date(previewAchievement.date).toLocaleDateString(locale === 'en' ? 'en-US' : 'ar-SA')}{previewAchievement.end_date ? ` — ${new Date(previewAchievement.end_date).toLocaleDateString(locale === 'en' ? 'en-US' : 'ar-SA')}` : ''}</span>
+                                </div>
+                                {previewAchievement.is_verified && (
+                                    <div className="flex gap-2 border-b border-gray-100 pb-2">
+                                        <span className="font-bold text-gray-600 min-w-[100px] shrink-0">{ta('الحالة:', 'Status:')}</span>
+                                        <span className="text-green-600 flex items-center gap-1"><CheckCircle className="w-4 h-4" />{ta('موثق', 'Verified')}</span>
+                                    </div>
+                                )}
+                                {previewAchievement.description && (
+                                    <div>
+                                        <p className="font-bold text-gray-600 mb-1">{ta('الوصف:', 'Description:')}</p>
+                                        <p className="text-gray-700 text-xs whitespace-pre-line leading-relaxed">{previewAchievement.description}</p>
+                                    </div>
+                                )}
+                                {previewAchievement.goals && previewAchievement.goals.length > 0 && (
+                                    <div>
+                                        <p className="font-bold text-gray-600 mb-1">{ta('الأهداف المحققة:', 'Achieved Goals:')}</p>
+                                        <ul className="text-xs space-y-1">
+                                            {previewAchievement.goals.map((g, i) => <li key={i} className="flex items-center gap-1.5"><Star className="w-3 h-3 text-yellow-500 shrink-0" /><span className="text-gray-700">{g}</span></li>)}
+                                        </ul>
+                                    </div>
+                                )}
+                                {previewAchievement.attachments && previewAchievement.attachments.length > 0 && (
+                                    <div>
+                                        <p className="font-bold text-gray-600 mb-1">{ta('المرفقات:', 'Attachments:')}</p>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {previewAchievement.attachments.map((att, i) => <div key={i} className="bg-gray-50 rounded-lg p-2 text-xs text-gray-600 flex items-center gap-1"><Paperclip className="w-3 h-3" />{typeof att === 'string' ? att : att.name}</div>)}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="bg-gradient-to-l from-purple-600 to-violet-700 text-white text-center py-2 text-xs font-bold">
+                                SERS — {ta('نظام السجلات التعليمية الذكية', 'Smart Educational Records System')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            <style>{`@media print { nav, footer, button, .fixed, header { display: none !important; } }`}</style>
         </div>
     </>
     );

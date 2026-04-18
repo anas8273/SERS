@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useFirestoreForms } from '@/hooks/useFirestoreForms';
 import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
@@ -290,6 +291,11 @@ function CalendarForm({ cal, onBack }: { cal: CalDef; onBack: () => void }) {
 // ===== Main Page =====
 export default function AcademicCalendarsPage() {
   const { dir } = useTranslation();
+    // Firestore dynamic sync — admin can manage calendars metadata
+    useFirestoreForms('academic-calendars', CALENDARS.map(c => ({
+        id: c.id, title: c.title, description: c.description, icon: null, color: '',
+        gradient: c.gradient, badge: c.badge, fields: [],
+    })));
     const [selected, setSelected] = useState<CalDef | null>(null);
     if (selected) return <CalendarForm cal={selected} onBack={() => setSelected(null)} />;
 

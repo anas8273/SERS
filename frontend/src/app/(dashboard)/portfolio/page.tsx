@@ -3,6 +3,7 @@ import { ta } from '@/i18n/auto-translations';
 import { useTranslation } from '@/i18n/useTranslation';
 import { TopNavBar } from '@/components/layout/TopNavBar';
 import { useState, useEffect, useRef } from 'react';
+import { useFirestoreForms } from '@/hooks/useFirestoreForms';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +27,7 @@ interface PortfolioSection {
 }
 
 const BUILT_IN_SECTIONS_DATA = [
+  { id: 'performance-evidence', titleKey: 'performance-evidence' as const, icon: 'CheckCircle', href: '/performance-evidence-forms', color: 'from-violet-500 to-purple-600', serviceType: 'performance-evidence' },
   { id: 'achievements', titleKey: 'achievements' as const, icon: 'Trophy', href: '/achievements', color: 'from-purple-500 to-violet-500', serviceType: 'achievements' },
   { id: 'certificates', titleKey: 'certificates' as const, icon: 'Award', href: '/certificates', color: 'from-amber-500 to-orange-500', serviceType: 'certificates' },
   { id: 'work-evidence', titleKey: 'work-evidence' as const, icon: 'ClipboardCheck', href: '/work-evidence', color: 'from-emerald-500 to-teal-500', serviceType: 'work-evidence' },
@@ -34,6 +36,7 @@ const BUILT_IN_SECTIONS_DATA = [
   { id: 'distributions', titleKey: 'distributions' as const, icon: 'CalendarDays', href: '/distributions', color: 'from-teal-500 to-cyan-500', serviceType: 'distributions' },
   { id: 'tests', titleKey: 'tests' as const, icon: 'FileText', href: '/tests', color: 'from-red-500 to-rose-500', serviceType: 'tests' },
   { id: 'question-bank', titleKey: 'question-bank' as const, icon: 'FileText', href: '/question-bank', color: 'from-fuchsia-500 to-pink-500', serviceType: 'question-bank' },
+  { id: 'school-initiatives', titleKey: 'school-initiatives' as const, icon: 'Star', href: '/school-initiatives', color: 'from-green-600 to-emerald-600', serviceType: 'school-initiatives' },
 ];
 
 const ICON_MAP: Record<string, any> = { Trophy, Award, ClipboardCheck, Lightbulb, BookOpen, FileText, CalendarDays, CheckCircle, TrendingUp, Star };
@@ -44,6 +47,12 @@ export default function PortfolioPage() {
   const { portfolioSections } = useLocalizedTypes();
   const router = useRouter();
   const [counts, setCounts] = useState<Record<string, number>>({});
+    // Firestore dynamic sync — admin can manage metadata
+    useFirestoreForms('portfolio', [{
+        id: 'portfolio-main', title: ta('الملف المهني', 'Professional Portfolio'),
+        description: ta('ملف إنجاز رقمي شامل', 'Comprehensive digital portfolio'),
+        icon: null, color: '', gradient: 'from-rose-500 to-pink-600', fields: [],
+    }]);
   const [loading, setLoading] = useState(true);
   const [customSections, setCustomSections] = useState<PortfolioSection[]>([]);
   const [addDialog, setAddDialog] = useState(false);

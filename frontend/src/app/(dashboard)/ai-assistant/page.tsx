@@ -1,4 +1,5 @@
 'use client';
+export const dynamic = 'force-dynamic';
 
 /**
  * AI Assistant Page — /dashboard/ai-assistant
@@ -13,6 +14,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useFirestoreForms } from '@/hooks/useFirestoreForms';
 import { useAuthStore } from '@/stores/authStore';
 import { api } from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -35,11 +37,27 @@ interface Message {
   timestamp: Date;
 }
 
+// ─── Route Icon Mapper ────────────────────────────────────────────────────────
+// Returns a contextual icon for each link based on its path
+function getRouteIcon(href: string) {
+  if (href.includes('marketplace')) return ShoppingBag;
+  if (href.includes('dashboard') || href === '/') return Target;
+  if (href.includes('certificates')) return Award;
+  if (href.includes('achievements')) return Award;
+  if (href.includes('plans') || href.includes('distributions')) return Calendar;
+  if (href.includes('follow-up') || href.includes('tests') || href.includes('question-bank')) return ClipboardList;
+  if (href.includes('admin')) return BarChart2;
+  if (href.includes('contact')) return BookOpen;
+  if (href.includes('library') || href.includes('orders')) return BookOpen;
+  return Lightbulb;
+}
+
 // ─── Smart Link Component ─────────────────────────────────────────────────────
 // Renders clickable navigation buttons for internal links from AI responses
 function SmartLink({ href, children }: { href: string; children: React.ReactNode }) {
   const router = useRouter();
   const isInternal = href.startsWith('/');
+  const IconComponent = getRouteIcon(href);
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -54,16 +72,20 @@ function SmartLink({ href, children }: { href: string; children: React.ReactNode
     <button
       onClick={handleClick}
       className={cn(
-        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all',
-        'bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20',
-        'hover:scale-[1.02] active:scale-[0.98] cursor-pointer mx-0.5'
+        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all',
+        'bg-gradient-to-r from-primary/10 to-violet-500/10 text-primary',
+        'hover:from-primary/20 hover:to-violet-500/20',
+        'border border-primary/20 hover:border-primary/40',
+        'hover:scale-[1.03] active:scale-[0.97] cursor-pointer mx-0.5 my-0.5',
+        'shadow-sm hover:shadow-md hover:shadow-primary/10'
       )}
     >
-      {children}
+      <IconComponent className="w-3.5 h-3.5 shrink-0" />
+      <span>{children}</span>
       {isInternal ? (
-        <ArrowRight className="w-3 h-3 rtl:rotate-180" />
+        <ArrowRight className="w-3 h-3 rtl:rotate-180 opacity-60" />
       ) : (
-        <ExternalLink className="w-3 h-3" />
+        <ExternalLink className="w-3 h-3 opacity-60" />
       )}
     </button>
   );
@@ -84,45 +106,56 @@ function RichMessage({ content, role }: { content: string; role: 'user' | 'assis
   // AI messages: parse markdown-like formatting into React elements
   const lines = content.split('\n');
   const elements: React.ReactNode[] = [];
+  let prevWasHeading = false;
 
   lines.forEach((line, lineIdx) => {
     const trimmed = line.trim();
     if (!trimmed) {
-      elements.push(<div key={`br-${lineIdx}`} className="h-2" />);
+      elements.push(<div key={`br-${lineIdx}`} className="h-3" />);
+      prevWasHeading = false;
       return;
     }
 
-    // ## Headings
+    // ## Headings — with decorative accent bar
     if (trimmed.startsWith('## ')) {
+      // Add separator before heading (unless first element)
+      if (elements.length > 0 && !prevWasHeading) {
+        elements.push(
+          <div key={`sep-${lineIdx}`} className="h-px bg-gradient-to-r from-primary/20 via-primary/10 to-transparent my-3" />
+        );
+      }
       elements.push(
-        <h3 key={`h-${lineIdx}`} className="text-sm font-black text-foreground mt-3 mb-1.5 flex items-center gap-1.5">
-          <span className="w-1 h-4 bg-primary rounded-full" />
+        <h3 key={`h-${lineIdx}`} className="text-sm font-black text-foreground mt-2 mb-2 flex items-center gap-2">
+          <span className="w-1 h-5 bg-gradient-to-b from-primary to-violet-500 rounded-full shrink-0" />
           {parseInline(trimmed.slice(3))}
         </h3>
       );
+      prevWasHeading = true;
       return;
     }
 
-    // - List items
+    prevWasHeading = false;
+
+    // - List items with enhanced bullet styling
     if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
       elements.push(
-        <div key={`li-${lineIdx}`} className="flex items-start gap-2 my-0.5 text-sm leading-relaxed">
-          <span className="w-1.5 h-1.5 rounded-full bg-primary/60 mt-2 shrink-0" />
-          <span>{parseInline(trimmed.slice(2))}</span>
+        <div key={`li-${lineIdx}`} className="flex items-start gap-2.5 my-1 text-sm leading-relaxed">
+          <span className="w-2 h-2 rounded-full bg-gradient-to-br from-primary/70 to-violet-500/70 mt-1.5 shrink-0 ring-2 ring-primary/10" />
+          <span className="flex-1">{parseInline(trimmed.slice(2))}</span>
         </div>
       );
       return;
     }
 
-    // Numbered list (1. 2. 3.)
+    // Numbered list (1. 2. 3.) with enhanced number badges
     const numMatch = trimmed.match(/^(\d+)\.\s+(.+)/);
     if (numMatch) {
       elements.push(
-        <div key={`ol-${lineIdx}`} className="flex items-start gap-2 my-0.5 text-sm leading-relaxed">
-          <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+        <div key={`ol-${lineIdx}`} className="flex items-start gap-2.5 my-1 text-sm leading-relaxed">
+          <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-primary/15 to-violet-500/15 text-primary text-[11px] font-black flex items-center justify-center shrink-0 mt-0.5 border border-primary/10">
             {numMatch[1]}
           </span>
-          <span>{parseInline(numMatch[2])}</span>
+          <span className="flex-1">{parseInline(numMatch[2])}</span>
         </div>
       );
       return;
@@ -130,7 +163,7 @@ function RichMessage({ content, role }: { content: string; role: 'user' | 'assis
 
     // Regular paragraph
     elements.push(
-      <p key={`p-${lineIdx}`} className="text-sm leading-relaxed my-0.5">
+      <p key={`p-${lineIdx}`} className="text-sm leading-relaxed my-1">
         {parseInline(trimmed)}
       </p>
     );
@@ -256,6 +289,12 @@ export default function AIAssistantPage() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+    // Firestore dynamic sync
+    useFirestoreForms('ai-assistant', [{
+        id: 'sers-ai', title: ta('مساعد SERS الذكي', 'SERS AI Assistant'),
+        description: ta('مساعد ذكي تفاعلي', 'Smart interactive assistant'),
+        icon: null, color: '', gradient: 'from-primary to-violet-600', fields: [],
+    }]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);

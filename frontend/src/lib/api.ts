@@ -555,14 +555,38 @@ class ApiClient {
      * AI
      * =========================
      */
+    /**
+     * [LOCALE] Read the active locale from the cookie set by I18nProvider.
+     * Falls back to 'ar' (Saudi-first default).
+     */
+    private getLocale(): 'ar' | 'en' {
+        if (typeof document === 'undefined') return 'ar';
+        const match = document.cookie.match(/(?:^|;\s*)locale=(\w+)/);
+        return match?.[1] === 'en' ? 'en' : 'ar';
+    }
+
     async getAISuggestion(payload: {
         template_id: number | undefined;
         field_name: string;
         title: string;
         current_values: Record<string, unknown>;
+        /** Human-readable Arabic field label — sent to backend for expert-persona selection */
+        field_label?: string;
+        /** Optional admin-defined AI hint for this field */
+        ai_hint?: string;
+        /** Locale override — auto-detected from cookie if omitted */
+        locale?: 'ar' | 'en';
+        /** Last generated suggestion — sent on re-generate to prevent repetition */
+        previous_suggestion?: string;
+        /** Re-generate attempt number (1, 2, 3...) — backend boosts creativity */
+        attempt?: number;
     }) {
         // Backend route: POST /ai/suggest (not /ai/suggest-field)
-        const { data } = await this.client.post('/ai/suggest', payload);
+        const { data } = await this.client.post('/ai/suggest', {
+            ...payload,
+            // Always send locale so backend returns the correct language
+            locale: payload.locale ?? this.getLocale(),
+        });
         return data;
     }
 
@@ -570,8 +594,12 @@ class ApiClient {
         template_id: number | undefined;
         title: string;
         current_values: Record<string, unknown>;
+        locale?: 'ar' | 'en';
     }) {
-        const { data } = await this.client.post('/ai/fill-all', payload);
+        const { data } = await this.client.post('/ai/fill-all', {
+            ...payload,
+            locale: payload.locale ?? this.getLocale(),
+        });
         return data;
     }
 
@@ -801,6 +829,9 @@ class ApiClient {
     async createTemplate(payload: FormData | Record<string, unknown>) {
         // Upload directly to backend, bypassing Next.js proxy (10MB limit)
         const { data } = await this.directUpload('/api/admin/templates', payload);
+        // [FIX] Clear frontend caches so new template appears immediately
+        cache.delete('featured_templates');
+        cache.delete('sections_list');
         return data;
     }
 
@@ -830,6 +861,9 @@ class ApiClient {
 
     async deleteAdminTemplate(id: string | number) {
         const { data } = await this.client.delete(`/admin/templates/${id}`);
+        // [FIX] Clear frontend caches so users see deletion immediately
+        cache.delete('featured_templates');
+        cache.delete('sections_list');
         return data;
     }
 
@@ -839,6 +873,8 @@ class ApiClient {
 
     async toggleTemplateFeatured(id: string | number) {
         const { data } = await this.client.post(`/admin/templates/${id}/toggle-featured`);
+        // [FIX] Clear featured cache so homepage updates immediately
+        cache.delete('featured_templates');
         return data;
     }
 

@@ -202,7 +202,7 @@ export default function TemplateDetailsPage() {
             }
             const cd = response.headers.get('Content-Disposition') || '';
             const match = cd.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-            const fileName = match ? match[1].replace(/['"]/g, '') : `${template.slug}.pdf`;
+            const fileName = match ? match[1].replace(/['"]/g, '') : `${template.slug}.${template.file_type || 'pdf'}`;
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -432,7 +432,10 @@ export default function TemplateDetailsPage() {
                                                 {ta('جاهز للتحميل والاستخدام', 'Ready to Download & Use')}
                                             </h4>
                                             <p className="text-sm text-gray-500 dark:text-gray-400">
-                                                {ta(`اشترِ القالب وحمّله فوراً كملف ${fmt.label} جاهز للاستخدام`, `Purchase and instantly download as a ${fmt.label} file ready to use`)}
+                                                {template.format
+                                                    ? ta(`اشترِ القالب وحمّله فوراً كملف ${fmt.label} جاهز للاستخدام`, `Purchase and instantly download as a ${fmt.label} file ready to use`)
+                                                    : ta('اشترِ القالب وحمّله فوراً — جاهز للاستخدام مباشرة', 'Purchase and instantly download — ready to use right away')
+                                                }
                                             </p>
                                         </div>
                                     </div>

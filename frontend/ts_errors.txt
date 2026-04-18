@@ -1,0 +1,57 @@
+﻿src/app/improve-results/page.tsx(176,74): error TS2345: Argument of type 'FormDef[]' is not assignable to parameter of type 'FormTemplate[]'.
+  Type 'FormDef' is missing the following properties from type 'FormTemplate': icon, color
+src/app/improve-results/page.tsx(206,204): error TS2345: Argument of type 'FormTemplate' is not assignable to parameter of type 'SetStateAction<FormDef | null>'.
+  Type 'FormTemplate' is not assignable to type 'FormDef'.
+    Types of property 'fields' are incompatible.
+      Type 'FormField[]' is not assignable to type 'FieldDef[]'.
+        Type 'FormField' is not assignable to type 'FieldDef'.
+          Types of property 'type' are incompatible.
+            Type '"number" | "text" | "url" | "select" | "checkbox" | "date" | "image" | "textarea"' is not assignable to type '"text" | "image" | "textarea"'.
+              Type '"number"' is not assignable to type '"text" | "image" | "textarea"'.
+src/app/job-duties-forms/page.tsx(213,75): error TS2345: Argument of type '{ id: string; title: string; description: string; gradient: string; badge: undefined; }[]' is not assignable to parameter of type 'FormTemplate[]'.
+  Type '{ id: string; title: string; description: string; gradient: string; badge: undefined; }' is missing the following properties from type 'FormTemplate': icon, color, fields
+src/app/job-duties-forms/page.tsx(244,204): error TS2345: Argument of type 'FormTemplate' is not assignable to parameter of type 'SetStateAction<{ id: string; title: string; description: string; gradient: string; badge: undefined; } | null>'.
+  Type 'FormTemplate' is not assignable to type '{ id: string; title: string; description: string; gradient: string; badge: undefined; }'.
+    Types of property 'badge' are incompatible.
+      Type 'string | undefined' is not assignable to type 'undefined'.
+        Type 'string' is not assignable to type 'undefined'.
+src/app/parents-interaction/page.tsx(198,78): error TS2345: Argument of type 'FormDef[]' is not assignable to parameter of type 'FormTemplate[]'.
+  Type 'FormDef' is missing the following properties from type 'FormTemplate': icon, color
+src/app/parents-interaction/page.tsx(227,204): error TS2345: Argument of type 'FormTemplate' is not assignable to parameter of type 'SetStateAction<FormDef | null>'.
+  Type 'FormTemplate' is not assignable to type 'FormDef'.
+    Types of property 'fields' are incompatible.
+      Type 'FormField[]' is not assignable to type 'FieldDef[]'.
+        Type 'FormField' is not assignable to type 'FieldDef'.
+          Types of property 'type' are incompatible.
+            Type '"number" | "text" | "url" | "select" | "checkbox" | "date" | "image" | "textarea"' is not assignable to type '"text" | "image" | "textarea"'.
+              Type '"number"' is not assignable to type '"text" | "image" | "textarea"'.
+src/app/professional-community/_ProfessionalContent.tsx(554,81): error TS2345: Argument of type 'FormDef[]' is not assignable to parameter of type 'FormTemplate[]'.
+  Type 'FormDef' is missing the following properties from type 'FormTemplate': icon, color
+src/app/professional-community/_ProfessionalContent.tsx(583,204): error TS2345: Argument of type 'FormTemplate' is not assignable to parameter of type 'SetStateAction<FormDef | null>'.
+  Type 'FormTemplate' is not assignable to type 'FormDef'.
+    Types of property 'fields' are incompatible.
+      Type 'FormField[]' is not assignable to type 'FieldDef[]'.
+        Type 'FormField' is not assignable to type 'FieldDef'.
+          Types of property 'type' are incompatible.
+            Type '"number" | "text" | "url" | "select" | "checkbox" | "date" | "image" | "textarea"' is not assignable to type '"text" | "image" | "textarea"'.
+              Type '"number"' is not assignable to type '"text" | "image" | "textarea"'.
+src/app/remedial-enrichment-plans/page.tsx(180,84): error TS2345: Argument of type 'FormDef[]' is not assignable to parameter of type 'FormTemplate[]'.
+  Type 'FormDef' is missing the following properties from type 'FormTemplate': icon, color
+src/app/remedial-enrichment-plans/page.tsx(209,204): error TS2345: Argument of type 'FormTemplate' is not assignable to parameter of type 'SetStateAction<FormDef | null>'.
+  Type 'FormTemplate' is not assignable to type 'FormDef'.
+    Types of property 'fields' are incompatible.
+      Type 'FormField[]' is not assignable to type 'FieldDef[]'.
+        Type 'FormField' is not assignable to type 'FieldDef'.
+          Types of property 'type' are incompatible.
+            Type '"number" | "text" | "url" | "select" | "checkbox" | "date" | "image" | "textarea"' is not assignable to type '"text" | "image" | "textarea"'.
+              Type '"number"' is not assignable to type '"text" | "image" | "textarea"'.
+src/app/school-environment/page.tsx(173,77): error TS2345: Argument of type 'FormDef[]' is not assignable to parameter of type 'FormTemplate[]'.
+  Type 'FormDef' is missing the following properties from type 'FormTemplate': icon, color
+src/app/school-environment/page.tsx(203,204): error TS2345: Argument of type 'FormTemplate' is not assignable to parameter of type 'SetStateAction<FormDef | null>'.
+  Type 'FormTemplate' is not assignable to type 'FormDef'.
+    Types of property 'fields' are incompatible.
+      Type 'FormField[]' is not assignable to type 'FieldDef[]'.
+        Type 'FormField' is not assignable to type 'FieldDef'.
+          Types of property 'type' are incompatible.
+            Type '"number" | "text" | "url" | "select" | "checkbox" | "date" | "image" | "textarea"' is not assignable to type '"text" | "image" | "textarea"'.
+              Type '"number"' is not assignable to type '"text" | "image" | "textarea"'.

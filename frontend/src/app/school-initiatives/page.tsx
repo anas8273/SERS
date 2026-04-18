@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useFirestoreForms } from '@/hooks/useFirestoreForms';
 import { useLocalDraft } from '@/hooks/useLocalDraft';
 import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
@@ -9,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Lightbulb, Eye, Download, RotateCcw, ChevronRight, Image as ImageIcon } from 'lucide-react';
+import { Lightbulb, Eye, Download, RotateCcw, ChevronRight, Image as ImageIcon, Sparkles, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 // ===== Common fields for all initiatives =====
@@ -131,6 +132,7 @@ const INITIATIVES: InitiativeDef[] = [
 import Link from 'next/link';
 import { ta } from '@/i18n/auto-translations';
 import { useTranslation } from '@/i18n/useTranslation';
+import { useAIFieldFill } from '@/hooks/useAIFieldFill';
 
 // ===== Ramadan Basket Custom Form =====
 function RamadanBasketForm({ onBack }: { onBack: () => void }) {
@@ -160,6 +162,7 @@ function RamadanBasketForm({ onBack }: { onBack: () => void }) {
     const [images, setImages] = useState<string[]>([]);
     const [showDesign, setShowDesign] = useState(true);
     const [showPreview, setShowPreview] = useState(false);
+    const { fillField, fillAllFields, loadingField } = useAIFieldFill();
 
     const handleImages = (files: FileList) => {
         Array.from(files).slice(0, 10 - images.length).forEach(file => {
@@ -297,7 +300,7 @@ function RamadanBasketForm({ onBack }: { onBack: () => void }) {
                 <button onClick={onBack} className="flex items-center gap-2 text-gray-500 hover:text-primary mb-6 text-sm transition-colors">
                     <ChevronRight className="w-4 h-4" /> {ta('العودة للمبادرات المدرسية', 'Back to School Initiatives')}
                 </button>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="max-w-3xl mx-auto">
                 <div className="print:hidden">
                 <Card className="border-0 shadow-lg">
                     <CardHeader className={`bg-gradient-to-l ${GRADIENT} text-white rounded-t-xl py-4`}>
@@ -405,6 +408,10 @@ function RamadanBasketForm({ onBack }: { onBack: () => void }) {
                             )}
                         </div>
                         <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                            <Button disabled={!!loadingField} onClick={() => fillAllFields([{key:'idea',label:'فكرة المبادرة',type:'textarea'},{key:'objectives',label:'الأهداف',type:'textarea'},{key:'implementation',label:'آلية التنفيذ',type:'textarea'},{key:'activities',label:'الأنشطة',type:'textarea'},{key:'outcomes',label:'مؤشرات النجاح',type:'textarea'}], ta('تقرير تفعيل مبادرة', 'Initiative Activation Report'), v, set)} className="w-full gap-2 bg-gradient-to-l from-violet-600 to-purple-700 text-white border-0 text-sm hover:opacity-90">
+                                {loadingField === '__all__' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                                {ta('تعبئة جميع الحقول بالذكاء الاصطناعي', 'Fill All Fields with AI')}
+                            </Button>
                             <div className="flex gap-2">
                                 <Button onClick={() => setShowPreview(true)} className="flex-1 gap-2 bg-green-500 hover:bg-green-600 text-white border-0 text-sm"><Eye className="w-4 h-4" />{ta('معاينة', 'Preview')}</Button>
                                 <Button onClick={() => { setV(p => ({...p, notes:'', activities_summary:'', results_measure:''})); setImages([]); }} className="flex-1 gap-2 bg-orange-500 hover:bg-orange-600 text-white border-0 text-sm"><RotateCcw className="w-4 h-4" />{ta('استعادة', 'Restore')}</Button>
@@ -414,16 +421,26 @@ function RamadanBasketForm({ onBack }: { onBack: () => void }) {
                     </CardContent>
                 </Card>
                 </div>
-                {/* Preview column */}
-                <div className="sticky top-24">
-                    <p className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2"><Eye className="w-4 h-4" />{ta('معاينة مباشرة', 'Live Preview')}</p>
-                    <div id="ramadan-preview-print">
-                        <PreviewContent />
+                {/* Preview Modal */}
+                {showPreview && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowPreview(false)}>
+                        <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                            <button onClick={() => setShowPreview(false)} className="absolute top-3 left-3 z-10 bg-white/90 shadow-lg rounded-full w-8 h-8 flex items-center justify-center text-gray-600 hover:text-red-500 transition-colors text-sm font-bold">✕</button>
+                            <div className="absolute top-3 right-3 z-10 flex gap-2">
+                                <Button size="sm" onClick={handleDownload} className="gap-1.5 bg-gradient-to-l from-green-600 to-emerald-700 text-white border-0 text-xs shadow-lg rounded-xl">
+                                    <Download className="w-3.5 h-3.5" /> {ta('تحميل PDF', 'Download PDF')}
+                                </Button>
+                            </div>
+                            <div id="ramadan-preview-print">
+                                <PreviewContent />
+                            </div>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
             </main>
             <Footer />
+            <style>{`@media print { nav, footer, button, .fixed { display: none !important; } }`}</style>
         </div>
     );
 }
@@ -439,6 +456,9 @@ function InitiativeForm({ init, onBack }: { init: InitiativeDef; onBack: () => v
         reader.onload = e => setImages(p => ({ ...p, [key]: e.target?.result as string }));
         reader.readAsDataURL(file);
     };
+    const [showPreview, setShowPreview] = useState(false);
+    const hasData = Object.keys(values).some(k => values[k]) || Object.keys(images).length > 0;
+    const { fillField: fillFieldI, fillAllFields: fillAllFieldsI, loadingField: loadingFieldI } = useAIFieldFill();
 
     const ImageField = ({ k }: { k: string }) => (
         images[k] ? (
@@ -462,7 +482,7 @@ function InitiativeForm({ init, onBack }: { init: InitiativeDef; onBack: () => v
                 <button onClick={onBack} className="flex items-center gap-2 text-gray-500 hover:text-primary mb-6 text-sm transition-colors">
                     <ChevronRight className="w-4 h-4" /> {ta('العودة للمبادرات المدرسية', 'Back to School Initiatives')}
                 </button>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="max-w-3xl mx-auto">
                     <Card className="border-0 shadow-lg">
                         <CardHeader className={`bg-gradient-to-l ${init.gradient} text-white rounded-t-xl`}>
                             <div className="flex items-center gap-3">
@@ -560,55 +580,65 @@ function InitiativeForm({ init, onBack }: { init: InitiativeDef; onBack: () => v
                             </div>
                             {/* Actions */}
                             <div className="space-y-2 pt-4 border-t border-gray-100 dark:border-gray-800">
+                                <Button disabled={!!loadingFieldI} onClick={() => fillAllFieldsI([{key:'objectives',label:'الأهداف',type:'textarea'},{key:'steps',label:'خطوات التنفيذ',type:'textarea'}], init.title, values, set)} className="w-full gap-2 bg-gradient-to-l from-violet-600 to-purple-700 text-white border-0 text-sm hover:opacity-90">
+                                    {loadingFieldI === '__all__' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                                    {ta('تعبئة جميع الحقول بالذكاء الاصطناعي', 'Fill All Fields with AI')}
+                                </Button>
                                 <div className="flex gap-2">
-                                    <Button className="flex-1 gap-2 bg-green-500 hover:bg-green-600 text-white border-0 text-sm"><Eye className="w-4 h-4" />{ta('معاينة', 'Preview')}</Button>
+                                    <Button onClick={() => { if (!hasData) { toast.error(ta('يرجى ملء الحقول أولاً', 'Please fill in fields first')); return; } setShowPreview(true); }} className="flex-1 gap-2 bg-green-500 hover:bg-green-600 text-white border-0 text-sm"><Eye className="w-4 h-4" />{ta('معاينة', 'Preview')}</Button>
                                     <Button onClick={() => { setValues({}); setImages({}); }} className="flex-1 gap-2 bg-orange-500 hover:bg-orange-600 text-white border-0 text-sm"><RotateCcw className="w-4 h-4" />{ta('استعادة القيم الافتراضية', 'Restore Defaults')}</Button>
                                 </div>
                                 <Button onClick={() => { toast.success(ta('جاري التحضير...', 'Preparing...')); setTimeout(() => window.print(), 400); }} className={`w-full gap-2 bg-gradient-to-l ${init.gradient} text-white border-0 text-sm`}><Download className="w-4 h-4" />{ta('تحميل PDF', 'Download PDF')}</Button>
                             </div>
                         </CardContent>
                     </Card>
-
-                    {/* Preview */}
-                    <div className="sticky top-24 print:block">
-                        <p className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2"><Eye className="w-4 h-4" />{ta('معاينة مباشرة', 'Live Preview')}</p>
-                        {Object.keys(values).some(k => values[k]) || Object.keys(images).length > 0 ? (
-                            <div className="bg-white rounded-2xl shadow-xl overflow-hidden border" style={{ fontFamily: 'Cairo, sans-serif', direction: 'rtl' }}>
-                                <div className={`bg-gradient-to-l ${init.gradient} p-4 text-white`}>
-                                    <p className="text-xs opacity-80 mb-1">{ta('وزارة التعليم — مبادرات مدرسية', 'Ministry of Education — School Initiatives')}</p>
-                                    <h2 className="text-base font-black">{values.program_name || init.title}</h2>
-                                    {values.edu_school && <p className="text-xs opacity-90 mt-1 whitespace-pre-line">{values.edu_school}</p>}
-                                </div>
-                                <div className="p-4 space-y-2 text-sm">
-                                    {[['المنفذ/ون','implementors'],['المشاركـ/ون','participants'],['مكان التنفيذ','location'],['مدة التنفيذ','duration'],['تاريخ التنفيذ','date'],['المستفيدون','beneficiaries'],['المجال','domain']].map(([l,k]) => values[k] ? (
-                                        <div key={k} className="flex gap-2 border-b border-gray-100 pb-1"><span className="font-bold text-gray-600 min-w-[110px] shrink-0">{l}:</span><span className="text-gray-800">{values[k]}</span></div>
-                                    ) : null)}
-                                    {values.objectives && <div className="mt-2"><p className="font-bold text-gray-600 mb-1">{ta('الأهداف:', 'Objectives:')}</p><p className="text-gray-700 text-xs whitespace-pre-line">{values.objectives}</p></div>}
-                                    {values.steps && <div className="mt-2"><p className="font-bold text-gray-600 mb-1">{ta('خطوات التنفيذ:', 'Implementation Steps:')}</p><p className="text-gray-700 text-xs whitespace-pre-line">{values.steps}</p></div>}
-                                    {(images.image1 || images.image2) && (
-                                        <div className="grid grid-cols-2 gap-2 mt-3">
-                                            {['image1','image2'].map(k => images[k] ? <img key={k} src={images[k]} alt="" className="w-full h-28 object-cover rounded-lg border" /> : null)}
-                                        </div>
-                                    )}
-                                    {(values.right_signature || values.left_signature) && (
-                                        <div className="flex justify-between mt-4 pt-3 border-t border-gray-200">
-                                            {values.right_signature && <div className="text-center text-xs"><p className="whitespace-pre-line text-gray-700">{values.right_signature}</p><div className="mt-2 border-b border-gray-400 w-20 mx-auto" /></div>}
-                                            {values.left_signature && <div className="text-center text-xs"><p className="whitespace-pre-line text-gray-700">{values.left_signature}</p><div className="mt-2 border-b border-gray-400 w-20 mx-auto" /></div>}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-dashed border-gray-200 p-12 text-center">
-                                <Lightbulb className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                                <p className="text-gray-400 text-sm">{ta('ابدأ بملء الحقول لرؤية المعاينة', 'Start filling in the fields to see preview')}</p>
-                            </div>
-                        )}
-                    </div>
                 </div>
             </main>
+
+            {/* Preview Modal */}
+            {showPreview && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowPreview(false)}>
+                    <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setShowPreview(false)} className="absolute top-3 left-3 z-10 bg-white/90 shadow-lg rounded-full w-8 h-8 flex items-center justify-center text-gray-600 hover:text-red-500 transition-colors text-sm font-bold">✕</button>
+                        <div className="absolute top-3 right-3 z-10 flex gap-2">
+                            <Button size="sm" onClick={() => { toast.success(ta('جاري التحضير...', 'Preparing...')); setTimeout(() => window.print(), 400); }} className={`gap-1.5 bg-gradient-to-l ${init.gradient} text-white border-0 text-xs shadow-lg rounded-xl`}>
+                                <Download className="w-3.5 h-3.5" /> {ta('تحميل PDF', 'Download PDF')}
+                            </Button>
+                        </div>
+                        <div className="bg-white rounded-2xl shadow-xl overflow-hidden border" style={{ fontFamily: 'Cairo, sans-serif', direction: 'rtl' }}>
+                            <div className={`bg-gradient-to-l ${init.gradient} p-4 text-white`}>
+                                <p className="text-xs opacity-80 mb-1">{ta('وزارة التعليم — مبادرات مدرسية', 'Ministry of Education — School Initiatives')}</p>
+                                <h2 className="text-base font-black">{values.program_name || init.title}</h2>
+                                {values.edu_school && <p className="text-xs opacity-90 mt-1 whitespace-pre-line">{values.edu_school}</p>}
+                            </div>
+                            <div className="p-4 space-y-2 text-sm">
+                                {[['المنفذ/ون','implementors'],['المشاركـ/ون','participants'],['مكان التنفيذ','location'],['مدة التنفيذ','duration'],['تاريخ التنفيذ','date'],['المستفيدون','beneficiaries'],['المجال','domain']].map(([l,k]) => values[k] ? (
+                                    <div key={k} className="flex gap-2 border-b border-gray-100 pb-1"><span className="font-bold text-gray-600 min-w-[110px] shrink-0">{l}:</span><span className="text-gray-800">{values[k]}</span></div>
+                                ) : null)}
+                                {values.objectives && <div className="mt-2"><p className="font-bold text-gray-600 mb-1">{ta('الأهداف:', 'Objectives:')}</p><p className="text-gray-700 text-xs whitespace-pre-line">{values.objectives}</p></div>}
+                                {values.steps && <div className="mt-2"><p className="font-bold text-gray-600 mb-1">{ta('خطوات التنفيذ:', 'Implementation Steps:')}</p><p className="text-gray-700 text-xs whitespace-pre-line">{values.steps}</p></div>}
+                                {(images.image1 || images.image2) && (
+                                    <div className="grid grid-cols-2 gap-2 mt-3">
+                                        {['image1','image2'].map(k => images[k] ? <img key={k} src={images[k]} alt="" className="w-full h-28 object-cover rounded-lg border" /> : null)}
+                                    </div>
+                                )}
+                                {(values.right_signature || values.left_signature) && (
+                                    <div className="flex justify-between mt-4 pt-3 border-t border-gray-200">
+                                        {values.right_signature && <div className="text-center text-xs"><p className="whitespace-pre-line text-gray-700">{values.right_signature}</p><div className="mt-2 border-b border-gray-400 w-20 mx-auto" /></div>}
+                                        {values.left_signature && <div className="text-center text-xs"><p className="whitespace-pre-line text-gray-700">{values.left_signature}</p><div className="mt-2 border-b border-gray-400 w-20 mx-auto" /></div>}
+                                    </div>
+                                )}
+                            </div>
+                            <div className={`bg-gradient-to-l ${init.gradient} text-white text-center py-2 text-xs font-bold`}>
+                                SERS — {ta('نظام السجلات التعليمية الذكية', 'Smart Educational Records System')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <Footer />
-            <style>{`@media print { nav, footer, button { display: none !important; } }`}</style>
+            <style>{`@media print { nav, footer, button, .fixed { display: none !important; } }`}</style>
         </div>
     );
 }
@@ -616,6 +646,11 @@ function InitiativeForm({ init, onBack }: { init: InitiativeDef; onBack: () => v
 // ===== Main Page =====
 export default function SchoolInitiativesPage() {
   const { dir } = useTranslation();
+    const { forms: dynamicInitiatives } = useFirestoreForms('school-initiatives', INITIATIVES.map(i => ({
+        id: i.id, title: i.title, description: i.description, icon: null, color: '', gradient: i.gradient, badge: i.badge,
+        fields: [{ key: 'objectives', label: 'الأهداف', type: 'textarea' as const, placeholder: i.objectives_ph, rows: 5 },
+                 { key: 'steps', label: 'خطوات التنفيذ', type: 'textarea' as const, placeholder: i.steps_ph, rows: 5 }],
+    })));
     const [selected, setSelected] = useState<InitiativeDef | null>(null);
     const [showRamadan, setShowRamadan] = useState(false);
 

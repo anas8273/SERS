@@ -8,10 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { BarChart2, Eye, Download, RotateCcw, ChevronRight, Image as FileText } from 'lucide-react';
+import { BarChart2, Eye, Download, RotateCcw, ChevronRight, Image as FileText, Sparkles, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { ta } from '@/i18n/auto-translations';
 import { useTranslation } from '@/i18n/useTranslation';
+import { useAIFieldFill } from '@/hooks/useAIFieldFill';
 
 interface FieldDef { key: string; label: string; type: 'text' | 'textarea' | 'image'; placeholder?: string; rows?: number; required?: boolean; }
 interface FormDef { id: string; title: string; description: string; gradient: string; badge?: string; fields: FieldDef[]; }
@@ -119,6 +120,7 @@ function FormFill({ form, onBack }: { form: FormDef; onBack: () => void }) {
   const { dir } = useTranslation();
     const [v, setV] = useState<Record<string, string>>({});
     const [images, setImages] = useState<Record<string, string>>({});
+    const [showPreview, setShowPreview] = useState(false);
     const set = (k: string, val: string) => setV(p => ({ ...p, [k]: val }));
     const handleImage = (key: string, file: File) => {
         const r = new FileReader();
@@ -127,6 +129,8 @@ function FormFill({ form, onBack }: { form: FormDef; onBack: () => void }) {
     };
     const imageFields = form.fields.filter(f => f.type === 'image');
     const nonImageFields = form.fields.filter(f => f.type !== 'image');
+    const hasData = Object.keys(v).some(k => v[k]) || Object.keys(images).length > 0;
+    const { fillField, fillAllFields, loadingField } = useAIFieldFill();
 
     const ImgField = ({ k, label }: { k: string; label: string }) => (
         <div>
@@ -146,6 +150,34 @@ function FormFill({ form, onBack }: { form: FormDef; onBack: () => void }) {
         </div>
     );
 
+    const PreviewContent = () => (
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden border" style={{ fontFamily: 'Cairo, sans-serif', direction: 'rtl' }}>
+            <div className={`bg-gradient-to-l ${form.gradient} p-5 text-white`}>
+                <p className="text-xs opacity-80 mb-1">{ta('وزارة التعليم — تحليل نتائج المتعلمين', 'Ministry of Education — Learner Results Analysis')}</p>
+                <h2 className="text-base font-black">{form.title}</h2>
+                {v.edu_school && <p className="text-xs opacity-90 mt-1 whitespace-pre-line">{v.edu_school}</p>}
+            </div>
+            <div className="p-5 space-y-1.5 text-xs">
+                {nonImageFields.filter(f => f.key !== 'edu_school').map(f =>
+                    v[f.key] ? (
+                        <div key={f.key} className="flex gap-2 border-b border-gray-100 pb-1">
+                            <span className="font-bold text-gray-600 min-w-[100px] shrink-0">{f.label}:</span>
+                            <span className="text-gray-800 whitespace-pre-wrap">{v[f.key]}</span>
+                        </div>
+                    ) : null
+                )}
+                {imageFields.some(f => images[f.key]) && (
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                        {imageFields.map(f => images[f.key] ? <img key={f.key} src={images[f.key]} alt={f.label} className="w-full h-24 object-cover rounded-lg border" /> : null)}
+                    </div>
+                )}
+            </div>
+            <div className={`bg-gradient-to-l ${form.gradient} text-white text-center py-2 text-xs font-bold`}>
+                SERS — {ta('نظام السجلات التعليمية الذكية', 'Smart Educational Records System')}
+            </div>
+        </div>
+    );
+
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950" dir={dir}>
             <Navbar />
@@ -153,7 +185,7 @@ function FormFill({ form, onBack }: { form: FormDef; onBack: () => void }) {
                 <button onClick={onBack} className="flex items-center gap-2 text-gray-500 hover:text-primary mb-6 text-sm transition-colors">
                     <ChevronRight className="w-4 h-4" /> {ta('العودة', 'Go Back')}
                 </button>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="max-w-3xl mx-auto">
                     <Card className="border-0 shadow-lg">
                         <CardHeader className={`bg-gradient-to-l ${form.gradient} text-white rounded-t-xl`}>
                             <div className="flex items-center gap-3">
@@ -167,9 +199,17 @@ function FormFill({ form, onBack }: { form: FormDef; onBack: () => void }) {
                         <CardContent className="p-5 space-y-4">
                             {nonImageFields.map(field => (
                                 <div key={field.key}>
-                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                                        {field.label}{field.required && <span className="text-red-500 me-1">*</span>}
-                                    </label>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">
+                                            {field.label}{field.required && <span className="text-red-500 me-1">*</span>}
+                                        </label>
+                                        {field.type === 'textarea' && (
+                                            <button type="button" disabled={loadingField === field.key} onClick={() => fillField(field.key, field.label, form.title, v, set)} className="flex items-center gap-1 text-xs font-bold text-violet-600 hover:text-violet-700 bg-violet-50 hover:bg-violet-100 px-2 py-0.5 rounded-lg transition-colors disabled:opacity-50">
+                                                {loadingField === field.key ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                                {ta('تعبئة بالذكاء الاصطناعي', 'Fill with AI')}
+                                            </button>
+                                        )}
+                                    </div>
                                     {field.type === 'textarea' ? (
                                         <Textarea rows={field.rows || 3} placeholder={field.placeholder} value={v[field.key] || ''} onChange={e => set(field.key, e.target.value)} className="resize-y text-sm" />
                                     ) : (
@@ -183,8 +223,12 @@ function FormFill({ form, onBack }: { form: FormDef; onBack: () => void }) {
                                 </div>
                             )}
                             <div className="space-y-2 pt-4 border-t border-gray-100 dark:border-gray-800">
+                                <Button disabled={!!loadingField} onClick={() => fillAllFields(form.fields.filter(f => f.type !== 'image'), form.title, v, set)} className="w-full gap-2 bg-gradient-to-l from-violet-600 to-purple-700 text-white border-0 text-sm hover:opacity-90">
+                                    {loadingField === '__all__' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                                    {ta('تعبئة جميع الحقول بالذكاء الاصطناعي', 'Fill All Fields with AI')}
+                                </Button>
                                 <div className="flex gap-2">
-                                    <Button className="flex-1 gap-2 bg-green-500 hover:bg-green-600 text-white border-0 text-sm"><Eye className="w-4 h-4" />{ta('معاينة', 'Preview')}</Button>
+                                    <Button onClick={() => { if (!hasData) { toast.error(ta('يرجى ملء الحقول أولاً', 'Please fill in fields first')); return; } setShowPreview(true); }} className="flex-1 gap-2 bg-green-500 hover:bg-green-600 text-white border-0 text-sm"><Eye className="w-4 h-4" />{ta('معاينة', 'Preview')}</Button>
                                     <Button onClick={() => { setV({}); setImages({}); }} className="flex-1 gap-2 bg-orange-500 hover:bg-orange-600 text-white border-0 text-sm"><RotateCcw className="w-4 h-4" />{ta('استعادة القيم الافتراضية', 'Restore Defaults')}</Button>
                                 </div>
                                 <Button onClick={() => { toast.success(ta('جاري التحضير...', 'Preparing...')); setTimeout(() => window.print(), 400); }} className={`w-full gap-2 bg-gradient-to-l ${form.gradient} text-white border-0 text-sm`}>
@@ -193,43 +237,26 @@ function FormFill({ form, onBack }: { form: FormDef; onBack: () => void }) {
                             </div>
                         </CardContent>
                     </Card>
-
-                    <div className="sticky top-24">
-                        <p className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2"><Eye className="w-4 h-4" />{ta('معاينة مباشرة', 'Live Preview')}</p>
-                        {Object.keys(v).some(k => v[k]) || Object.keys(images).length > 0 ? (
-                            <div className="bg-white rounded-2xl shadow-xl overflow-hidden border" style={{ fontFamily: 'Cairo, sans-serif', direction: 'rtl' }}>
-                                <div className={`bg-gradient-to-l ${form.gradient} p-5 text-white`}>
-                                    <p className="text-xs opacity-80 mb-1">{ta('وزارة التعليم — تحليل نتائج المتعلمين', 'Ministry of Education — Learner Results Analysis')}</p>
-                                    <h2 className="text-base font-black">{form.title}</h2>
-                                    {v.edu_school && <p className="text-xs opacity-90 mt-1 whitespace-pre-line">{v.edu_school}</p>}
-                                </div>
-                                <div className="p-5 space-y-1.5 text-xs">
-                                    {nonImageFields.filter(f => f.key !== 'edu_school').map(f =>
-                                        v[f.key] ? (
-                                            <div key={f.key} className="flex gap-2 border-b border-gray-100 pb-1">
-                                                <span className="font-bold text-gray-600 min-w-[100px] shrink-0">{f.label}:</span>
-                                                <span className="text-gray-800 whitespace-pre-wrap">{v[f.key]}</span>
-                                            </div>
-                                        ) : null
-                                    )}
-                                    {imageFields.some(f => images[f.key]) && (
-                                        <div className="grid grid-cols-2 gap-2 mt-2">
-                                            {imageFields.map(f => images[f.key] ? <img key={f.key} src={images[f.key]} alt={f.label} className="w-full h-24 object-cover rounded-lg border" /> : null)}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-dashed border-gray-200 p-12 text-center">
-                                <BarChart2 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                                <p className="text-gray-400 text-sm">{ta('ابدأ بملء الحقول لرؤية المعاينة', 'Start filling in the fields to see preview')}</p>
-                            </div>
-                        )}
-                    </div>
                 </div>
             </main>
+
+            {/* Preview Modal */}
+            {showPreview && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowPreview(false)}>
+                    <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setShowPreview(false)} className="absolute top-3 left-3 z-10 bg-white/90 shadow-lg rounded-full w-8 h-8 flex items-center justify-center text-gray-600 hover:text-red-500 transition-colors text-sm font-bold">✕</button>
+                        <div className="absolute top-3 right-3 z-10 flex gap-2">
+                            <Button size="sm" onClick={() => { toast.success(ta('جاري التحضير...', 'Preparing...')); setTimeout(() => window.print(), 400); }} className={`gap-1.5 bg-gradient-to-l ${form.gradient} text-white border-0 text-xs shadow-lg rounded-xl`}>
+                                <Download className="w-3.5 h-3.5" /> {ta('تحميل PDF', 'Download PDF')}
+                            </Button>
+                        </div>
+                        <PreviewContent />
+                    </div>
+                </div>
+            )}
+
             <Footer />
-            <style>{`@media print { nav, footer, button { display: none !important; } }`}</style>
+            <style>{`@media print { nav, footer, button, .fixed { display: none !important; } }`}</style>
         </div>
     );
 }
@@ -250,10 +277,10 @@ export default function AnalyzeResultsPage() {
                     </div>
                     <div className="relative container mx-auto px-4 pt-32 pb-20 text-center max-w-3xl mx-auto">
                         <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/10 px-5 py-2.5 rounded-full text-sm font-bold mb-6">
-                            <BarChart2 className="w-4 h-4 text-cyan-400" /> {ta('تحليل نتائج المتعلمين وتشخيصها', 'Analyze and Diagnose Learner Results')}
+                            <BarChart2 className="w-4 h-4 text-cyan-400" /> {ta('تحليل النتائج', 'Results Analysis')}
                         </div>
-                        <h1 className="text-4xl md:text-5xl font-black mb-4">{ta('تحليل نتائج المتعلمين وتشخيصها', 'Analyze and Diagnose Learner Results')}</h1>
-                        <p className="text-lg text-white/70 mb-6">{ta('نماذج تحليل وتشخيص نتائج الطلاب لجميع المراحل الدراسية', 'Student results analysis and diagnostic forms for all academic stages')}</p>
+                        <h1 className="text-4xl md:text-5xl font-black mb-4">{ta('تحليل النتائج', 'Results Analysis')}</h1>
+                        <p className="text-lg text-white/70 mb-6">{ta('تحليل نتائج الاختبارات واستخراج التقارير والإحصائيات التفصيلية مع رسوم بيانية تفاعلية', 'Analyze test results with detailed reports, statistics, and interactive charts')}</p>
                         <div className="flex items-center justify-center gap-6 text-sm text-white/60">
                             <span className="flex items-center gap-1.5"><FileText className="w-4 h-4" />{FORMS.length} نماذج</span>
                             <span className="flex items-center gap-1.5"><Download className="w-4 h-4" />{ta('تحميل PDF', 'Download PDF')}</span>

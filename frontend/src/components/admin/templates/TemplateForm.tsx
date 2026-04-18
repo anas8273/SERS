@@ -295,10 +295,27 @@ export default function TemplateForm({ templateId }: TemplateFormProps) {
         }
     };
 
-    // ===== AI Assistant (Smart + Context-Aware + Bilingual) =====
+    // ===== AI Assistant (Smart + Context-Aware + Bilingual + Anti-Repeat) =====
     const isArabicSite = typeof window !== 'undefined' && document.documentElement.lang !== 'en';
 
-    // ── Synonym dictionary for tag enrichment ──
+    // Track attempts to avoid repeating the same output
+    const [descAttempt, setDescAttempt] = useState(0);
+    const [tagsAttempt, setTagsAttempt] = useState(0);
+
+    // Pick from pool by attempt index (rotates through all options)
+    const pickByAttempt = <T,>(arr: T[], attempt: number): T => arr[attempt % arr.length];
+
+    // Seeded shuffle — produces a different order each attempt
+    const seededShuffle = <T,>(arr: T[], seed: number): T[] => {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = (seed * (i + 7) + 13) % (i + 1);
+            [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+    };
+
+    // Synonym dictionary for tag enrichment
     const SYNONYM_MAP: Record<string, string[]> = {
         'خطة': ['تخطيط', 'برنامج', 'جدول'],
         'سجل': ['توثيق', 'متابعة', 'تدوين'],
@@ -312,7 +329,7 @@ export default function TemplateForm({ templateId }: TemplateFormProps) {
         'نموذج': ['استمارة', 'قالب', 'صيغة'],
     };
 
-    // ── Complexity scoring for price ──
+    // Complexity scoring for price suggestion
     const COMPLEXITY_WEIGHTS: Record<string, number> = {
         'ملف إنجاز': 55, 'حقيبة تدريبية': 65, 'دليل شامل': 60,
         'سجل متابعة': 35, 'سجل': 30, 'متابعة': 28,
@@ -328,52 +345,140 @@ export default function TemplateForm({ templateId }: TemplateFormProps) {
             return;
         }
         setAiGenerating('description');
-        const name = formData.name_ar.trim();
-        const categoryName = categories.find(c => c.id === formData.category_id)?.name_ar || '';
-        const sectionName = sections.find(s => s.id === formData.section_id)?.name_ar || '';
-        const templateType = formData.type === 'interactive' ? (isArabicSite ? 'تفاعلي' : 'interactive') : (isArabicSite ? 'جاهز' : 'ready-made');
-        const format = formData.format?.toUpperCase() || 'PDF';
 
-        await new Promise(r => setTimeout(r, 600 + Math.random() * 600));
+        // Snapshot attempt BEFORE increment so each call uses a fresh index
+        const attempt = descAttempt;
+        setDescAttempt(prev => prev + 1);
 
-        // ── Build intelligent description based on context ──
+        const name      = formData.name_ar.trim();
+        const catName   = categories.find(c => c.id === formData.category_id)?.name_ar || '';
+        const secName   = sections.find(s => s.id === formData.section_id)?.name_ar || '';
+        const isTfaali  = formData.type === 'interactive';
+        const fmt       = formData.format?.toUpperCase() || 'PDF';
+
+        await new Promise(r => setTimeout(r, 500 + Math.random() * 500));
+
         let desc = '';
+
         if (isArabicSite) {
-            // Arabic description
-            const intro = `قالب "${name}" — أداة تعليمية احترافية بصيغة ${format} ${templateType === 'تفاعلي' ? 'تفاعلية قابلة للتعديل المباشر' : 'جاهزة للطباعة والاستخدام الفوري'}`;
-            const audience = sectionName ? `مصمم خصيصاً لقسم "${sectionName}"` : 'مصمم للعاملين في القطاع التعليمي';
-            const category = categoryName ? `ضمن تصنيف "${categoryName}"` : '';
+            /* ── Arabic variation pools ── */
+            const INTROS = [
+                `قالب «${name}» هو أداة تعليمية احترافية بصيغة ${fmt}، ${isTfaali ? 'قابلة للتعديل المباشر والتفاعل' : 'جاهزة للطباعة والاستخدام الفوري'}.`,
+                `يُقدّم «${name}» حلاً تعليمياً متكاملاً بصيغة ${fmt}، ${isTfaali ? 'تفاعلية ومرنة تتيح التعديل اللحظي' : 'منسقاً بأعلى معايير الجودة ومستعداً للطباعة'}.`,
+                `صُمِّم «${name}» ليكون مرجعاً تعليمياً موثوقاً بصيغة ${fmt}، ${isTfaali ? 'مع إمكانية التخصيص الكامل' : 'بتصميم احترافي جاهز للتطبيق الفوري'}.`,
+                `«${name}» — نموذج تعليمي شامل بصيغة ${fmt} يعكس أعلى معايير التميز، ${isTfaali ? 'مع واجهة تفاعلية قابلة للتعديل' : 'جاهز للطباعة والتوزيع الفوري'}.`,
+                `يأتي «${name}» بصيغة ${fmt} ${isTfaali ? 'تفاعلية متطورة' : 'جاهزة للاستخدام'} ليلبي احتياجات البيئة التعليمية السعودية بدقة وكفاءة.`,
+            ];
 
-            // Smart features based on template name analysis
-            const features: string[] = [];
-            if (name.includes('ملف') || name.includes('حقيبة')) features.push('يحتوي على أقسام منظمة وفهرس شامل');
-            if (name.includes('سجل') || name.includes('متابعة')) features.push('جداول متابعة يومية/أسبوعية جاهزة للتعبئة');
-            if (name.includes('شهادة') || name.includes('تقدير')) features.push('تصاميم متعددة احترافية قابلة للتخصيص');
-            if (name.includes('خطة') || name.includes('تحضير')) features.push('هيكلة واضحة مع أهداف ومخرجات محددة');
-            if (name.includes('تحليل') || name.includes('نتائج')) features.push('رسوم بيانية وإحصائيات تفصيلية');
-            if (name.includes('توزيع') || name.includes('منهج')) features.push('تقسيم زمني مرن حسب الأسابيع والفصول');
-            if (name.includes('اختبار')) features.push('نماذج أسئلة متنوعة مع مفاتيح التصحيح');
-            if (features.length === 0) features.push('محتوى شامل ومتكامل يغطي جميع الجوانب المطلوبة');
-            features.push('يوفر عليك ساعات من العمل اليدوي');
+            const AUDIENCES = [
+                secName ? `أُعِدَّ خصيصاً لقسم «${secName}»` : 'موجَّه للعاملين في القطاع التعليمي على اختلاف تخصصاتهم',
+                secName ? `يستهدف بشكل أساسي قسم «${secName}»` : 'مُصمَّم لتلبية احتياجات المعلمين والإداريين التربويين',
+                secName ? `خُصِّص ليخدم قسم «${secName}»` : 'يُخدم جميع من يعملون في المنظومة التعليمية السعودية',
+                secName ? `الفئة المستهدفة: قسم «${secName}»` : 'يستفيد منه المعلمون والمشرفون وأولياء الأمور على حدٍّ سواء',
+            ];
 
-            desc = `${intro}.\n\n${audience}${category ? ` ${category}` : ''}.\n\n✅ المميزات:\n${features.map(f => `• ${f}`).join('\n')}\n\n🎯 مناسب للمعلمين والمعلمات والإداريين التربويين.`;
+            const CAT_PHRASES = catName ? [
+                `ضمن تصنيف «${catName}»`,
+                `تحت مظلة «${catName}»`,
+                `في سياق «${catName}»`,
+                `وهو جزء من منظومة «${catName}»`,
+            ] : [''];
+
+            const allFeats: string[] = [];
+            if (name.includes('ملف') || name.includes('حقيبة'))
+                allFeats.push('أقسام منظمة وفهرس شامل', 'هيكل مرجعي قابل للتوسع', 'ترقيم وتصنيف احترافي');
+            if (name.includes('سجل') || name.includes('متابعة'))
+                allFeats.push('جداول متابعة يومية وأسبوعية', 'خانات التوثيق والمرحلة الزمنية', 'تقارير دورية جاهزة للتعبئة');
+            if (name.includes('شهادة') || name.includes('تقدير'))
+                allFeats.push('تصاميم احترافية قابلة للتخصيص', 'مجالات للختم والتوقيع', 'خطوط عربية متوافقة مع الهوية التعليمية');
+            if (name.includes('خطة') || name.includes('تحضير'))
+                allFeats.push('منهجية واضحة مع أهداف ومخرجات', 'توزيع زمني مرن وقابل للتعديل', 'ربط بالكفايات ومعايير التقويم');
+            if (name.includes('تحليل') || name.includes('نتائج'))
+                allFeats.push('رسوم بيانية وإحصائيات تفصيلية', 'مقاييس أداء موضوعية', 'مقارنة نتائج متعددة الفترات');
+            if (name.includes('توزيع') || name.includes('منهج'))
+                allFeats.push('تقسيم أسبوعي وفصلي مرن', 'توافق مع الأطر الوطنية للمناهج', 'هامش تعديل أسبوعي');
+            if (name.includes('اختبار'))
+                allFeats.push('أنماط أسئلة متنوعة ومتدرجة', 'نماذج تصحيح جاهزة', 'جدول مواصفات مُدمج');
+            if (allFeats.length === 0)
+                allFeats.push('محتوى شامل ومتكامل', 'تصميم منضبط يعكس الاحترافية', 'سهولة الاستخدام مع التوجيهات الواضحة');
+
+            const CLOSING = seededShuffle([
+                'يوفر عليك ساعات من العمل اليدوي',
+                'يتوافق مع مستجدات الميدان التربوي السعودي',
+                'سهل التعديل والتكيف مع احتياجاتك',
+                'متوافق مع متطلبات التوثيق المؤسسي',
+            ], attempt);
+
+            const shuffled = seededShuffle(allFeats, attempt + 3).slice(0, 3);
+            shuffled.push(CLOSING[0]);
+
+            const CTAS = [
+                '🎯 مناسب للمعلمين والمعلمات والإداريين في المدارس الحكومية والأهلية.',
+                '🎯 ابدأ توظيفه فوراً في بيئتك التعليمية دون الحاجة إلى تعديلات جوهرية.',
+                '🎯 وفِّر وقتك وجهدك وقدِّم عملاً تربوياً متميزاً بكل احترافية.',
+                '🎯 أداة لا غنى عنها لكل معلم ومشرف يسعى إلى التميز والجودة.',
+                '🎯 صُمِّم بناءً على أفضل الممارسات وفق معايير وزارة التعليم.',
+            ];
+
+            desc = [
+                pickByAttempt(INTROS, attempt),
+                '',
+                `${pickByAttempt(AUDIENCES, attempt)}${pickByAttempt(CAT_PHRASES, attempt) ? ' ' + pickByAttempt(CAT_PHRASES, attempt) : ''}.`,
+                '',
+                '✅ أبرز المميزات:',
+                ...shuffled.map(f => `• ${f}`),
+                '',
+                pickByAttempt(CTAS, attempt),
+            ].join('\n');
+
         } else {
-            // English description
-            const intro = `"${name}" — A professional educational template in ${format} format, ${templateType === 'interactive' ? 'fully interactive and editable' : 'ready to print and use immediately'}`;
-            const audience = sectionName ? `Specifically designed for the "${sectionName}" department` : 'Designed for education professionals';
-            const category = categoryName ? `in the "${categoryName}" category` : '';
-
-            const features: string[] = [];
-            features.push('Comprehensive content covering all required aspects');
-            features.push('Professional design following latest educational standards');
-            features.push('Saves you hours of manual work');
-
-            desc = `${intro}.\n\n${audience}${category ? ` ${category}` : ''}.\n\n✅ Features:\n${features.map(f => `• ${f}`).join('\n')}\n\n🎯 Suitable for teachers, administrators, and education professionals.`;
+            /* ── English variation pools ── */
+            const INTROS = [
+                `"${name}" is a professional educational ${fmt} template, ${isTfaali ? 'fully interactive and editable in real-time' : 'ready to print and use immediately'}.`,
+                `Introducing "${name}" — a high-quality ${fmt} educational resource, ${isTfaali ? 'designed for dynamic interactive use' : 'meticulously formatted and print-ready'}.`,
+                `"${name}" delivers a comprehensive educational solution in ${fmt}, ${isTfaali ? 'with interactive elements for dynamic classroom use' : 'ideal for immediate deployment'}.`,
+                `Built to the highest standards, "${name}" is a ${fmt} template that ${isTfaali ? 'enables full digital customization' : 'can be printed and applied right away'}.`,
+            ];
+            const AUDIENCES = [
+                secName ? `Specifically developed for the "${secName}" department` : 'Designed for teachers, administrators, and education professionals',
+                secName ? `Tailored to the "${secName}" team's needs` : 'A must-have resource for everyone in the educational ecosystem',
+                secName ? `The primary target is the "${secName}" section` : 'Ideal for educators at all levels',
+            ];
+            const ALL_FEATS_EN = seededShuffle([
+                'Comprehensive content covering all required dimensions',
+                'Professional layout adhering to the latest educational standards',
+                'Saves hours of manual preparation work',
+                'Easy to adapt and customize for your specific context',
+                'Aligns with Saudi Ministry of Education guidelines',
+                'Clear structure with visible objectives and outcomes',
+                'Compatible with both digital editing and print workflows',
+            ], attempt);
+            const CTAS = [
+                '🎯 Suitable for teachers, administrators, and education professionals across public and private schools.',
+                '🎯 Start using it immediately — no major edits required.',
+                '🎯 Save time and deliver outstanding educational work with confidence.',
+                '🎯 An indispensable tool for every educator seeking quality and distinction.',
+            ];
+            const catPhrase = catName ? `in the "${catName}" category` : '';
+            desc = [
+                pickByAttempt(INTROS, attempt),
+                '',
+                `${pickByAttempt(AUDIENCES, attempt)}${catPhrase ? ` ${catPhrase}` : ''}.`,
+                '',
+                '✅ Key Features:',
+                ...ALL_FEATS_EN.slice(0, 4).map(f => `• ${f}`),
+                '',
+                pickByAttempt(CTAS, attempt),
+            ].join('\n');
         }
 
         setFormData(prev => ({ ...prev, description_ar: desc }));
         setAiGenerating(null);
-        toast.success(isArabicSite ? '✨ تم توليد الوصف بنجاح' : '✨ Description generated successfully');
+        toast.success(
+            isArabicSite
+                ? `✨ تم توليد نسخة ${attempt + 1} من الوصف`
+                : `✨ Description variation ${attempt + 1} generated`
+        );
     };
 
     const generateTags = async () => {
@@ -382,57 +487,56 @@ export default function TemplateForm({ templateId }: TemplateFormProps) {
             return;
         }
         setAiGenerating('tags');
-        const name = formData.name_ar.trim();
-        const desc = formData.description_ar;
-        const text = `${name} ${desc}`;
+        const attempt = tagsAttempt;
+        setTagsAttempt(prev => prev + 1);
 
-        // ── Stop-words filter ──
+        const name = formData.name_ar.trim();
+        const text = `${name} ${formData.description_ar}`;
+
         const STOP_WORDS = new Set([
             'في', 'من', 'إلى', 'على', 'عن', 'هذا', 'هذه', 'التي', 'الذي', 'مع',
             'بعد', 'قبل', 'غير', 'أو', 'كل', 'بين', 'عند', 'حتى', 'لكن', 'ذلك',
             'هو', 'هي', 'ثم', 'أن', 'إن', 'لا', 'ما', 'قد', 'وهو', 'وهي', 'أي',
             'يمكن', 'يتم', 'عبر', 'خلال', 'حسب', 'دون', 'يكون', 'تكون', 'كان',
-            'المطلوبة', 'الفوري', 'الجهد', 'الوقت', 'عليك', 'ساعات', 'التي', 'أداة',
+            'المطلوبة', 'الفوري', 'الجهد', 'الوقت', 'عليك', 'ساعات', 'أداة',
         ]);
 
-        // ── Extract meaningful words with frequency scoring (TF-IDF like) ──
         const words = text
-            .replace(/[،,.!؟?:;"""()[\]{}\-_=+\\|/~`@#$%^&*✅🎯•\n]/g, ' ')
+            .replace(/[،,.!؟?:;"""()\[\]{}\-_=+\\|/~`@#$%^&*✅🎯•\n]/g, ' ')
             .split(/\s+/)
             .filter(w => w.length > 2 && !STOP_WORDS.has(w));
 
         const freq = new Map<string, number>();
         words.forEach(w => freq.set(w, (freq.get(w) || 0) + 1));
 
-        // Sort by frequency descending
-        const ranked = [...freq.entries()]
-            .sort((a, b) => b[1] - a[1])
-            .map(([word]) => word)
-            .slice(0, 6);
+        // Shuffle top words differently on each attempt
+        const ranked = seededShuffle(
+            [...freq.entries()].sort((a, b) => b[1] - a[1]).map(([w]) => w).slice(0, 8),
+            attempt * 7 + 3
+        ).slice(0, 5);
 
-        // ── Expand with synonyms ──
         const expanded = new Set(ranked);
         for (const word of ranked) {
-            for (const [key, synonyms] of Object.entries(SYNONYM_MAP)) {
-                if (word.includes(key)) {
-                    synonyms.forEach(s => expanded.add(s));
-                }
+            for (const [key, syns] of Object.entries(SYNONYM_MAP)) {
+                if (word.includes(key)) expanded.add(syns[attempt % syns.length]);
             }
         }
 
-        // ── Add contextual tags ──
-        const categoryName = categories.find(c => c.id === formData.category_id)?.name_ar;
-        const sectionName = sections.find(s => s.id === formData.section_id)?.name_ar;
-        if (categoryName) expanded.add(categoryName);
-        if (sectionName) expanded.add(sectionName);
-        expanded.add('تعليم');
-        expanded.add('قوالب');
+        const cn = categories.find(c => c.id === formData.category_id)?.name_ar;
+        const sn = sections.find(s => s.id === formData.section_id)?.name_ar;
+        if (cn) expanded.add(cn);
+        if (sn) expanded.add(sn);
 
-        await new Promise(r => setTimeout(r, 500 + Math.random() * 300));
+        // Rotate extra generic tags per attempt
+        seededShuffle(['تعليم', 'قوالب', 'مدارس', 'وزارة التعليم', 'تربية', 'جودة تعليمية', 'سعودية'], attempt)
+            .slice(0, 2 + (attempt % 2))
+            .forEach(t => expanded.add(t));
+
+        await new Promise(r => setTimeout(r, 400 + Math.random() * 400));
 
         setFormData(prev => ({ ...prev, tags: [...expanded].slice(0, 12).join('، ') }));
         setAiGenerating(null);
-        toast.success(isArabicSite ? '✨ تم توليد الكلمات المفتاحية' : '✨ Tags generated successfully');
+        toast.success(isArabicSite ? `✨ مجموعة كلمات مفتاحية (${attempt + 1})` : `✨ Tag set ${attempt + 1} generated`);
     };
 
     const suggestPrice = async () => {
@@ -443,35 +547,23 @@ export default function TemplateForm({ templateId }: TemplateFormProps) {
         setAiGenerating('price');
 
         const name = formData.name_ar.toLowerCase();
-        let score = 20; // Base SAR
+        let score = 20;
 
-        // ── Multi-factor analysis ──
-        // Factor 1: Template name complexity
         for (const [keyword, weight] of Object.entries(COMPLEXITY_WEIGHTS)) {
-            if (name.includes(keyword)) {
-                score = Math.max(score, weight);
-                break;
-            }
+            if (name.includes(keyword)) { score = Math.max(score, weight as number); break; }
         }
 
-        // Factor 2: Format premium
         if (formData.format === 'pptx' || formData.format === 'docx') score += 5;
         if (formData.type === 'interactive') score += 10;
-
-        // Factor 3: Featured premium
         if (formData.is_featured) score += 8;
 
-        // Factor 4: Complexity keywords boost
         const boostWords = ['شامل', 'كامل', 'متكامل', 'احترافي', 'متقدم', 'ذكي', 'تفاعلي'];
-        const matchedBoosts = boostWords.filter(w => name.includes(w)).length;
-        score += matchedBoosts * 10;
+        score += boostWords.filter(w => name.includes(w)).length * 10;
 
-        // Factor 5: Section-based adjustment
-        const sectionName = sections.find(s => s.id === formData.section_id)?.name_ar?.toLowerCase() || '';
-        if (sectionName.includes('رياض') || sectionName.includes('أطفال')) score -= 5;
-        if (sectionName.includes('إداري') || sectionName.includes('قياد')) score += 10;
+        const sn = sections.find(s => s.id === formData.section_id)?.name_ar?.toLowerCase() || '';
+        if (sn.includes('رياض') || sn.includes('أطفال')) score -= 5;
+        if (sn.includes('إداري') || sn.includes('قياد')) score += 10;
 
-        // ── Suggest range ──
         const min = Math.max(5, score - 5);
         const max = score + 10;
         const suggested = Math.round(score);
@@ -486,11 +578,28 @@ export default function TemplateForm({ templateId }: TemplateFormProps) {
                 : `💰 Suggested price: ${suggested} SAR (Range: ${min}-${max} SAR)`
         );
     };
-
     // ===== Computed =====
     const discountPercent = formData.price && formData.discount_price
         ? Math.round(((parseFloat(formData.price) - parseFloat(formData.discount_price)) / parseFloat(formData.price)) * 100)
         : 0;
+
+    // ═══════ Smart Completeness Checker ═══════
+    const completenessChecks = [
+        { key: 'name', label: ta('اسم القالب', 'Template name'), ok: !!formData.name_ar.trim(), weight: 15 },
+        { key: 'desc', label: ta('الوصف', 'Description'), ok: !!formData.description_ar.trim(), weight: 15 },
+        { key: 'price', label: ta('السعر', 'Price'), ok: !!formData.price && formData.price !== '', weight: 10 },
+        { key: 'category', label: ta('التصنيف', 'Category'), ok: !!formData.category_id, weight: 15 },
+        { key: 'section', label: ta('القسم', 'Section'), ok: !!formData.section_id, weight: 15 },
+        { key: 'thumbnail', label: ta('صورة الغلاف', 'Cover image'), ok: !!imagePreview, weight: 10 },
+        { key: 'file', label: ta('ملف القالب', 'Template file'), ok: !!(templateFile || isEditMode), weight: 10 },
+        { key: 'tags', label: ta('الكلمات المفتاحية', 'Keywords'), ok: !!formData.tags.trim(), weight: 5 },
+        { key: 'active', label: ta('الحالة نشط', 'Active status'), ok: formData.is_active, weight: 5 },
+    ];
+    const completenessScore = completenessChecks.reduce((sum, c) => sum + (c.ok ? c.weight : 0), 0);
+    const missingFields = completenessChecks.filter(c => !c.ok);
+    const completenessColor = completenessScore >= 90 ? 'bg-green-500' : completenessScore >= 60 ? 'bg-amber-500' : 'bg-red-500';
+    const completenessTextColor = completenessScore >= 90 ? 'text-green-600 dark:text-green-400' : completenessScore >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400';
+    const completenessEmoji = completenessScore >= 90 ? '🟢' : completenessScore >= 60 ? '🟡' : '🔴';
 
     // ===== Submit =====
     const handleSubmit = async (e: React.FormEvent) => {
@@ -523,6 +632,14 @@ export default function TemplateForm({ templateId }: TemplateFormProps) {
         }
         if (!formData.category_id) {
             toast.error(ta('⚠️ يرجى اختيار تصنيف للقالب', '⚠️ Please select a category'), { duration: 4000 });
+            return;
+        }
+        // ── Smart Section Validation: Required for marketplace visibility ──
+        if (!formData.section_id && formData.is_active) {
+            toast.error(ta(
+                '⚠️ القسم مطلوب! — بدون اختيار قسم لن يظهر القالب في متجر القوالب. اختر القسم أولاً أو اجعل القالب مخفياً',
+                '⚠️ Section is required! Without a section, the template won\'t appear in the marketplace. Select a section or set as hidden'
+            ), { duration: 6000 });
             return;
         }
         // File validation for new templates only
@@ -595,6 +712,24 @@ export default function TemplateForm({ templateId }: TemplateFormProps) {
                     duration: 4000,
                     icon: '🎉',
                 });
+            }
+
+            // ── Smart Post-Save Feedback ──
+            const willAppear = formData.is_active && formData.section_id && formData.category_id;
+            if (willAppear) {
+                toast.success(ta(
+                    '🟢 القالب مرئي الآن في متجر القوالب للمستخدمين',
+                    '🟢 Template is now visible in the marketplace'
+                ), { duration: 4000, icon: '🛒' });
+            } else {
+                const reasons: string[] = [];
+                if (!formData.is_active) reasons.push(ta('مخفي', 'Hidden'));
+                if (!formData.section_id) reasons.push(ta('بدون قسم', 'No section'));
+                if (!formData.category_id) reasons.push(ta('بدون تصنيف', 'No category'));
+                toast(ta(
+                    `⚠️ القالب محفوظ لكنه لن يظهر في المتجر (${reasons.join('، ')})`,
+                    `⚠️ Template saved but won't appear in store (${reasons.join(', ')})`
+                ), { duration: 5000, icon: '🔒' });
             }
 
             // Clear draft and dirty flag on success
@@ -674,6 +809,45 @@ export default function TemplateForm({ templateId }: TemplateFormProps) {
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
+
+            {/* ═══════════════ Smart Completeness Bar ═══════════════ */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="px-6 py-4">
+                    <div className="flex items-center justify-between mb-2">
+                        <h3 className={`text-sm font-black flex items-center gap-2 ${completenessTextColor}`}>
+                            {completenessEmoji} {ta('جاهزية القالب للنشر', 'Template Publish Readiness')}
+                            <span className="text-lg font-black">{completenessScore}%</span>
+                        </h3>
+                        {completenessScore >= 90 && (
+                            <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-bold rounded-full animate-pulse">
+                                {ta('✅ جاهز للنشر', '✅ Ready to publish')}
+                            </span>
+                        )}
+                    </div>
+                    <div className="w-full h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                            className={`h-full rounded-full transition-all duration-700 ease-out ${completenessColor}`}
+                            style={{ width: `${completenessScore}%` }}
+                        />
+                    </div>
+                    {missingFields.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            {missingFields.map(f => (
+                                <span key={f.key} className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-xs font-bold rounded-lg border border-red-200 dark:border-red-800">
+                                    ❌ {f.label}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                    {!formData.section_id && formData.is_active && (
+                        <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+                            <p className="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                                ⚠️ {ta('تنبيه مهم: بدون اختيار القسم لن يظهر القالب في متجر القوالب!', 'Important: Without selecting a section, the template won\'t appear in the marketplace!')}
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </div>
 
             {/* ═══════════════ Section 1: المعلومات الأساسية ═══════════════ */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
@@ -781,7 +955,12 @@ export default function TemplateForm({ templateId }: TemplateFormProps) {
                 {/* Section Selector */}
                 <div className="px-6 pt-6 pb-2">
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                        {ta('القسم', 'Section')}
+                        {ta('القسم', 'Section')}<span className="text-red-500">*</span>
+                        {!formData.section_id && (
+                            <span className="text-xs text-red-500 font-bold me-2 animate-pulse">
+                                {ta('— مطلوب للظهور في المتجر', '— Required for marketplace')}
+                            </span>
+                        )}
                     </label>
                     <select
                         value={formData.section_id}

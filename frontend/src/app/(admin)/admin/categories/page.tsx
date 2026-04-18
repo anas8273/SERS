@@ -199,7 +199,27 @@ export default function AdminCategoriesPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name_ar.trim()) { toast.error(ta('يرجى إدخال اسم التصنيف', 'Please enter a category name')); return; }
+    // ── Smart Validation ──
+    if (!formData.name_ar.trim()) {
+        toast.error(ta('⚠️ اسم التصنيف مطلوب — أدخل اسماً واضحاً', '⚠️ Category name is required'));
+        return;
+    }
+    if (formData.name_ar.trim().length < 3) {
+        toast.error(ta('⚠️ اسم التصنيف قصير جداً — يجب أن يكون 3 أحرف على الأقل', '⚠️ Name too short — at least 3 characters'));
+        return;
+    }
+    if (!formData.description_ar?.trim()) {
+        toast.error(ta('⚠️ يرجى إضافة وصف للتصنيف — يساعد المستخدمين في فهم محتواه', '⚠️ Please add a description'));
+        return;
+    }
+    // Duplicate slug check
+    const targetSlug = formData.slug || generateSlug(formData.name_ar);
+    const duplicateSlug = categories.find(c => c.slug === targetSlug && c.id !== editingCategory?.id);
+    if (duplicateSlug) {
+        toast.error(ta(`⚠️ المعرف "${targetSlug}" مستخدم بالفعل في تصنيف آخر`, `⚠️ Slug "${targetSlug}" already exists`));
+        return;
+    }
+
     setIsSaving(true);
     try {
       const slug = formData.slug || generateSlug(formData.name_ar);
@@ -210,6 +230,12 @@ export default function AdminCategoriesPage() {
       } else {
         await createServiceCategory(payload);
         toast.success(ta('تم إضافة التصنيف بنجاح 🎉', 'Category added successfully 🎉'));
+      }
+      // Smart post-save feedback
+      if (formData.is_active) {
+        toast(ta('🟢 التصنيف مرئي الآن — سيظهر في فلاتر المتجر', '🟢 Category visible — appears in store filters'), { duration: 4000, icon: '🏷️' });
+      } else {
+        toast(ta('⚠️ التصنيف محفوظ لكنه مخفي — لن يظهر للمستخدمين', '⚠️ Category saved but hidden'), { duration: 4000, icon: '⏸️' });
       }
       fetchCategories(); resetForm();
     } catch (error: any) {

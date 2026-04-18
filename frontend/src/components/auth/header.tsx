@@ -1,10 +1,7 @@
-import { Outfit } from "next/font/google"; // Assuming using Outfit based on previous request
 import { cn } from "@/lib/utils";
 
-const font = Outfit({
-    subsets: ["latin"],
-    weight: ["600"],
-});
+// Use system font stack — works offline without Google Fonts dependency
+const fontClass = "font-sans";
 
 interface HeaderProps {
     label: string;
@@ -17,7 +14,7 @@ export const Header = ({
         <div className="w-full flex flex-col gap-y-4 items-center justify-center">
             <h1 className={cn(
                 "text-3xl font-semibold drop-shadow-sm",
-                font.className,
+                fontClass,
             )}>
                 🔐 SERS
             </h1>

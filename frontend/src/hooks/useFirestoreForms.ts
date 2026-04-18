@@ -31,8 +31,8 @@ interface FormTemplate {
     id: string;
     title: string;
     description: string;
-    icon: any;
-    color: string;
+    icon?: any;
+    color?: string;
     gradient: string;
     fields: FormField[];
     badge?: string;
@@ -90,8 +90,12 @@ export function useFirestoreForms(
                                 required: field.required || false,
                                 rows: field.rows || undefined,
                                 group: field.group || undefined,
-                                groupLabel: field.groupLabel || undefined,
+                                groupLabel: field.group_label_ar || field.groupLabel || undefined,
                                 options: field.options || undefined,
+                                // Enhanced properties
+                                defaultValue: (field as any).default_value || undefined,
+                                helpText: (field as any).help_text || undefined,
+                                halfWidth: (field as any).half_width || undefined,
                             })),
                     }));
 
@@ -133,8 +137,11 @@ export function useFirestoreForms(
                                 required: field.required || false,
                                 rows: field.rows || undefined,
                                 group: field.group || undefined,
-                                groupLabel: field.groupLabel || undefined,
+                                group_label_ar: field.groupLabel || undefined,
                                 options: field.options || undefined,
+                                default_value: (field as any).defaultValue || undefined,
+                                help_text: (field as any).helpText || undefined,
+                                half_width: (field as any).halfWidth || undefined,
                                 is_visible: true,
                                 sort_order: ffi + 1,
                             })),

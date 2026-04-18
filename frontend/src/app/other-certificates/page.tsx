@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useFirestoreForms } from '@/hooks/useFirestoreForms';
 import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
@@ -237,6 +238,11 @@ function CertForm({ cert, onBack }: { cert: CertDef; onBack: () => void }) {
 
 export default function OtherCertificatesPage() {
   const { dir } = useTranslation();
+    // Firestore dynamic sync — admin can manage certificate types and fields
+    useFirestoreForms('other-certificates', CERTS.map(c => ({
+        id: c.id, title: c.title, description: '', icon: null, color: '', gradient: c.gradient,
+        fields: c.fields.map(f => ({ key: f.key, label: f.label, type: 'text' as const, placeholder: f.placeholder })),
+    })));
     const [selected, setSelected] = useState<CertDef | null>(null);
     if (selected) return <CertForm cert={selected} onBack={() => setSelected(null)} />;
 

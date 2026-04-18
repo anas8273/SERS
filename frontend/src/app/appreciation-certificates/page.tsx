@@ -1,21 +1,20 @@
 'use client';
-import dynamic from 'next/dynamic';
-import { useTranslation } from '@/i18n/useTranslation';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
-function Skeleton() {
-  const { dir } = useTranslation();
+/**
+ * [REDIRECT] This page has been merged into /certificates.
+ * Automatically redirects visitors to the unified certificates page.
+ */
+export default function AppreciationCertificatesRedirect() {
+    const router = useRouter();
+    useEffect(() => { router.replace('/certificates'); }, [router]);
     return (
-        <div dir={dir} className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 animate-pulse" />
+        <div className="min-h-screen flex items-center justify-center bg-gray-950 text-white">
+            <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-amber-400 mx-auto mb-4" />
+                <p className="text-gray-400">جارٍ التحويل إلى صفحة الشهادات...</p>
+            </div>
         </div>
     );
-}
-
-const AppreciationContent = dynamic(
-    () => import('./_AppreciationContent'),
-    { loading: () => <Skeleton />, ssr: false }
-);
-
-export default function AppreciationCertificatesPage() {
-    return <AppreciationContent />;
 }

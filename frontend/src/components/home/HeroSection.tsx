@@ -43,10 +43,11 @@ export function HeroSection({ publicStats }: HeroSectionProps) {
               </span>
             </h1>
 
-            <p className="text-base md:text-lg text-slate-300 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+            <p className="text-sm md:text-base text-slate-300/90 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
               {t('home.hero.subtitle')}
-              <br />
-              <span className="text-slate-400">{t('home.hero.subtitle2')}</span>
+            </p>
+            <p className="text-sm md:text-base text-slate-400 max-w-2xl mx-auto lg:mx-0 leading-relaxed -mt-4">
+              {t('home.hero.subtitle2')}
             </p>
 
             <div className="flex flex-wrap gap-4 justify-center lg:justify-start">

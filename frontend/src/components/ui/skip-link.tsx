@@ -14,6 +14,7 @@ export default function SkipLink() {
     return (
         <a
             href="#main-content"
+            suppressHydrationWarning
             className="
                 sr-only focus:not-sr-only
                 fixed top-2 left-2 z-[9999]

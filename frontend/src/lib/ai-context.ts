@@ -12,7 +12,7 @@ import type { Template } from '@/types';
 
 // ── Platform knowledge base ───────────────────────────────────────────────────
 const SERS_PLATFORM_KNOWLEDGE = `
-أنت مساعد ذكي متخصص لمنصة SERS (سوق السجلات التعليمية الذكية).
+أنت مساعد ذكي متخصص لمنصة SERS (منصة الخدمات التعليمية الذكية — سجلات ونماذج وخطط وتقارير وشهادات وتحليل نتائج).
 
 ## عن المنصة:
 SERS سوق إلكتروني سعودي يخدم المعلمين والمعلمات في المملكة العربية السعودية.
@@ -51,8 +51,8 @@ SERS سوق إلكتروني سعودي يخدم المعلمين والمعلم
 4. إذا طُلب إنشاء محتوى، استخدم اللغة المهنية المناسبة للوثائق الرسمية
 `.trim();
 
-// ── Page context descriptions ─────────────────────────────────────────────────
-export const PAGE_CONTEXTS: Record<string, string> = {
+// ── Page context descriptions (bilingual) ────────────────────────────────────
+const PAGE_CONTEXTS_AR: Record<string, string> = {
   '/': 'الصفحة الرئيسية للمنصة — المستخدم يستعرض ميزات SERS',
   '/marketplace': 'صفحة متجر القوالب — المستخدم يبحث عن قوالب للشراء',
   '/marketplace/[slug]': 'صفحة تفاصيل قالب معين في المتجر',
@@ -71,6 +71,33 @@ export const PAGE_CONTEXTS: Record<string, string> = {
   '/editor': 'محرر القوالب — المستخدم يعدّل قالباً ويدخل بياناته',
   '/admin': 'لوحة إدارة النظام — المدير يراقب ويدير المنصة',
 };
+
+const PAGE_CONTEXTS_EN: Record<string, string> = {
+  '/': 'Platform homepage — User is browsing SERS features',
+  '/marketplace': 'Template store — User is looking for templates to buy',
+  '/marketplace/[slug]': 'Template details page in the store',
+  '/dashboard': 'User dashboard — Viewing activity, templates, and records',
+  '/dashboard/achievements': 'Achievement portfolio page',
+  '/dashboard/certificates': 'Certificates and awards page',
+  '/dashboard/plans': 'Teaching plans page',
+  '/dashboard/tests': 'Tests and assessment page',
+  '/dashboard/distributions': 'Curriculum distribution page',
+  '/dashboard/follow-up-log': 'Follow-up log page',
+  '/dashboard/knowledge-production': 'Knowledge production page',
+  '/dashboard/work-evidence': 'Work evidence page',
+  '/dashboard/question-bank': 'Question bank page',
+  '/dashboard/worksheets': 'Worksheets page',
+  '/dashboard/ai-assistant': 'AI assistant — Chat with AI',
+  '/editor': 'Template editor — User is editing and filling a template',
+  '/admin': 'Admin dashboard — System administrator monitoring',
+};
+
+export const PAGE_CONTEXTS = PAGE_CONTEXTS_AR;
+
+export function getPageContext(path: string, locale: string = 'ar'): string {
+  const contexts = locale === 'en' ? PAGE_CONTEXTS_EN : PAGE_CONTEXTS_AR;
+  return contexts[path] || (locale === 'en' ? `Page: ${path}` : `صفحة: ${path}`);
+}
 
 // ── Role-based route access maps ──────────────────────────────────────────────
 // Used to filter navigation suggestions based on user role
@@ -174,10 +201,47 @@ ${userSection}
 - أجب بدقة على أسئلته عن المنصة وميزاتها${langInstruction}${routeGuard}`;
 }
 
-// ── Build admin system prompt (with real stats) ───────────────────────────────
-export function buildAdminSystemPrompt(stats: AdminStats): string {
+// ── Build admin system prompt (with real stats, bilingual) ────────────────────
+export function buildAdminSystemPrompt(stats: AdminStats, locale: string = 'ar'): string {
+  const isEn = locale === 'en';
   const formatSAR = (n: number) =>
-    n.toLocaleString('ar-SA', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 });
+    isEn
+      ? `${n.toLocaleString('en-US')} SAR`
+      : n.toLocaleString('ar-SA', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 });
+
+  if (isEn) {
+    const statsSection = `
+## Live Platform Statistics (Updated Now):
+- Total Revenue: ${formatSAR(stats.total_revenue)}
+- Monthly Revenue: ${formatSAR(stats.monthly_revenue)}
+- Revenue Trend: ${stats.revenue_trend >= 0 ? `▲ +${stats.revenue_trend}%` : `▼ ${stats.revenue_trend}%`}
+- Total Orders: ${stats.total_orders.toLocaleString('en')}
+- Total Users: ${stats.total_users.toLocaleString('en')}
+- Total Templates: ${stats.total_templates.toLocaleString('en')}
+- New Users This Month: ${stats.new_users_this_month}
+- Today's Orders: ${stats.today_orders}
+- Today's Revenue: ${formatSAR(stats.today_revenue)}
+- Pending Orders: ${stats.orders_by_status.pending}
+- Completed Orders: ${stats.orders_by_status.completed}
+- Cancelled Orders: ${stats.orders_by_status.cancelled}
+${stats.top_templates?.length
+  ? `- Best Sellers: ${stats.top_templates.slice(0, 3).map(t => `"${t.name_ar}" (${t.sales_count} sold)`).join(', ')}`
+  : ''}`.trim();
+
+    return `You are SERS AI — an expert business analytics assistant for the SERS educational platform (Saudi Arabia).
+
+## Your Role: System Administrator AI Advisor
+
+${statsSection}
+
+## Your Mission:
+1. Analyze the data above and provide data-driven recommendations
+2. Never invent numbers — always cite real statistics from above
+3. Provide actionable recommendations (pricing, marketing, content, quality)
+4. Be concise — max 5 lines for general answers
+5. When actions are needed, clearly state the steps required
+6. Format links as [Page Name](/path) when referencing platform pages`;
+  }
 
   const statsSection = `
 ## إحصائيات المنصة الحقيقية (محدّثة الآن):
@@ -209,7 +273,8 @@ ${statsSection}
 3. عند السؤال عن الطلبات المعلقة، الجواب هو ${stats.orders_by_status.pending} طلب فعلي
 4. قدّم توصيات قابلة للتنفيذ (تسعير، تسويق، محتوى، جودة)
 5. كن مختصراً وواضحاً — لا تتجاوز 5 أسطر في الإجابات العامة
-6. إذا طُلب إجراء (مثل الموافقة على الطلبات)، أذكر الخطوات المطلوبة بوضوح`;
+6. إذا طُلب إجراء (مثل الموافقة على الطلبات)، أذكر الخطوات المطلوبة بوضوح
+7. اكتب الروابط بصيغة [اسم الصفحة](/المسار)`;
 }
 
 // ── Quick insight generator (for dashboard cards) ─────────────────────────────
@@ -253,11 +318,11 @@ export function generateQuickInsights(stats: AdminStats): string[] {
   return insights.slice(0, 3);
 }
 
-// ── Quick action prompts ──────────────────────────────────────────────────────
+// ── Quick action prompts (bilingual) ─────────────────────────────────────────
 export const ADMIN_QUICK_PROMPTS = [
-  { label: '📊 تحليل المبيعات', prompt: 'حلّل أداء المبيعات الحالي وقدّم 3 توصيات لزيادة الإيرادات بناءً على البيانات المتاحة' },
-  { label: '👥 تقرير المستخدمين', prompt: 'قدّم تقريراً موجزاً عن قاعدة المستخدمين والنمو الشهري، وأي استراتيجيات للاحتفاظ بهم' },
-  { label: '💡 توصيات التسعير', prompt: 'بناءً على بيانات المبيعات والطلبات، هل التسعير الحالي مناسب؟ وما التعديلات المقترحة؟' },
-  { label: '⚡ أولويات اليوم', prompt: 'ما هي أهم 3 مهام يجب أن أتعامل معها اليوم كمدير للمنصة بناءً على البيانات الحالية؟' },
-  { label: '🎯 خطة النمو', prompt: 'بناءً على الإحصائيات الحالية، ما هي خطة عمل قصيرة المدى (30 يوم) لتحسين أداء المنصة؟' },
+  { label: '📊 تحليل المبيعات', labelEn: '📊 Sales Analysis', prompt: 'حلّل أداء المبيعات الحالي وقدّم 3 توصيات لزيادة الإيرادات بناءً على البيانات المتاحة', promptEn: 'Analyze current sales performance and provide 3 actionable recommendations to increase revenue based on available data' },
+  { label: '👥 تقرير المستخدمين', labelEn: '👥 User Report', prompt: 'قدّم تقريراً موجزاً عن قاعدة المستخدمين والنمو الشهري، وأي استراتيجيات للاحتفاظ بهم', promptEn: 'Provide a concise report on the user base, monthly growth, and retention strategies' },
+  { label: '💡 توصيات التسعير', labelEn: '💡 Pricing Tips', prompt: 'بناءً على بيانات المبيعات والطلبات، هل التسعير الحالي مناسب؟ وما التعديلات المقترحة؟', promptEn: 'Based on sales and orders data, is the current pricing appropriate? What adjustments do you suggest?' },
+  { label: '⚡ أولويات اليوم', labelEn: '⚡ Today\'s Priorities', prompt: 'ما هي أهم 3 مهام يجب أن أتعامل معها اليوم كمدير للمنصة بناءً على البيانات الحالية؟', promptEn: 'What are the top 3 tasks I should handle today as platform admin based on current data?' },
+  { label: '🎯 خطة النمو', labelEn: '🎯 Growth Plan', prompt: 'بناءً على الإحصائيات الحالية، ما هي خطة عمل قصيرة المدى (30 يوم) لتحسين أداء المنصة؟', promptEn: 'Based on current statistics, what is a short-term (30-day) action plan to improve platform performance?' },
 ] as const;

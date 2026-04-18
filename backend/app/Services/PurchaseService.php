@@ -183,11 +183,21 @@ class PurchaseService
             StatsCacheService::clearUserDashboardCache($order->user_id);
 
             // [FIX-DL] مسح cache المكتبة حتى تظهر المشتريات الجديدة فوراً
-            // Library caches results for 5 min per user — must flush after purchase
-            \Illuminate\Support\Facades\Cache::flush();
-            // More targeted approach: clear all library:userId:* keys
-            // Since Cache::tags isn't always available, we use a broad flush
-            // which is acceptable because purchases are infrequent events
+            // [AUDIT FIX] Targeted invalidation instead of Cache::flush() which was
+            // destroying ALL cached data (sessions, Firestore tokens, stats) system-wide.
+            // Now we only clear the specific user's wallet/library cache keys.
+            $userId = $order->user_id;
+            $cacheStore = \Illuminate\Support\Facades\Cache::store('file');
+            // Clear library cache pages (library endpoint caches per-user per-page)
+            for ($p = 1; $p <= 10; $p++) {
+                $cacheStore->forget("library:{$userId}:p{$p}");
+            }
+            // Clear wallet transaction cache pages
+            for ($p = 1; $p <= 5; $p++) {
+                foreach ([10, 20, 50] as $pp) {
+                    $cacheStore->forget("wallet_tx_{$userId}_p{$p}_pp{$pp}");
+                }
+            }
 
             Log::info("Payment completed for order: {$order->order_number}", [
                 'payment_id'     => $paymentId,

@@ -279,10 +279,17 @@ export function TemplateEditor({
 
     setAiLoading(true);
     try {
+      const locale = (() => {
+        if (typeof document === 'undefined') return 'ar';
+        const m = document.cookie.match(/(?:^|;\s*)locale=(\w+)/);
+        return m?.[1] === 'en' ? 'en' : 'ar';
+      })() as 'ar' | 'en';
+
       const response = await api.getAIFillAll({
         template_id: parseInt(template.id),
         title: title,
         current_values: formData,
+        locale,
       });
 
       if (response.success && response.data?.suggestions) {

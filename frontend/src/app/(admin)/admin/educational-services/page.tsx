@@ -33,6 +33,7 @@ import {
     Bot, FolderOpen, FileSpreadsheet, PieChart, Settings,
     Sparkles, FolderArchive, Trophy, Plus, Trash2, Edit, Eye, EyeOff,
     Search, X, Save, LayoutGrid, List, RefreshCw, ChevronDown, ChevronUp,
+    ShieldCheck, Briefcase,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -41,7 +42,7 @@ const ICON_MAP: Record<string, any> = {
     ClipboardList, ClipboardCheck, GraduationCap, BarChart3, CalendarDays,
     Award, Users, Sparkles, TrendingUp, PieChart, FileText, BookOpen,
     Layers, Settings, Brain, Target, FolderArchive, Trophy, Bot,
-    FileQuestion, Shield, Database, Star, FolderOpen, FileSpreadsheet,
+    FileQuestion, Shield, Database, Star, FolderOpen, FileSpreadsheet, ShieldCheck, Briefcase,
     Lightbulb, ScrollText, Wrench,
 };
 
@@ -64,67 +65,58 @@ const ADMIN_GROUPS = [
         id: 'analysis',
         icon: BarChart3,
         gradient: 'from-blue-500 to-indigo-600',
-        slugs: ['analyses', 'tests', 'question-bank'],
+        slugs: ['analyses', 'tests', 'question-bank', 'results-analysis-tools'],
     },
     {
         id: 'certificates',
         icon: Award,
         gradient: 'from-amber-500 to-orange-500',
-        slugs: ['certificates'],
+        slugs: ['certificates', 'other-certificates'],
     },
     {
-        id: 'planning',
-        icon: ClipboardList,
-        gradient: 'from-green-500 to-emerald-600',
-        slugs: ['plans', 'distributions', 'curriculum', 'weekly-plan-builder', 'academic-calendars'],
+        id: 'performance',
+        icon: ClipboardCheck,
+        gradient: 'from-violet-600 to-purple-700',
+        slugs: [
+            'perf-job-duties', 'perf-professional-community', 'perf-parents-interaction',
+            'perf-strategies', 'perf-improve-results', 'perf-learning-plan',
+            'perf-technical', 'perf-school-environment', 'perf-classroom-management',
+            'perf-results-analysis', 'perf-assessment-methods',
+        ],
     },
     {
         id: 'records',
         icon: FolderArchive,
         gradient: 'from-purple-500 to-violet-600',
-        slugs: ['achievements', 'knowledge-production', 'follow-up-log', 'work-evidence', 'portfolio'],
+        slugs: ['achievements', 'knowledge-production', 'follow-up-log', 'portfolio', 'documentation-forms', 'achievement-report-builder'],
     },
     {
-        id: 'documents',
-        icon: FileText,
-        gradient: 'from-sky-500 to-blue-600',
-        slugs: ['documentation-forms', 'performance-evidence-forms', 'teacher-evaluation-forms', 'worksheets'],
+        id: 'planning',
+        icon: ClipboardList,
+        gradient: 'from-green-500 to-emerald-600',
+        slugs: ['plans', 'distributions', 'weekly-plan-builder', 'academic-calendars', 'remedial-enrichment-plans'],
     },
     {
-        id: 'community',
-        icon: Users,
-        gradient: 'from-indigo-500 to-purple-600',
-        slugs: ['professional-community', 'parents-interaction', 'school-initiatives'],
-    },
-    {
-        id: 'environment',
-        icon: BookOpen,
-        gradient: 'from-lime-500 to-green-600',
-        slugs: ['school-environment', 'signs-banners', 'improve-results'],
-    },
-    {
-        id: 'surveys',
-        icon: Brain,
-        gradient: 'from-rose-500 to-pink-600',
-        slugs: ['learning-style-surveys'],
+        id: 'tools',
+        icon: Wrench,
+        gradient: 'from-slate-500 to-gray-600',
+        slugs: ['worksheets', 'signs-banners', 'learning-style-surveys', 'edu-tools', 'my-templates'],
     },
     {
         id: 'smart',
         icon: Bot,
         gradient: 'from-violet-500 to-indigo-600',
-        slugs: ['ai-assistant', 'my-templates'],
+        slugs: ['ai-assistant'],
     },
 ];
 
 const GROUP_NAMES: Record<string, { ar: string; en: string }> = {
     analysis: { ar: 'التحليل والاختبارات', en: 'Analysis & Tests' },
-    certificates: { ar: 'الشهادات', en: 'Certificates' },
-    planning: { ar: 'التخطيط والتوزيعات', en: 'Planning & Scheduling' },
-    records: { ar: 'السجلات والتوثيق', en: 'Records & Documentation' },
-    documents: { ar: 'النماذج وأوراق العمل', en: 'Forms & Worksheets' },
-    community: { ar: 'المجتمع والتواصل', en: 'Community & Communication' },
-    environment: { ar: 'البيئة والتحسين', en: 'Environment & Improvement' },
-    surveys: { ar: 'الاستبيانات', en: 'Surveys' },
+    certificates: { ar: 'الشهادات المتنوعة', en: 'Various Certificates' },
+    performance: { ar: 'شواهد الأداء الوظيفي', en: 'Job Performance Evidence' },
+    records: { ar: 'السجلات والملفات المدرسية', en: 'School Records & Files' },
+    planning: { ar: 'التخطيط والتوزيعات', en: 'Planning & Distributions' },
+    tools: { ar: 'أدوات ومصادر تعليمية', en: 'Educational Tools & Resources' },
     smart: { ar: 'الأدوات الذكية', en: 'Smart Tools' },
 };
 
@@ -189,7 +181,7 @@ export default function AdminEducationalServicesPage() {
         const fetchStats = async () => {
             try {
                 const results = await Promise.allSettled(
-                    MANAGED_SERVICES.map(type => api.get(`/admin/educational-services/${type}`))
+                    MANAGED_SERVICES.map(type => api.get(`/admin/educational-services/${type}`, { _silentError: true } as any))
                 );
                 const newStats: Record<string, number> = {};
                 results.forEach((result, i) => {
@@ -207,33 +199,68 @@ export default function AdminEducationalServicesPage() {
         fetchStats();
     }, [MANAGED_SERVICES.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // ── Load Firestore services ──
+    // ── Load & Sync Firestore services ──
+    // On admin load: sync DEFAULT_SERVICES → Firestore (upsert new, delete orphans)
     const loadServices = useCallback(async () => {
         setServicesLoading(true);
         try {
-            // Load Firestore overrides (visibility, custom fields, etc.)
             const firestoreData = await getAllServices();
-            const overrides = new Map(firestoreData.map(s => [s.slug, s]));
+            const fsMap = new Map(firestoreData.map(s => [s.slug, s]));
+            const localSlugs = new Set(DEFAULT_SERVICES.map(s => s.slug));
 
-            // Merge: DEFAULT_SERVICES is the source of truth, Firestore provides overrides
-            const merged = DEFAULT_SERVICES.map(ds => {
-                const override = overrides.get(ds.slug);
-                if (override) {
-                    return {
-                        ...ds,
-                        id: ds.slug,
-                        is_active: override.is_active ?? ds.is_active,
-                        features: override.features?.length ? override.features : ds.features,
-                        sort_order: override.sort_order ?? ds.sort_order,
-                    } as ServiceDefinition;
+            // 1. Upsert: ensure every DEFAULT service exists in Firestore with correct data
+            const upsertPromises = DEFAULT_SERVICES.map(async (ds) => {
+                const existing = fsMap.get(ds.slug);
+                if (!existing) {
+                    // New service — create in Firestore
+                    await saveService(ds.slug, {
+                        ...ds, id: ds.slug,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                    } as any);
+                } else {
+                    // Existing — update name/description/icon/gradient/route if changed in code
+                    const needsUpdate =
+                        existing.name_ar !== ds.name_ar ||
+                        existing.name_en !== ds.name_en ||
+                        existing.description_ar !== ds.description_ar ||
+                        existing.route !== ds.route;
+                    if (needsUpdate) {
+                        await saveService(ds.slug, {
+                            name_ar: ds.name_ar,
+                            name_en: ds.name_en,
+                            description_ar: ds.description_ar,
+                            description_en: ds.description_en,
+                            icon: ds.icon,
+                            gradient: ds.gradient,
+                            route: ds.route,
+                            category: ds.category,
+                            admin_href: ds.admin_href,
+                            updated_at: new Date().toISOString(),
+                        } as any);
+                    }
                 }
-                return { ...ds, id: ds.slug } as ServiceDefinition;
+            });
+            await Promise.allSettled(upsertPromises);
+
+            // 2. Delete orphans: Firestore docs that no longer exist in DEFAULT_SERVICES
+            const deletePromises = firestoreData
+                .filter(fs => !localSlugs.has(fs.slug))
+                .map(fs => deleteService(fs.id || fs.slug));
+            await Promise.allSettled(deletePromises);
+
+            // 3. Reload fresh data from Firestore
+            const freshData = await getAllServices();
+            const merged = DEFAULT_SERVICES.map(ds => {
+                const fsDoc = freshData.find(f => f.slug === ds.slug);
+                return fsDoc
+                    ? { ...ds, ...fsDoc, id: ds.slug } as ServiceDefinition
+                    : { ...ds, id: ds.slug } as ServiceDefinition;
             });
 
             setServices(merged.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)));
         } catch (error) {
             logger.error('Error loading services:', error);
-            // Fallback: use DEFAULT_SERVICES directly (works offline)
             setServices(DEFAULT_SERVICES.map(s => ({ ...s, id: s.slug } as ServiceDefinition)));
         } finally {
             setServicesLoading(false);
@@ -269,14 +296,27 @@ export default function AdminEducationalServicesPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.name_ar || !formData.slug) {
-            toast.error(ta('الاسم والمعرف مطلوبان', 'Name and slug are required'));
+        // ── Smart Validation ──
+        if (!formData.name_ar?.trim()) {
+            toast.error(ta('⚠️ اسم الخدمة مطلوب — أدخل اسماً واضحاً يصف الخدمة', '⚠️ Service name is required'));
+            return;
+        }
+        if (formData.name_ar.trim().length < 3) {
+            toast.error(ta('⚠️ اسم الخدمة قصير جداً — يجب أن يكون 3 أحرف على الأقل', '⚠️ Name too short'));
+            return;
+        }
+        if (!formData.slug?.trim()) {
+            toast.error(ta('⚠️ المعرف (slug) مطلوب', '⚠️ Slug is required'));
+            return;
+        }
+        if (!formData.description_ar?.trim()) {
+            toast.error(ta('⚠️ يرجى إضافة وصف للخدمة — يساعد المستخدمين في فهم الخدمة', '⚠️ Please add a description'));
             return;
         }
         if (!editingService) {
             const existing = services.find(s => s.slug === formData.slug);
             if (existing) {
-                toast.error(ta('يوجد خدمة بنفس المعرف بالفعل', 'A service with this slug already exists'));
+                toast.error(ta('⚠️ يوجد خدمة بنفس المعرف بالفعل — اختر معرفاً مختلفاً', '⚠️ A service with this slug already exists'));
                 return;
             }
         }
@@ -289,6 +329,12 @@ export default function AdminEducationalServicesPage() {
             } else {
                 await createService(serviceData as Omit<ServiceDefinition, 'id'>);
                 toast.success(ta('تم إضافة الخدمة بنجاح ✅', 'Service added ✅'));
+            }
+            // Smart post-save feedback
+            if (formData.is_active) {
+                toast(ta('🟢 الخدمة مرئية الآن — ستظهر للمستخدمين في صفحة الخدمات', '🟢 Service visible — appears on services page'), { duration: 4000, icon: '📋' });
+            } else {
+                toast(ta('⚠️ الخدمة محفوظة لكنها معطلة — لن تظهر للمستخدمين حتى تفعّلها', '⚠️ Service saved but disabled'), { duration: 4000, icon: '⏸️' });
             }
             resetForm();
             await loadServices();
@@ -486,13 +532,14 @@ export default function AdminEducationalServicesPage() {
                                                                 <Edit className="w-3 h-3" />
                                                                 {ta('محرر النماذج', 'Form Editor')}
                                                             </Link>
-                                                            {svc.admin_href && !svc.admin_href.includes('static-tools') && (
-                                                                <Link href={svc.admin_href}
-                                                                    className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-                                                                    <Database className="w-3 h-3" />
-                                                                    {ta('البيانات', 'Data')}
-                                                                </Link>
-                                                            )}
+                                                            <Link href={`/admin/educational-services/data/${svc.slug}`}
+                                                                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                                                                <Database className="w-3 h-3" />
+                                                                {ta('البيانات', 'Data')}
+                                                                {stats[svc.slug] !== undefined && stats[svc.slug] > 0 && (
+                                                                    <span className="text-[9px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1 py-0.5 rounded-full font-bold">{stats[svc.slug]}</span>
+                                                                )}
+                                                            </Link>
                                                             <a href={svc.route} target="_blank" rel="noopener noreferrer"
                                                                 className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors">
                                                                 <ExternalLink className="w-3 h-3" />
@@ -527,6 +574,7 @@ export default function AdminEducationalServicesPage() {
                                                         <h4 className="text-sm font-bold text-gray-900 dark:text-white truncate">{isAr ? svc.name_ar : (svc.name_en || svc.name_ar)}</h4>
                                                     </div>
                                                     <div className="flex items-center gap-2">
+                                                        <Link href={`/admin/educational-services/data/${svc.slug}`} className="p-1 rounded text-blue-500 hover:text-blue-700" title={ta('البيانات', 'Data')}><Database className="w-3 h-3" /></Link>
                                                         <span className="text-xs font-bold text-violet-600 dark:text-violet-400">{count ?? '—'}</span>
                                                         <Link href={`/admin/educational-services/static-tools/${svc.slug}`} className="p-1 rounded text-violet-500 hover:text-violet-700" title={ta('محرر النماذج', 'Form Editor')}><LayoutGrid className="w-3 h-3" /></Link>
                                                         <button onClick={() => handleEdit(svc)} className="p-1 rounded text-gray-400 hover:text-blue-600"><Edit className="w-3 h-3" /></button>

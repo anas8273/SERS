@@ -21,17 +21,28 @@ export function clearAuthCookies(): void {
  *
  * [AUTH-HIGH-01 FIX] Without this, the middleware never sees auth-token
  * and keeps redirecting /dashboard → /login in an infinite loop.
+ * [SESSION] Cookie expiry now matches backend token expiry.
  */
-export function syncAuthCookies(token: string | null, role: string | null): void {
+export function syncAuthCookies(
+  token: string | null,
+  role: string | null,
+  rememberMe: boolean = true
+): void {
   if (typeof document === 'undefined') return;
   const isSecure = window.location.protocol === 'https:';
   const secureAttr = isSecure ? '; Secure' : '';
 
   if (token) {
-    // Set cookies with 30-day expiry (they're also cleared on logout)
-    const maxAge = 30 * 24 * 60 * 60; // 30 days in seconds
-    document.cookie = `auth-token=${token}; path=/; max-age=${maxAge}; SameSite=Lax${secureAttr}`;
-    document.cookie = `auth-role=${role || 'user'}; path=/; max-age=${maxAge}; SameSite=Lax${secureAttr}`;
+    // [SESSION] Smart cookie expiry based on role and remember-me
+    const isAdmin = (role || '').toLowerCase() === 'admin';
+    let maxAgeSeconds: number;
+    if (rememberMe) {
+      maxAgeSeconds = isAdmin ? 7 * 24 * 3600 : 30 * 24 * 3600;
+    } else {
+      maxAgeSeconds = isAdmin ? 8 * 3600 : 24 * 3600;
+    }
+    document.cookie = `auth-token=${token}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax${secureAttr}`;
+    document.cookie = `auth-role=${role || 'user'}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax${secureAttr}`;
   } else {
     clearAuthCookies();
   }
@@ -45,6 +56,29 @@ export function purgeAllAuthState(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem('auth_token');
   localStorage.removeItem('auth_remember');
+  localStorage.removeItem('session_last_active');
   sessionStorage.removeItem('auth_session_active');
   clearAuthCookies();
+}
+
+/**
+ * [SESSION] Track user activity for idle timeout.
+ * Called on user interactions (clicks, keystrokes, scrolls).
+ */
+export function updateLastActive(): void {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem('session_last_active', Date.now().toString());
+}
+
+/**
+ * [SESSION] Check if user has been idle too long.
+ * Admin: 30 min, User: 60 min
+ */
+export function isSessionIdle(isAdmin: boolean): boolean {
+  if (typeof localStorage === 'undefined') return false;
+  const lastActive = localStorage.getItem('session_last_active');
+  if (!lastActive) return false;
+  const elapsed = Date.now() - parseInt(lastActive, 10);
+  const maxIdle = isAdmin ? 30 * 60 * 1000 : 60 * 60 * 1000;
+  return elapsed > maxIdle;
 }

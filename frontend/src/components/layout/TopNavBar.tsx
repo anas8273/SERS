@@ -1,9 +1,11 @@
 'use client';
 
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, ArrowLeft, LayoutDashboard } from 'lucide-react';
 import { useTranslation } from '@/i18n/useTranslation';
+import { cn } from '@/lib/utils';
 
 interface TopNavBarProps {
     title?: string;
@@ -12,15 +14,20 @@ interface TopNavBarProps {
 }
 
 /**
- * Sub-page Navigation Bar — sits directly below the fixed Navbar.
- * - sticky top-16 so it never overlaps the main Navbar (h-16)
- * - z-30 (below Navbar z-50, above normal content)
+ * Sub-page Navigation Bar — Smart & Dynamic:
+ * - Shows when user scrolls UP (returning to top)
+ * - Hides when user scrolls DOWN (reading content)
+ * - Always visible at the very top (scrollY < 80)
+ * - Smooth transitions with GPU compositing
  * - RTL/LTR aware arrow direction
  * - Icon-only on xs, icon+label on sm+
+ * - Uses transform for hiding instead of display:none (better perf)
  */
 export function TopNavBar({ title, showBack = true, backHref }: TopNavBarProps) {
     const router = useRouter();
     const { dir } = useTranslation();
+    const [hidden, setHidden] = useState(false);
+    const lastScrollYRef = useRef(0);
 
     const handleBack = () => {
         if (backHref) {
@@ -30,12 +37,47 @@ export function TopNavBar({ title, showBack = true, backHref }: TopNavBarProps) 
         }
     };
 
+    // Smart scroll detection: hide on scroll down, show on scroll up
+    const handleScroll = useCallback(() => {
+        const currentY = window.scrollY;
+
+        // Always show when near top of page
+        if (currentY < 80) {
+            setHidden(false);
+            lastScrollYRef.current = currentY;
+            return;
+        }
+
+        // Scrolling down → hide (threshold: 8px to avoid jitter)
+        if (currentY > lastScrollYRef.current + 8) {
+            setHidden(true);
+        }
+        // Scrolling up → show (threshold: 5px)
+        else if (currentY < lastScrollYRef.current - 5) {
+            setHidden(false);
+        }
+
+        lastScrollYRef.current = currentY;
+    }, []);
+
+    useEffect(() => {
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [handleScroll]);
+
     const BackIcon = dir === 'rtl' ? ArrowRight : ArrowLeft;
 
     return (
         <div
-            className="sticky top-16 z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800 shadow-sm"
+            className={cn(
+                "sticky z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800 shadow-sm transition-all duration-300"
+            )}
             dir={dir}
+            style={{
+                top: '4rem', /* matches navbar h-16 */
+                transform: hidden ? 'translateY(-100%) translateZ(0)' : 'translateY(0) translateZ(0)',
+                WebkitTransform: hidden ? 'translateY(-100%) translateZ(0)' : 'translateY(0) translateZ(0)',
+            }}
         >
             <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
                 <div className="h-12 flex items-center justify-between gap-2">

@@ -41,10 +41,10 @@ export function useAdminAI(stats: AdminStats | null, locale: string = 'ar') {
   const getSystemPrompt = useCallback(() => {
     if (!stats) return '';
     if (!systemPromptRef.current) {
-      systemPromptRef.current = buildAdminSystemPrompt(stats);
+      systemPromptRef.current = buildAdminSystemPrompt(stats, locale);
     }
     return systemPromptRef.current;
-  }, [stats]);
+  }, [stats, locale]);
 
   // Quick insights from stats (no AI needed — computed locally)
   const insights = stats ? generateQuickInsights(stats) : [];

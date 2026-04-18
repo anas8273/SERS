@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SERS — بوستر تسويقي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    @page { size: 794px 1123px; margin: 0; }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      background: #111;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .poster {
+      width: 794px;
+      height: 1123px;
+      background: linear-gradient(170deg, #110C24 0%, #13102B 35%, #180F30 65%, #1C1135 100%);
+      position: relative;
+      overflow: hidden;
+      color: #fff;
+    }
+
+    /* Gradient mesh — matching project style */
+    .poster::before {
+      content: '';
+      position: absolute;
+      top: -150px;
+      right: -100px;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 65%);
+    }
+    .poster::after {
+      content: '';
+      position: absolute;
+      bottom: -100px;
+      left: -100px;
+      width: 450px;
+      height: 450px;
+      background: radial-gradient(circle, rgba(168,85,247,0.08) 0%, transparent 65%);
+    }
+
+    /* Grid background */
+    .grid-bg {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(139,92,246,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(139,92,246,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    .content {
+      position: relative;
+      z-index: 10;
+      padding: 45px 50px 30px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    .header { text-align: center; margin-bottom: 8px; }
+
+    .logo {
+      font-size: 64px;
+      font-weight: 900;
+      letter-spacing: 14px;
+      background: linear-gradient(135deg, #fff 30%, #A78BFA 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 30px rgba(139,92,246,0.4));
+    }
+
+    .platform-name {
+      font-size: 22px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.9);
+      margin-top: -4px;
+    }
+
+    .tagline {
+      font-size: 15px;
+      color: #C4B5FD;
+      font-weight: 600;
+      margin-top: 10px;
+      padding: 8px 30px;
+      border: 1px solid rgba(139,92,246,0.25);
+      border-radius: 50px;
+      display: inline-block;
+      background: rgba(139,92,246,0.08);
+    }
+
+    /* ── Pain ── */
+    .pain {
+      text-align: center;
+      margin: 20px 0 16px;
+      padding: 14px 24px;
+      background: rgba(239,68,68,0.06);
+      border: 1px solid rgba(239,68,68,0.15);
+      border-radius: 16px;
+    }
+    .pain p { font-size: 14px; color: rgba(255,255,255,0.65); line-height: 1.7; }
+    .pain strong { color: #FCA5A5; }
+
+    /* ── Solution ── */
+    .solution { text-align: center; margin-bottom: 22px; }
+    .solution h2 { font-size: 24px; font-weight: 800; }
+    .solution h2 span {
+      background: linear-gradient(135deg, #A78BFA, #C084FC);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .solution p {
+      font-size: 13.5px;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.8;
+      max-width: 580px;
+      margin: 4px auto 0;
+    }
+
+    /* ── Features ── */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+
+    .feature-card {
+      background: rgba(139,92,246,0.04);
+      border: 1px solid rgba(139,92,246,0.12);
+      border-radius: 16px;
+      padding: 20px 14px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s;
+    }
+    .feature-card:hover {
+      background: rgba(139,92,246,0.08);
+      border-color: rgba(139,92,246,0.3);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 40px -10px rgba(139,92,246,0.15);
+    }
+
+    .feature-icon {
+      width: 50px;
+      height: 50px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 10px;
+      font-size: 24px;
+    }
+
+    .fi-ai       { background: linear-gradient(135deg, rgba(139,92,246,0.25), rgba(168,85,247,0.1)); }
+    .fi-services { background: linear-gradient(135deg, rgba(192,132,252,0.2), rgba(139,92,246,0.1)); }
+    .fi-store    { background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(79,70,229,0.1)); }
+    .fi-money    { background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(217,119,6,0.08)); }
+    .fi-lang     { background: linear-gradient(135deg, rgba(236,72,153,0.2), rgba(219,39,119,0.08)); }
+    .fi-security { background: linear-gradient(135deg, rgba(16,185,129,0.2), rgba(5,150,105,0.08)); }
+
+    .feature-title { font-size: 15px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+    .feature-desc { font-size: 11.5px; color: rgba(255,255,255,0.45); line-height: 1.6; }
+
+    /* ── Stats ── */
+    .stats {
+      display: flex;
+      margin-bottom: 22px;
+      background: rgba(139,92,246,0.05);
+      border: 1px solid rgba(139,92,246,0.12);
+      border-radius: 16px;
+      padding: 18px 10px;
+    }
+    .stat { flex: 1; text-align: center; position: relative; }
+    .stat:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 15%;
+      height: 70%;
+      width: 1px;
+      background: rgba(139,92,246,0.15);
+    }
+    .stat-number {
+      font-size: 38px;
+      font-weight: 900;
+      background: linear-gradient(135deg, #8B5CF6, #A78BFA);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 11px;
+      color: rgba(255,255,255,0.45);
+      margin-top: 4px;
+      font-weight: 600;
+    }
+
+    /* ── Target ── */
+    .target {
+      display: flex;
+      justify-content: center;
+      gap: 28px;
+      margin-bottom: 20px;
+    }
+    .target-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.6);
+    }
+    .target-check {
+      width: 22px;
+      height: 22px;
+      border-radius: 7px;
+      background: rgba(139,92,246,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #A78BFA;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    /* ── CTA ── */
+    .cta { text-align: center; margin-bottom: 18px; }
+    .cta-button {
+      display: inline-block;
+      padding: 16px 65px;
+      background: linear-gradient(135deg, #7C3AED 0%, #8B5CF6 50%, #A78BFA 100%);
+      color: #fff;
+      font-size: 21px;
+      font-weight: 800;
+      border-radius: 16px;
+      font-family: 'Cairo', sans-serif;
+      box-shadow:
+        0 0 50px rgba(139,92,246,0.35),
+        0 8px 32px rgba(0,0,0,0.3);
+      letter-spacing: 1px;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      margin-top: auto;
+      text-align: center;
+      padding-top: 14px;
+      border-top: 1px solid rgba(139,92,246,0.08);
+    }
+    .tech-stack {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .tech-badge {
+      padding: 4px 14px;
+      background: rgba(139,92,246,0.06);
+      border: 1px solid rgba(139,92,246,0.12);
+      border-radius: 8px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.4);
+      font-weight: 600;
+    }
+    .footer-text {
+      font-size: 11px;
+      color: rgba(255,255,255,0.2);
+      font-weight: 600;
+    }
+
+    @media print {
+      body { padding: 0; background: none; }
+      .poster { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="poster">
+    <div class="grid-bg"></div>
+    <div class="content">
+
+      <div class="header">
+        <div class="logo">SERS</div>
+        <div class="platform-name">منصة الخدمات التعليمية الذكية</div>
+        <div class="tagline">كل ما يحتاجه المعلم في منصة واحدة</div>
+      </div>
+
+      <div class="pain">
+        <p><strong>تعبت من إعداد السجلات يدويا؟</strong> ملفات ورقية متناثرة وأنظمة منفصلة وساعات ضائعة كل أسبوع؟</p>
+      </div>
+
+      <div class="solution">
+        <h2><span>الحل:</span> منصة واحدة تسوي كل شيء</h2>
+        <p>قوالب جاهزة + خدمات تعليمية تفاعلية + ذكاء اصطناعي يملأ نماذجك ويحلل نتائجك ويقترح خططك — تلقائيا</p>
+      </div>
+
+      <div class="features">
+        <div class="feature-card">
+          <div class="feature-icon fi-ai">🤖</div>
+          <div class="feature-title">ذكاء اصطناعي</div>
+          <div class="feature-desc">يملأ نماذجك ويحلل نتائجك تلقائيا</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon fi-services">📋</div>
+          <div class="feature-title">34 خدمة تعليمية</div>
+          <div class="feature-desc">من التحليل للشهادات للخطط والتوزيعات</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon fi-store">🛒</div>
+          <div class="feature-title">متجر قوالب</div>
+          <div class="feature-desc">جاهزة للتحميل والتعبئة فورا</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon fi-money">💰</div>
+          <div class="feature-title">نظام مالي</div>
+          <div class="feature-desc">بطاقة + محفظة + إحالات ومكافآت</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon fi-lang">🌐</div>
+          <div class="feature-title">عربي + English</div>
+          <div class="feature-desc">تبديل فوري مع وضع داكن وفاتح</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon fi-security">🛡️</div>
+          <div class="feature-title">حماية متقدمة</div>
+          <div class="feature-desc">7 طبقات أمان لحماية بياناتك</div>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-number">15</div>
+          <div class="stat-label">خدمة ذكاء اصطناعي</div>
+        </div>
+        <div class="stat">
+          <div class="stat-number">34</div>
+          <div class="stat-label">خدمة تعليمية</div>
+        </div>
+        <div class="stat">
+          <div class="stat-number">11</div>
+          <div class="stat-label">بند أداء وظيفي</div>
+        </div>
+        <div class="stat">
+          <div class="stat-number">6</div>
+          <div class="stat-label">مجموعات متكاملة</div>
+        </div>
+      </div>
+
+      <div class="target">
+        <div class="target-item"><div class="target-check">✓</div> المعلمون والمعلمات</div>
+        <div class="target-item"><div class="target-check">✓</div> المشرفون التربويون</div>
+        <div class="target-item"><div class="target-check">✓</div> الإداريون</div>
+      </div>
+
+      <div class="cta">
+        <div class="cta-button">ابدأ الآن مجانا</div>
+      </div>
+
+      <div class="footer">
+        <div class="tech-stack">
+          <span class="tech-badge">Laravel 12</span>
+          <span class="tech-badge">Next.js 15</span>
+          <span class="tech-badge">AI — LLaMA 3.3</span>
+          <span class="tech-badge">Stripe</span>
+          <span class="tech-badge">Firebase</span>
+        </div>
+        <div class="footer-text">مشروع تخرج أكاديمي · 2026</div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

@@ -169,10 +169,27 @@ export default function AdminSectionsPage() {
 
     // ===== Save (create/update) =====
     const handleSave = async () => {
+        // ── Smart Validation ──
         if (!formData.name_ar.trim()) {
-            toast.error(ta('يرجى إدخال اسم القسم', 'Please enter section name'));
+            toast.error(ta('⚠️ اسم القسم مطلوب — أدخل اسماً واضحاً', '⚠️ Section name is required'));
             return;
         }
+        if (formData.name_ar.trim().length < 3) {
+            toast.error(ta('⚠️ اسم القسم قصير جداً — يجب أن يكون 3 أحرف على الأقل', '⚠️ Section name too short — at least 3 characters'));
+            return;
+        }
+        if (!formData.description_ar.trim()) {
+            toast.error(ta('⚠️ يرجى إضافة وصف للقسم — يساعد المستخدمين في فهم محتواه', '⚠️ Please add a description'));
+            return;
+        }
+        // Check for duplicate slug
+        const targetSlug = formData.slug || formData.name_ar.trim().toLowerCase().replace(/\s+/g, '-');
+        const duplicateSlug = sections.find(s => s.slug === targetSlug && s.id !== editingSection?.id);
+        if (duplicateSlug) {
+            toast.error(ta(`⚠️ المعرف "${targetSlug}" مستخدم بالفعل في قسم آخر`, `⚠️ Slug "${targetSlug}" already exists`));
+            return;
+        }
+
         setIsSaving(true);
         try {
             const slug = formData.slug || formData.name_ar.trim().toLowerCase().replace(/\s+/g, '-');
@@ -184,6 +201,12 @@ export default function AdminSectionsPage() {
             } else {
                 await api.createSection(payload);
                 toast.success(ta('تم إضافة القسم بنجاح 🎉', 'Section added'));
+            }
+            // Smart post-save feedback
+            if (formData.is_active) {
+                toast(ta('🟢 القسم مرئي الآن في المتجر — يمكنك ربط القوالب به', '🟢 Section is now visible in store'), { duration: 4000, icon: '📁' });
+            } else {
+                toast(ta('⚠️ القسم محفوظ لكنه معطل — لن يظهر للمستخدمين حتى تفعّله', '⚠️ Section saved but disabled'), { duration: 4000, icon: '⏸️' });
             }
             setShowCreateForm(false);
             setEditingSection(null);
@@ -601,7 +624,7 @@ export default function AdminSectionsPage() {
                             {/* Name */}
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                                    <FileText className="w-3.5 h-3.5" /> {ta('اسم القسم *', 'Section Name *')}
+                                    <FileText className="w-3.5 h-3.5" /> {ta('اسم القسم', 'Section Name')}<span className="text-red-500">*</span>
                                 </label>
                                 <input
                                     value={formData.name_ar}
@@ -627,7 +650,7 @@ export default function AdminSectionsPage() {
 
                             {/* Description */}
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-gray-600 dark:text-gray-400">{ta('الوصف', 'Description')}</label>
+                                <label className="text-xs font-bold text-gray-600 dark:text-gray-400"><span>{ta('الوصف', 'Description')}</span><span className="text-red-500">*</span></label>
                                 <textarea
                                     value={formData.description_ar}
                                     onChange={(e) => setFormData({ ...formData, description_ar: e.target.value })}

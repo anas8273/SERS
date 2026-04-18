@@ -2,9 +2,10 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
+import { updateLastActive } from '@/lib/auth-helpers';
 
 interface UseAuthOptions {
   redirectTo?: string;
@@ -60,6 +61,29 @@ export function useAuth(options: UseAuthOptions = {}) {
       }
     }
   }, [_hasHydrated, isLoading, isAuthenticated, user, redirectTo, redirectIfFound, requiredRole, router]);
+
+  // [SESSION] Track user activity for idle timeout
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let lastUpdate = 0;
+    const throttledUpdate = () => {
+      const now = Date.now();
+      if (now - lastUpdate > 60_000) { // Update at most once per minute
+        lastUpdate = now;
+        updateLastActive();
+      }
+    };
+
+    const events = ['click', 'keydown', 'scroll', 'mousemove'] as const;
+    events.forEach(e => window.addEventListener(e, throttledUpdate, { passive: true }));
+    // Initialize on mount
+    updateLastActive();
+
+    return () => {
+      events.forEach(e => window.removeEventListener(e, throttledUpdate));
+    };
+  }, [isAuthenticated]);
 
   const isAdmin = user?.role?.toLowerCase() === 'admin';
 

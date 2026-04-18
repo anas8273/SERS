@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
@@ -19,30 +19,35 @@ import {
     Hash, CheckSquare, AlignLeft, Type, List, ExternalLink,
     Sparkles, RefreshCw, X, Check, LayoutTemplate, Monitor,
     PanelLeftClose, PanelLeft, MousePointer, Columns,
-    Smartphone, Pencil, Copy, ToggleLeft,
+    Smartphone, Pencil, Copy, ToggleLeft, CircleDot, FileCode,
+    Download, Upload, HelpCircle, Ruler, CopyPlus, RotateCcw,
 } from 'lucide-react';
 import type { StaticTool, StaticForm, StaticFormField } from '@/types';
 import {
     getStaticTool, saveStaticTool, saveToolForms,
 } from '@/lib/firestore-static-tools';
 import { DEFAULT_SERVICES } from '@/lib/default-services';
+import { DEFAULT_STATIC_TOOLS } from '@/lib/static-tools-seed';
 import { cn } from '@/lib/utils';
 
 // ── Field type options ────────────────────────────────────────────────────────
 const FIELD_TYPES: { value: StaticFormField['type']; label: string; labelEn: string; icon: any }[] = [
-    { value: 'text',     label: 'نص قصير',    labelEn: 'Short Text',  icon: Type },
-    { value: 'textarea', label: 'نص طويل',    labelEn: 'Long Text',   icon: AlignLeft },
-    { value: 'number',   label: 'رقم',        labelEn: 'Number',      icon: Hash },
-    { value: 'date',     label: 'تاريخ',      labelEn: 'Date',        icon: Calendar },
-    { value: 'select',   label: 'قائمة',      labelEn: 'Dropdown',    icon: List },
-    { value: 'checkbox', label: 'صح/خطأ',     labelEn: 'Checkbox',    icon: CheckSquare },
-    { value: 'image',    label: 'صورة',       labelEn: 'Image',       icon: ImageIcon },
-    { value: 'url',      label: 'رابط',       labelEn: 'URL/Link',    icon: LinkIcon },
+    { value: 'text',      label: 'نص قصير',    labelEn: 'Short Text',  icon: Type },
+    { value: 'textarea',  label: 'نص طويل',    labelEn: 'Long Text',   icon: AlignLeft },
+    { value: 'number',    label: 'رقم',        labelEn: 'Number',      icon: Hash },
+    { value: 'date',      label: 'تاريخ',      labelEn: 'Date',        icon: Calendar },
+    { value: 'select',    label: 'قائمة',      labelEn: 'Dropdown',    icon: List },
+    { value: 'radio',     label: 'اختيار',     labelEn: 'Radio',       icon: CircleDot },
+    { value: 'checkbox',  label: 'صح/خطأ',     labelEn: 'Checkbox',    icon: CheckSquare },
+    { value: 'image',     label: 'صورة',       labelEn: 'Image',       icon: ImageIcon },
+    { value: 'url',       label: 'رابط',       labelEn: 'URL/Link',    icon: LinkIcon },
+    { value: 'rich-text', label: 'نص منسق',    labelEn: 'Rich Text',   icon: FileCode },
 ];
 
 const FIELD_TYPE_ICON: Record<string, any> = {
     text: Type, textarea: AlignLeft, number: Hash, date: Calendar,
-    select: List, checkbox: CheckSquare, image: ImageIcon, url: LinkIcon,
+    select: List, radio: CircleDot, checkbox: CheckSquare, image: ImageIcon,
+    url: LinkIcon, 'rich-text': FileCode,
 };
 
 // ── Empty defaults ────────────────────────────────────────────────────────────
@@ -85,6 +90,15 @@ function InteractiveLivePreview({
     const [formValues, setFormValues] = useState<Record<string, any>>({});
     const activeFields = (form.fields || []).filter(f => f.is_visible);
 
+    // Initialize default values
+    useEffect(() => {
+        const defaults: Record<string, any> = {};
+        activeFields.forEach(f => {
+            if (f.default_value && !formValues[f.key]) defaults[f.key] = f.default_value;
+        });
+        if (Object.keys(defaults).length) setFormValues(prev => ({ ...defaults, ...prev }));
+    }, [activeFields.length]);
+
     const updateValue = (key: string, value: any) => {
         setFormValues(prev => ({ ...prev, [key]: value }));
     };
@@ -99,121 +113,144 @@ function InteractiveLivePreview({
         );
     }
 
+    // Group fields by group key
+    let lastGroup: string | undefined = undefined;
+
     return (
-        <div className={cn("space-y-5 text-start", previewMode === 'mobile' ? 'max-w-sm mx-auto' : '')} dir={dir}>
+        <div className={cn("text-start", previewMode === 'mobile' ? 'max-w-sm mx-auto' : '')} dir={dir}>
             {/* Form title */}
             <div className="mb-6">
                 <h3 className="text-lg font-black text-gray-900 dark:text-white">{form.title_ar || ta('(بدون عنوان)', '(Untitled)')}</h3>
                 {form.description_ar && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{form.description_ar}</p>}
             </div>
 
+            <div className="flex flex-wrap gap-x-4 gap-y-5">
             {activeFields.map(f => {
                 const FieldIcon = FIELD_TYPE_ICON[f.type] || Type;
                 const isSelected = selectedFieldId === f.id;
+                const showGroupHeader = f.group_label_ar && f.group !== lastGroup;
+                if (f.group) lastGroup = f.group;
 
                 return (
-                    <motion.div
-                        key={f.id}
-                        layout
-                        onClick={() => onSelectField(f.id)}
-                        className={cn(
-                            'relative rounded-xl p-4 cursor-pointer transition-all',
-                            isSelected
-                                ? 'ring-2 ring-primary bg-primary/5 dark:bg-primary/10 shadow-lg shadow-primary/10'
-                                : 'hover:bg-gray-50 dark:hover:bg-gray-700/30 border border-transparent hover:border-gray-200 dark:hover:border-gray-600'
-                        )}
-                    >
-                        {/* Selection indicator */}
-                        {isSelected && (
-                            <div className="absolute -top-2 -end-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center shadow-lg">
-                                <Pencil className="w-3 h-3 text-white" />
+                    <React.Fragment key={f.id}>
+                        {/* Group header separator */}
+                        {showGroupHeader && (
+                            <div className="w-full pt-4 pb-1 border-t border-gray-200 dark:border-gray-700 mt-2 first:mt-0 first:border-0">
+                                <p className="text-xs font-black text-gray-600 dark:text-gray-300 flex items-center gap-2">
+                                    <span className="w-1 h-4 bg-primary rounded-full" />
+                                    {f.group_label_ar}
+                                </p>
                             </div>
                         )}
-
-                        {/* Label */}
-                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2 mb-2">
-                            <FieldIcon className="w-3.5 h-3.5 text-gray-400" />
-                            {f.label_ar || ta('(بدون عنوان)', '(No label)')}
-                            {f.required && <span className="text-red-500 text-xs">*</span>}
-                        </label>
-
-                        {/* Interactive field rendering */}
-                        {f.type === 'textarea' ? (
-                            <textarea
-                                rows={f.rows || 3}
-                                className="w-full border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none resize-none transition-all"
-                                placeholder={f.placeholder_ar || ta('اكتب هنا...', 'Type here...')}
-                                value={formValues[f.key] || ''}
-                                onChange={e => updateValue(f.key, e.target.value)}
-                            />
-                        ) : f.type === 'image' ? (
-                            <div className="border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800/50 p-6 flex flex-col items-center justify-center text-gray-400 hover:border-primary/50 hover:text-primary/60 transition-colors cursor-pointer">
-                                <ImageIcon className="w-8 h-8 mb-2" />
-                                <p className="text-xs font-bold">{ta('اضغط لرفع صورة', 'Click to upload image')}</p>
-                                <p className="text-[10px] mt-1">{ta('PNG, JPG, WEBP — بحد أقصى 5MB', 'PNG, JPG, WEBP — max 5MB')}</p>
-                            </div>
-                        ) : f.type === 'select' ? (
-                            <select
-                                className="w-full border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none appearance-none transition-all"
-                                value={formValues[f.key] || ''}
-                                onChange={e => updateValue(f.key, e.target.value)}
-                            >
-                                <option value="">{f.placeholder_ar || ta('اختر...', 'Select...')}</option>
-                                {(f.options || []).map((opt, i) => (
-                                    <option key={i} value={opt}>{opt}</option>
-                                ))}
-                            </select>
-                        ) : f.type === 'checkbox' ? (
-                            <label className="flex items-center gap-3 cursor-pointer group">
-                                <div className={cn(
-                                    'w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all',
-                                    formValues[f.key]
-                                        ? 'border-primary bg-primary text-white'
-                                        : 'border-gray-300 dark:border-gray-600 group-hover:border-primary/50'
-                                )} onClick={() => updateValue(f.key, !formValues[f.key])}>
-                                    {formValues[f.key] && <Check className="w-3 h-3" />}
+                        <motion.div
+                            layout
+                            onClick={() => onSelectField(f.id)}
+                            className={cn(
+                                'relative rounded-xl p-4 cursor-pointer transition-all',
+                                f.half_width && previewMode !== 'mobile' ? 'w-[calc(50%-0.5rem)]' : 'w-full',
+                                isSelected
+                                    ? 'ring-2 ring-primary bg-primary/5 dark:bg-primary/10 shadow-lg shadow-primary/10'
+                                    : 'hover:bg-gray-50 dark:hover:bg-gray-700/30 border border-transparent hover:border-gray-200 dark:hover:border-gray-600'
+                            )}
+                        >
+                            {isSelected && (
+                                <div className="absolute -top-2 -end-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center shadow-lg">
+                                    <Pencil className="w-3 h-3 text-white" />
                                 </div>
-                                <span className="text-sm text-gray-600 dark:text-gray-400">{f.placeholder_ar || f.label_ar}</span>
+                            )}
+
+                            {/* Label + help text */}
+                            <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2 mb-2">
+                                <FieldIcon className="w-3.5 h-3.5 text-gray-400" />
+                                {f.label_ar || ta('(بدون عنوان)', '(No label)')}
+                                {f.required && <span className="text-red-500 text-xs">*</span>}
+                                {f.help_text && (
+                                    <span className="text-[10px] text-gray-400 font-normal" title={f.help_text}>
+                                        <HelpCircle className="w-3 h-3 inline" />
+                                    </span>
+                                )}
                             </label>
-                        ) : f.type === 'date' ? (
-                            <input
-                                type="date"
-                                className="w-full border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
-                                value={formValues[f.key] || ''}
-                                onChange={e => updateValue(f.key, e.target.value)}
-                            />
-                        ) : f.type === 'number' ? (
-                            <input
-                                type="number"
-                                className="w-full border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
-                                placeholder={f.placeholder_ar || '0'}
-                                value={formValues[f.key] || ''}
-                                onChange={e => updateValue(f.key, e.target.value)}
-                            />
-                        ) : f.type === 'url' ? (
-                            <input
-                                type="url"
-                                dir="ltr"
-                                className="w-full border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
-                                placeholder={f.placeholder_ar || 'https://...'}
-                                value={formValues[f.key] || ''}
-                                onChange={e => updateValue(f.key, e.target.value)}
-                            />
-                        ) : (
-                            <input
-                                type="text"
-                                className="w-full border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
-                                placeholder={f.placeholder_ar || ta('اكتب هنا...', 'Type here...')}
-                                value={formValues[f.key] || ''}
-                                onChange={e => updateValue(f.key, e.target.value)}
-                            />
-                        )}
-                    </motion.div>
+                            {f.help_text && <p className="text-[10px] text-gray-400 mb-2 -mt-1">{f.help_text}</p>}
+
+                            {/* Field rendering */}
+                            {f.type === 'textarea' || f.type === 'rich-text' ? (
+                                <textarea
+                                    rows={f.rows || 3}
+                                    className="w-full border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none resize-none transition-all"
+                                    placeholder={f.placeholder_ar || ta('اكتب هنا...', 'Type here...')}
+                                    value={formValues[f.key] || ''}
+                                    onChange={e => updateValue(f.key, e.target.value)}
+                                />
+                            ) : f.type === 'image' ? (
+                                <div className="border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800/50 p-6 flex flex-col items-center justify-center text-gray-400 hover:border-primary/50 hover:text-primary/60 transition-colors cursor-pointer">
+                                    <ImageIcon className="w-8 h-8 mb-2" />
+                                    <p className="text-xs font-bold">{ta('اضغط لرفع صورة', 'Click to upload image')}</p>
+                                </div>
+                            ) : f.type === 'select' ? (
+                                <select
+                                    className="w-full border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none appearance-none transition-all"
+                                    value={formValues[f.key] || ''}
+                                    onChange={e => updateValue(f.key, e.target.value)}
+                                >
+                                    <option value="">{f.placeholder_ar || ta('اختر...', 'Select...')}</option>
+                                    {(f.options || []).map((opt, i) => (
+                                        <option key={i} value={opt}>{opt}</option>
+                                    ))}
+                                </select>
+                            ) : f.type === 'radio' ? (
+                                <div className="space-y-2">
+                                    {(f.options || []).map((opt, i) => (
+                                        <label key={i} className="flex items-center gap-2.5 cursor-pointer group">
+                                            <div className={cn(
+                                                'w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all',
+                                                formValues[f.key] === opt
+                                                    ? 'border-primary bg-primary/10'
+                                                    : 'border-gray-300 dark:border-gray-600 group-hover:border-primary/50'
+                                            )} onClick={() => updateValue(f.key, opt)}>
+                                                {formValues[f.key] === opt && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                            </div>
+                                            <span className="text-sm text-gray-600 dark:text-gray-400">{opt}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            ) : f.type === 'checkbox' ? (
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                    <div className={cn(
+                                        'w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all',
+                                        formValues[f.key]
+                                            ? 'border-primary bg-primary text-white'
+                                            : 'border-gray-300 dark:border-gray-600 group-hover:border-primary/50'
+                                    )} onClick={() => updateValue(f.key, !formValues[f.key])}>
+                                        {formValues[f.key] && <Check className="w-3 h-3" />}
+                                    </div>
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">{f.placeholder_ar || f.label_ar}</span>
+                                </label>
+                            ) : f.type === 'date' ? (
+                                <input type="date" className="w-full border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
+                                    value={formValues[f.key] || ''} onChange={e => updateValue(f.key, e.target.value)} />
+                            ) : f.type === 'number' ? (
+                                <input type="number" className="w-full border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 px-4 py-3 text-sm placeholder-gray-400 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
+                                    placeholder={f.placeholder_ar || '0'}
+                                    min={f.min_value} max={f.max_value}
+                                    value={formValues[f.key] || ''} onChange={e => updateValue(f.key, e.target.value)} />
+                            ) : f.type === 'url' ? (
+                                <input type="url" dir="ltr" className="w-full border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 px-4 py-3 text-sm placeholder-gray-400 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
+                                    placeholder={f.placeholder_ar || 'https://...'}
+                                    value={formValues[f.key] || ''} onChange={e => updateValue(f.key, e.target.value)} />
+                            ) : (
+                                <input type="text" className="w-full border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 px-4 py-3 text-sm placeholder-gray-400 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
+                                    placeholder={f.placeholder_ar || ta('اكتب هنا...', 'Type here...')}
+                                    maxLength={f.max_length || undefined}
+                                    value={formValues[f.key] || ''} onChange={e => updateValue(f.key, e.target.value)} />
+                            )}
+                        </motion.div>
+                    </React.Fragment>
                 );
             })}
+            </div>
 
             {/* Submit button preview */}
-            <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+            <div className="pt-4 mt-5 border-t border-gray-100 dark:border-gray-700">
                 <button className="w-full bg-gradient-to-l from-blue-500 to-teal-500 hover:from-blue-600 hover:to-teal-600 rounded-xl py-3 text-white font-bold text-sm shadow-lg shadow-blue-500/20 transition-all active:scale-[0.98]">
                     ⬇ {ta('تحميل PDF', 'Download PDF')}
                 </button>
@@ -256,6 +293,8 @@ export default function StaticToolDetailPage() {
     const [showPanel, setShowPanel] = useState(true);
     const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
     const [newOption, setNewOption] = useState('');
+    const [formSearch, setFormSearch] = useState('');
+    const [panelTab, setPanelTab] = useState<'fields' | 'design'>('fields');
 
     // Active form
     const activeForm = forms.find(f => f.id === activeFormId) || forms[0] || null;
@@ -268,9 +307,25 @@ export default function StaticToolDetailPage() {
         try {
             let data = await getStaticTool(toolId);
             
-            // Auto-create from DEFAULT_SERVICES if not found in Firestore
+            // Find matching seed data (by route/href)
+            const defaultSvc = DEFAULT_SERVICES.find(s => s.slug === toolId);
+            const fullRoute = defaultSvc?.route || '';
+            const seedRoute = fullRoute.split('?')[0]; // strip query params
+            const sectionParam = new URLSearchParams(fullRoute.split('?')[1] || '').get('section');
+            
+            const seedTool = seedRoute
+                ? DEFAULT_STATIC_TOOLS.find(t => t.href === seedRoute)
+                : DEFAULT_STATIC_TOOLS.find(t => t.href === `/${toolId}`);
+
+            // Get seed forms — filter by section badge if applicable
+            let seedForms = seedTool?.forms || [];
+            if (sectionParam && seedForms.length > 0) {
+                const filtered = seedForms.filter(f => f.badge === sectionParam);
+                if (filtered.length > 0) seedForms = filtered;
+            }
+
+            // Auto-create from DEFAULT_SERVICES + seed forms if not found
             if (!data) {
-                const defaultSvc = DEFAULT_SERVICES.find(s => s.slug === toolId);
                 if (defaultSvc) {
                     const newTool: Omit<StaticTool, 'id'> = {
                         title_ar: defaultSvc.name_ar,
@@ -280,17 +335,25 @@ export default function StaticToolDetailPage() {
                         icon: defaultSvc.icon,
                         color: defaultSvc.color,
                         gradient: defaultSvc.gradient || 'from-blue-500 to-blue-600',
-                        href: `/${defaultSvc.slug}`,
+                        href: seedRoute || `/${defaultSvc.slug}`,
                         is_active: true,
                         sort_order: defaultSvc.sort_order,
-                        forms: [],
+                        forms: seedForms,
                     };
                     await saveStaticTool(toolId, newTool as any);
                     data = { id: toolId, ...newTool } as StaticTool;
+                    if (seedForms.length > 0) {
+                        toast.success(ta(`تم تهيئة ${seedForms.length} نموذج تلقائياً ✅`, `Auto-seeded ${seedForms.length} forms ✅`));
+                    }
                 } else {
                     router.push('/admin/educational-services');
                     return;
                 }
+            }
+            // Always sync forms from seed — admin sees exactly what users see
+            else if (seedForms.length) {
+                data.forms = seedForms;
+                await saveStaticTool(toolId, { forms: seedForms } as any);
             }
             
             setTool(data);
@@ -453,6 +516,84 @@ export default function StaticToolDetailPage() {
         toast.success(ta('تم نسخ الحقل', 'Field duplicated'));
     };
 
+    // ── Duplicate entire form ──
+    const duplicateForm = async (formId: string) => {
+        const form = forms.find(f => f.id === formId);
+        if (!form) return;
+        const newForm: StaticForm = {
+            ...form,
+            id: crypto.randomUUID(),
+            title_ar: form.title_ar + ' (نسخة)',
+            sort_order: forms.length + 1,
+            fields: form.fields.map(f => ({ ...f, id: crypto.randomUUID() })),
+        };
+        const newForms = [...forms, newForm];
+        await handleSaveForms(newForms);
+        setActiveFormId(newForm.id);
+        toast.success(ta('تم نسخ النموذج', 'Form duplicated'));
+    };
+
+    // ── Export forms as JSON ──
+    const exportFormsJSON = () => {
+        const data = { toolId, title: tool?.title_ar, forms };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${toolId}-forms.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success(ta('تم تصدير النماذج', 'Forms exported'));
+    };
+
+    // ── Import forms from JSON ──
+    const importFormsJSON = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = async (e: any) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            try {
+                const text = await file.text();
+                const data = JSON.parse(text);
+                if (data.forms && Array.isArray(data.forms)) {
+                    const imported = data.forms.map((f: any, i: number) => ({
+                        ...f,
+                        id: crypto.randomUUID(),
+                        sort_order: forms.length + i + 1,
+                        fields: (f.fields || []).map((fld: any) => ({ ...fld, id: crypto.randomUUID() })),
+                    }));
+                    await handleSaveForms([...forms, ...imported]);
+                    toast.success(ta(`تم استيراد ${imported.length} نموذج`, `Imported ${imported.length} forms`));
+                } else {
+                    toast.error(ta('صيغة غير صحيحة', 'Invalid format'));
+                }
+            } catch { toast.error(ta('خطأ في قراءة الملف', 'Error reading file')); }
+        };
+        input.click();
+    };
+
+    // ── Reset forms to seed defaults ─────────────────────────────────────────
+    const [showResetConfirm, setShowResetConfirm] = useState(false);
+    const handleResetToSeed = async () => {
+        const defaultSvc = DEFAULT_SERVICES.find(s => s.slug === toolId);
+        const seedRoute = defaultSvc?.route?.split('?')[0];
+        const seedTool = seedRoute
+            ? DEFAULT_STATIC_TOOLS.find(t => t.href === seedRoute)
+            : DEFAULT_STATIC_TOOLS.find(t => t.href === `/${toolId}`);
+        if (!seedTool?.forms?.length) {
+            toast.error(ta('لا توجد بيانات افتراضية لهذه الأداة', 'No default data for this tool'));
+            return;
+        }
+        await handleSaveForms(seedTool.forms);
+        toast.success(ta(`تم إعادة تهيئة ${seedTool.forms.length} نموذج من البيانات الأصلية ✅`, `Reset ${seedTool.forms.length} forms to defaults ✅`));
+        setActiveFormId(seedTool.forms[0]?.id || null);
+        setSelectedFieldId(null);
+        setEditingFieldData(null);
+        setShowResetConfirm(false);
+    };
+
     const handleReorderFields = async (newFields: StaticFormField[]) => {
         const reindexed = newFields.map((f, i) => ({ ...f, sort_order: i + 1 }));
         const newForms = forms.map(f => f.id === activeForm?.id ? { ...f, fields: reindexed } : f);
@@ -518,6 +659,17 @@ export default function StaticToolDetailPage() {
                             <Smartphone className="w-3.5 h-3.5" />
                         </button>
                     </div>
+                    {/* Export/Import JSON */}
+                    <button onClick={exportFormsJSON} className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 transition-colors" title={ta('تصدير JSON', 'Export JSON')}>
+                        <Download className="w-4 h-4" />
+                    </button>
+                    <button onClick={importFormsJSON} className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 transition-colors" title={ta('استيراد JSON', 'Import JSON')}>
+                        <Upload className="w-4 h-4" />
+                    </button>
+                    {/* Reset to defaults */}
+                    <button onClick={() => setShowResetConfirm(true)} className="p-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-colors" title={ta('إعادة تهيئة من الأصل', 'Reset to Defaults')}>
+                        <RotateCcw className="w-4 h-4" />
+                    </button>
                     {/* Panel toggle */}
                     <button onClick={() => setShowPanel(!showPanel)}
                         className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 transition-colors"
@@ -541,33 +693,73 @@ export default function StaticToolDetailPage() {
                 </div>
             </div>
 
-            {/* ═══ Form Tabs ═══ */}
-            <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700 flex-shrink-0 overflow-x-auto">
-                {forms.map(f => (
-                    <button key={f.id}
-                        onClick={() => { setActiveFormId(f.id); setSelectedFieldId(null); setEditingFieldData(null); }}
-                        className={cn(
-                            'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all',
-                            activeFormId === f.id
-                                ? 'bg-white dark:bg-gray-700 text-primary shadow-sm border border-primary/20'
-                                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/50'
-                        )}>
-                        {!f.is_active && <EyeOff className="w-3 h-3 text-red-400" />}
-                        {f.title_ar || ta('بدون عنوان', 'Untitled')}
-                        <Badge variant="outline" className="text-[8px] px-1 h-3.5">{f.fields?.length || 0}</Badge>
-                    </button>
-                ))}
-                <button onClick={openAddForm}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-primary hover:bg-primary/10 transition-colors whitespace-nowrap">
-                    <Plus className="w-3 h-3" />
-                    {ta('نموذج جديد', 'New Form')}
-                </button>
-            </div>
-
-            {/* ═══ Main Content — Split Screen ═══ */}
+            {/* ═══ Main Content — 3-Column Layout ═══ */}
             <div className="flex-1 flex overflow-hidden relative">
 
-                {/* ═══ LEFT PANEL: Field List + Editor ═══ */}
+                {/* ═══ FORMS SIDEBAR — Vertical list of all forms ═══ */}
+                <div className="hidden md:flex flex-col w-[220px] lg:w-[260px] flex-shrink-0 border-e border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
+                    {/* Sidebar Header */}
+                    <div className="px-3 py-2.5 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+                        <h3 className="text-xs font-black text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                            <FileText className="w-3.5 h-3.5 text-primary" />
+                            {ta('النماذج', 'Forms')}
+                            <Badge className="bg-primary/10 text-primary text-[9px] px-1.5">{forms.length}</Badge>
+                        </h3>
+                        <button onClick={openAddForm} className="p-1 rounded-lg hover:bg-primary/10 text-primary transition-colors" title={ta('نموذج جديد', 'New Form')}>
+                            <Plus className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
+                    {/* Search */}
+                    <div className="px-2 py-1.5 border-b border-gray-50 dark:border-gray-700/50 flex-shrink-0">
+                        <Input
+                            placeholder={ta('🔍 بحث في النماذج...', '🔍 Search forms...')}
+                            value={formSearch || ''}
+                            onChange={e => setFormSearch(e.target.value)}
+                            className="h-7 text-[10px] bg-gray-50 dark:bg-gray-900 border-0 rounded-lg px-2"
+                        />
+                    </div>
+                    {/* Forms List */}
+                    <div className="flex-1 overflow-y-auto">
+                        {forms
+                            .filter(f => !formSearch || f.title_ar?.includes(formSearch) || f.id.includes(formSearch))
+                            .map((f, idx) => (
+                            <button key={f.id}
+                                onClick={() => { setActiveFormId(f.id); setSelectedFieldId(null); setEditingFieldData(null); }}
+                                className={cn(
+                                    'w-full text-start px-3 py-2 border-b border-gray-50 dark:border-gray-700/30 transition-all group',
+                                    activeFormId === f.id
+                                        ? 'bg-primary/5 border-s-2 border-s-primary'
+                                        : 'hover:bg-gray-50 dark:hover:bg-gray-700/30 border-s-2 border-s-transparent'
+                                )}>
+                                <div className="flex items-start justify-between gap-1">
+                                    <p className={cn('text-[11px] font-bold leading-snug', activeFormId === f.id ? 'text-primary' : 'text-gray-700 dark:text-gray-300')}>
+                                        {!f.is_active && <EyeOff className="w-3 h-3 text-red-400 inline me-1" />}
+                                        {f.title_ar || ta('بدون عنوان', 'Untitled')}
+                                    </p>
+                                    <span className="text-[9px] text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                                        {f.fields?.length || 0}
+                                    </span>
+                                </div>
+                                {f.description_ar && (
+                                    <p className="text-[9px] text-gray-400 mt-0.5 leading-snug line-clamp-1">{f.description_ar}</p>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Mobile form selector dropdown */}
+                <div className="md:hidden absolute top-0 inset-x-0 z-20 px-3 py-2 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
+                    <select
+                        value={activeFormId || ''}
+                        onChange={e => { setActiveFormId(e.target.value); setSelectedFieldId(null); setEditingFieldData(null); }}
+                        className="w-full text-xs font-bold bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 outline-none"
+                    >
+                        {forms.map(f => (
+                            <option key={f.id} value={f.id}>{f.title_ar} ({f.fields?.length || 0} حقل)</option>
+                        ))}
+                    </select>
+                </div>
                 <AnimatePresence>
                 {showPanel && (
                     <>
@@ -597,6 +789,9 @@ export default function StaticToolDetailPage() {
                                     <button onClick={() => openEditForm(activeForm)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title={ta('تعديل النموذج', 'Edit Form')}>
                                         <Edit className="w-3.5 h-3.5" />
                                     </button>
+                                    <button onClick={() => duplicateForm(activeForm.id)} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title={ta('نسخ النموذج', 'Duplicate Form')}>
+                                        <CopyPlus className="w-3.5 h-3.5" />
+                                    </button>
                                     <button onClick={() => toggleFormActive(activeForm.id)} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
                                         {activeForm.is_active ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                                     </button>
@@ -607,6 +802,26 @@ export default function StaticToolDetailPage() {
                             )}
                         </div>
 
+                        {/* Panel Tabs: Fields vs Design */}
+                        <div className="flex items-center border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
+                            <button
+                                onClick={() => setPanelTab('fields')}
+                                className={cn('flex-1 py-2 text-[10px] font-bold text-center transition-all border-b-2',
+                                    panelTab === 'fields' ? 'text-primary border-primary bg-primary/5' : 'text-gray-400 border-transparent hover:text-gray-600'
+                                )}>
+                                {ta('الحقول', 'Fields')} ({activeForm?.fields?.length || 0})
+                            </button>
+                            <button
+                                onClick={() => setPanelTab('design')}
+                                className={cn('flex-1 py-2 text-[10px] font-bold text-center transition-all border-b-2',
+                                    panelTab === 'design' ? 'text-primary border-primary bg-primary/5' : 'text-gray-400 border-transparent hover:text-gray-600'
+                                )}>
+                                {ta('⚙️ التصميم', '⚙️ Design')}
+                            </button>
+                        </div>
+
+                        {/* ═══ FIELDS TAB ═══ */}
+                        {panelTab === 'fields' && (<>
                         {/* Field Type Palette — Quick Add */}
                         <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">{ta('إضافة حقل سريع', 'Quick Add Field')}</p>
@@ -755,8 +970,8 @@ export default function StaticToolDetailPage() {
                                         </div>
                                     )}
 
-                                    {/* Select options */}
-                                    {editingFieldData.type === 'select' && (
+                                    {/* Select/Radio options */}
+                                    {(editingFieldData.type === 'select' || editingFieldData.type === 'radio') && (
                                         <div>
                                             <label className="text-[10px] font-bold text-gray-500 mb-1 block">{ta('الخيارات', 'Options')}</label>
                                             <div className="space-y-1 mb-2">
@@ -781,8 +996,76 @@ export default function StaticToolDetailPage() {
                                         </div>
                                     )}
 
-                                    {/* Toggles */}
-                                    <div className="flex items-center gap-4">
+                                    {/* Default Value */}
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-500 mb-0.5 block">{ta('قيمة افتراضية', 'Default Value')}</label>
+                                        <Input value={editingFieldData.default_value || ''} onChange={e => setEditingFieldData({ ...editingFieldData, default_value: e.target.value })}
+                                            className="h-8 text-xs dark:bg-gray-800 dark:border-gray-700 rounded-lg" />
+                                    </div>
+
+                                    {/* Help Text */}
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-500 mb-0.5 block flex items-center gap-1"><HelpCircle className="w-3 h-3" />{ta('نص تعليمات', 'Help Text')}</label>
+                                        <Input value={editingFieldData.help_text || ''} onChange={e => setEditingFieldData({ ...editingFieldData, help_text: e.target.value })}
+                                            placeholder={ta('يظهر كتلميح للمستخدم', 'Shown as tooltip to user')}
+                                            className="h-8 text-xs dark:bg-gray-800 dark:border-gray-700 rounded-lg" />
+                                    </div>
+
+                                    {/* Group Label */}
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-500 mb-0.5 block">{ta('عنوان المجموعة', 'Group Label')}</label>
+                                        <Input value={editingFieldData.group_label_ar || ''} onChange={e => setEditingFieldData({ ...editingFieldData, group_label_ar: e.target.value, group: e.target.value ? (editingFieldData.group || `group_${Date.now()}`) : undefined })}
+                                            placeholder={ta('اتركه فارغاً إذا لم ترد تجميع', 'Leave empty for no group')}
+                                            className="h-8 text-xs dark:bg-gray-800 dark:border-gray-700 rounded-lg" />
+                                    </div>
+
+                                    {/* Validation: min/max for text */}
+                                    {(editingFieldData.type === 'text' || editingFieldData.type === 'textarea') && (
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="text-[10px] font-bold text-gray-500 mb-0.5 block">{ta('حد أدنى أحرف', 'Min Length')}</label>
+                                                <Input type="number" min={0} value={editingFieldData.min_length || ''}
+                                                    onChange={e => setEditingFieldData({ ...editingFieldData, min_length: parseInt(e.target.value) || undefined })}
+                                                    className="h-7 text-xs dark:bg-gray-800 dark:border-gray-700 rounded-lg" />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-bold text-gray-500 mb-0.5 block">{ta('حد أقصى أحرف', 'Max Length')}</label>
+                                                <Input type="number" min={0} value={editingFieldData.max_length || ''}
+                                                    onChange={e => setEditingFieldData({ ...editingFieldData, max_length: parseInt(e.target.value) || undefined })}
+                                                    className="h-7 text-xs dark:bg-gray-800 dark:border-gray-700 rounded-lg" />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Validation: min/max for number */}
+                                    {editingFieldData.type === 'number' && (
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="text-[10px] font-bold text-gray-500 mb-0.5 block">{ta('أقل قيمة', 'Min Value')}</label>
+                                                <Input type="number" value={editingFieldData.min_value ?? ''}
+                                                    onChange={e => setEditingFieldData({ ...editingFieldData, min_value: e.target.value ? parseFloat(e.target.value) : undefined })}
+                                                    className="h-7 text-xs dark:bg-gray-800 dark:border-gray-700 rounded-lg" />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-bold text-gray-500 mb-0.5 block">{ta('أعلى قيمة', 'Max Value')}</label>
+                                                <Input type="number" value={editingFieldData.max_value ?? ''}
+                                                    onChange={e => setEditingFieldData({ ...editingFieldData, max_value: e.target.value ? parseFloat(e.target.value) : undefined })}
+                                                    className="h-7 text-xs dark:bg-gray-800 dark:border-gray-700 rounded-lg" />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Regex pattern */}
+                                    {(editingFieldData.type === 'text' || editingFieldData.type === 'url') && (
+                                        <div>
+                                            <label className="text-[10px] font-bold text-gray-500 mb-0.5 block flex items-center gap-1"><Ruler className="w-3 h-3" />{ta('نمط Regex', 'Pattern')}</label>
+                                            <Input dir="ltr" value={editingFieldData.pattern || ''} onChange={e => setEditingFieldData({ ...editingFieldData, pattern: e.target.value })}
+                                                placeholder="^[a-z]+$" className="h-7 text-xs font-mono dark:bg-gray-800 dark:border-gray-700 rounded-lg" />
+                                        </div>
+                                    )}
+
+                                    {/* Toggles Row */}
+                                    <div className="flex flex-wrap items-center gap-3">
                                         <label className="flex items-center gap-2 cursor-pointer">
                                             <div onClick={() => setEditingFieldData({ ...editingFieldData, required: !editingFieldData.required })}
                                                 className={cn('relative w-8 h-4 rounded-full transition-colors', editingFieldData.required ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-600')}>
@@ -797,6 +1080,13 @@ export default function StaticToolDetailPage() {
                                             </div>
                                             <span className="text-[10px] font-bold text-gray-600">{ta('مرئي', 'Visible')}</span>
                                         </label>
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <div onClick={() => setEditingFieldData({ ...editingFieldData, half_width: !editingFieldData.half_width })}
+                                                className={cn('relative w-8 h-4 rounded-full transition-colors', editingFieldData.half_width ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600')}>
+                                                <div className={cn('absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform', editingFieldData.half_width ? 'translate-x-4' : 'translate-x-0.5')} />
+                                            </div>
+                                            <span className="text-[10px] font-bold text-gray-600">{ta('نصف عرض', '½ Width')}</span>
+                                        </label>
                                     </div>
 
                                     {/* Save button */}
@@ -808,6 +1098,141 @@ export default function StaticToolDetailPage() {
                             </motion.div>
                         )}
                         </AnimatePresence>
+                        </>)}
+
+                        {/* ═══ DESIGN TAB ═══ */}
+                        {panelTab === 'design' && activeForm && (
+                            <div className="flex-1 overflow-y-auto p-3 space-y-4">
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 mb-1 block">{ta('نص الترويسة', 'Header Text')}</label>
+                                    <Input
+                                        value={activeForm.template_settings?.header_text || ''}
+                                        onChange={e => {
+                                            const newForms = forms.map(f => f.id !== activeForm.id ? f : {
+                                                ...f,
+                                                template_settings: { ...f.template_settings, header_text: e.target.value }
+                                            });
+                                            setForms(newForms);
+                                        }}
+                                        placeholder={ta('مثال: وزارة التعليم — شاهد الأداء', 'e.g. Ministry of Education')}
+                                        className="h-8 text-xs dark:bg-gray-800 dark:border-gray-700 rounded-lg"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 mb-1 block">{ta('تدرج لوني للترويسة', 'Header Gradient')}</label>
+                                    <div className="grid grid-cols-3 gap-1.5">
+                                        {['from-blue-600 to-indigo-700', 'from-emerald-600 to-teal-700', 'from-violet-600 to-purple-700', 'from-amber-600 to-orange-600', 'from-rose-600 to-pink-600', 'from-slate-700 to-gray-800'].map(g => (
+                                            <button key={g}
+                                                onClick={() => {
+                                                    const newForms = forms.map(f => f.id !== activeForm.id ? f : {
+                                                        ...f,
+                                                        template_settings: { ...f.template_settings, header_gradient: g }
+                                                    });
+                                                    setForms(newForms);
+                                                }}
+                                                className={cn(
+                                                    'h-6 rounded-md bg-gradient-to-l transition-all',
+                                                    g,
+                                                    activeForm.template_settings?.header_gradient === g ? 'ring-2 ring-primary ring-offset-1' : 'opacity-70 hover:opacity-100'
+                                                )}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 mb-1 block">{ta('رابط الشعار', 'Logo URL')}</label>
+                                    <Input
+                                        value={activeForm.template_settings?.logo_url || ''}
+                                        onChange={e => {
+                                            const newForms = forms.map(f => f.id !== activeForm.id ? f : {
+                                                ...f,
+                                                template_settings: { ...f.template_settings, logo_url: e.target.value }
+                                            });
+                                            setForms(newForms);
+                                        }}
+                                        dir="ltr"
+                                        placeholder="https://example.com/logo.png"
+                                        className="h-8 text-xs font-mono dark:bg-gray-800 dark:border-gray-700 rounded-lg"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 mb-1 block">{ta('نص التذييل', 'Footer Text')}</label>
+                                    <Input
+                                        value={activeForm.template_settings?.footer_text || ''}
+                                        onChange={e => {
+                                            const newForms = forms.map(f => f.id !== activeForm.id ? f : {
+                                                ...f,
+                                                template_settings: { ...f.template_settings, footer_text: e.target.value }
+                                            });
+                                            setForms(newForms);
+                                        }}
+                                        placeholder={ta('نص التذييل...', 'Footer text...')}
+                                        className="h-8 text-xs dark:bg-gray-800 dark:border-gray-700 rounded-lg"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 mb-1 block">{ta('التخطيط', 'Layout')}</label>
+                                    <div className="grid grid-cols-3 gap-1.5">
+                                        {[
+                                            { value: 'default', label: ta('افتراضي', 'Default') },
+                                            { value: 'compact', label: ta('مضغوط', 'Compact') },
+                                            { value: 'landscape', label: ta('أفقي', 'Landscape') },
+                                        ].map(opt => (
+                                            <button key={opt.value}
+                                                onClick={() => {
+                                                    const newForms = forms.map(f => f.id !== activeForm.id ? f : {
+                                                        ...f,
+                                                        template_settings: { ...f.template_settings, layout: opt.value as any }
+                                                    });
+                                                    setForms(newForms);
+                                                }}
+                                                className={cn(
+                                                    'py-1.5 rounded-lg text-[9px] font-bold border transition-all',
+                                                    activeForm.template_settings?.layout === opt.value
+                                                        ? 'border-primary bg-primary/10 text-primary'
+                                                        : 'border-gray-200 dark:border-gray-700 text-gray-400 hover:border-primary/30'
+                                                )}>
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                {/* Toggles */}
+                                <div className="space-y-2 pt-2">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <div onClick={() => {
+                                            const newForms = forms.map(f => f.id !== activeForm.id ? f : {
+                                                ...f,
+                                                template_settings: { ...f.template_settings, show_qr: !f.template_settings?.show_qr }
+                                            });
+                                            setForms(newForms);
+                                        }}
+                                            className={cn('relative w-8 h-4 rounded-full transition-colors', activeForm.template_settings?.show_qr ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600')}>
+                                            <div className={cn('absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform', activeForm.template_settings?.show_qr ? 'translate-x-4' : 'translate-x-0.5')} />
+                                        </div>
+                                        <span className="text-[10px] font-bold text-gray-600">{ta('إظهار باركود', 'Show QR')}</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <div onClick={() => {
+                                            const newForms = forms.map(f => f.id !== activeForm.id ? f : {
+                                                ...f,
+                                                template_settings: { ...f.template_settings, show_watermark: !f.template_settings?.show_watermark }
+                                            });
+                                            setForms(newForms);
+                                        }}
+                                            className={cn('relative w-8 h-4 rounded-full transition-colors', activeForm.template_settings?.show_watermark ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600')}>
+                                            <div className={cn('absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform', activeForm.template_settings?.show_watermark ? 'translate-x-4' : 'translate-x-0.5')} />
+                                        </div>
+                                        <span className="text-[10px] font-bold text-gray-600">{ta('علامة مائية', 'Watermark')}</span>
+                                    </label>
+                                </div>
+                                {/* Save design settings */}
+                                <Button onClick={() => handleSaveForms(forms)} disabled={saving} size="sm" className="w-full gap-1.5 bg-primary text-white rounded-lg h-8 text-xs">
+                                    {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                                    {ta('حفظ إعدادات التصميم', 'Save Design Settings')}
+                                </Button>
+                            </div>
+                        )}
                     </motion.div>
                     </>
                 )}
@@ -930,6 +1355,14 @@ export default function StaticToolDetailPage() {
                 confirmLabel={ta('نعم، احذف', 'Yes, Delete')}
                 onConfirm={handleDeleteField}
                 onCancel={() => setDeleteFieldId(null)}
+            />
+            <ConfirmDialog
+                open={showResetConfirm}
+                title={ta('إعادة تهيئة النماذج', 'Reset Forms')}
+                message={ta('سيتم استبدال جميع النماذج الحالية بالنماذج الأصلية (نفس الي عند المستخدمين). هل أنت متأكد؟', 'All current forms will be replaced with original defaults (same as user-facing). Are you sure?')}
+                confirmLabel={ta('نعم، أعد التهيئة', 'Yes, Reset')}
+                onConfirm={handleResetToSeed}
+                onCancel={() => setShowResetConfirm(false)}
             />
         </div>
     );

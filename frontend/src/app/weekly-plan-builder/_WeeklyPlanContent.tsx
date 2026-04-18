@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useFirestoreForms } from '@/hooks/useFirestoreForms';
 import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
@@ -794,6 +795,11 @@ function MultiSubjectPlan({ onBack }: { onBack: () => void }) {
 // ===== Main Page =====
 export default function WeeklyPlanPage() {
   const { dir } = useTranslation();
+    // Firestore dynamic sync
+    useFirestoreForms('weekly-plan-builder', [
+        { id: 'single-subject', title: ta('خطة أسبوعية لمادة واحدة', 'Single-Subject Weekly Plan'), description: '', icon: null, color: '', gradient: 'from-amber-600 to-orange-600', fields: [] },
+        { id: 'multi-subject', title: ta('خطة أسبوعية لأكثر من مادة', 'Multi-Subject Weekly Plan'), description: '', icon: null, color: '', gradient: 'from-amber-600 to-orange-600', fields: [] },
+    ]);
     const [mode, setMode] = useState<'single-select' | 'single' | 'multi' | null>(null);
     const [selectedWeek, setSelectedWeek] = useState<typeof WEEKS_DATA[0] | null>(null);
 

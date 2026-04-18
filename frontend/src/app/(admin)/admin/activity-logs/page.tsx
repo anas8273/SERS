@@ -1,4 +1,5 @@
 'use client';
+export const dynamic = 'force-dynamic';
 import { ta } from '@/i18n/auto-translations';
 
 import { useState, useEffect } from 'react';
@@ -77,7 +78,7 @@ export default function AdminActivityLogsPage() {
     }, []);
 
     function getActionIcon(action: string): string {
-        if (action.includes(ta(ta('إضافة', 'Add'), 'Add')) || action.includes('create')) return '📦';
+        if (action.includes(ta('إضافة', 'Add')) || action.includes('create')) return '📦';
         if (action.includes(ta('تحديث', 'Refresh')) || action.includes('update')) return '🛒';
         if (action.includes(ta('حذف', 'Delete')) || action.includes('delete')) return '👤';
         if (action.includes(ta('تعديل', 'Edit')) || action.includes('edit')) return '🎟️';
@@ -85,8 +86,7 @@ export default function AdminActivityLogsPage() {
     }
 
     function getActionColor(action: string): string {
-  const { dir } = useTranslation();
-        if (action.includes(ta(ta('إضافة', 'Add'), 'Add')) || action.includes('create')) return 'green';
+        if (action.includes(ta('إضافة', 'Add')) || action.includes('create')) return 'green';
         if (action.includes(ta('تحديث', 'Refresh')) || action.includes('update')) return 'blue';
         if (action.includes(ta('حذف', 'Delete')) || action.includes('delete')) return 'red';
         if (action.includes(ta('تعديل', 'Edit')) || action.includes('edit')) return 'purple';
@@ -129,7 +129,7 @@ export default function AdminActivityLogsPage() {
                     </div>
                     <div>
                         <p className="text-2xl font-black text-gray-900 dark:text-white">
-                            {logs.filter(l => l.action.includes(ta(ta('إضافة', 'Add'), 'Add'))).length}
+                            {logs.filter(l => l.action.includes(ta('إضافة', 'Add'))).length}
                         </p>
                         <p className="text-xs text-gray-500 font-medium">{ta('عمليات إضافة', 'Add operations')}</p>
                     </div>

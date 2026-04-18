@@ -7,13 +7,12 @@ const nextConfig = {
 
   // ======= TypeScript =======
   typescript: {
-    // [BUILD] Allow build with TS warnings — runtime behavior is correct.
-    // Clean up remaining TS annotations separately.
-    ignoreBuildErrors: true,
+    // [AUDIT FIX] All TS errors resolved — safe to enforce strict checks.
+    ignoreBuildErrors: false,
   },
 
   // ======= Performance =======
-  reactStrictMode: false, // Disable in dev to prevent double renders
+  reactStrictMode: true, // [AUDIT FIX] Enabled for production quality — catches side-effect bugs
   compress: true,
 
   // ======= Experimental Features =======
@@ -77,6 +76,17 @@ const nextConfig = {
       { protocol: 'http',  hostname: '127.0.0.1' },
       { protocol: 'http',  hostname: '127.0.0.1', port: '8001' },
     ],
+  },
+
+  // ======================================================
+  // Redirects — old/orphan pages → new unified routes
+  // ======================================================
+  async redirects() {
+    return [
+      { source: '/appreciation-certificates', destination: '/certificates', permanent: true },
+      { source: '/professional-community', destination: '/performance-evidence-forms', permanent: true },
+      { source: '/parents-interaction', destination: '/performance-evidence-forms', permanent: true },
+    ];
   },
 
   // ======================================================

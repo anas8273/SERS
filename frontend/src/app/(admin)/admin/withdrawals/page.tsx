@@ -230,11 +230,15 @@ export default function AdminWithdrawalsPage() {
             {stats && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[
-                        { key: 'pending',    label: ta('قيد الانتظار', 'Pending'), color: 'yellow', icon: Clock },
-                        { key: 'processing', label: ta('قيد المعالجة', 'Processing'), color: 'blue',   icon: Loader2 },
-                        { key: 'completed',  label: ta('مكتملة', 'Completed'),        color: 'green',  icon: CheckCircle2 },
-                        { key: 'rejected',   label: ta('مرفوضة', 'Rejected'),        color: 'red',    icon: XCircle },
-                    ].map(({ key, label, color, icon: Icon }) => {
+                        { key: 'pending',    label: ta('قيد الانتظار', 'Pending'), icon: Clock,
+                          activeBorder: 'border-yellow-400', activeBg: 'bg-yellow-50', iconColor: 'text-yellow-500', countColor: 'text-yellow-600', totalColor: 'text-yellow-600' },
+                        { key: 'processing', label: ta('قيد المعالجة', 'Processing'), icon: Loader2,
+                          activeBorder: 'border-blue-400', activeBg: 'bg-blue-50', iconColor: 'text-blue-500', countColor: 'text-blue-600', totalColor: 'text-blue-600' },
+                        { key: 'completed',  label: ta('مكتملة', 'Completed'), icon: CheckCircle2,
+                          activeBorder: 'border-green-400', activeBg: 'bg-green-50', iconColor: 'text-green-500', countColor: 'text-green-600', totalColor: 'text-green-600' },
+                        { key: 'rejected',   label: ta('مرفوضة', 'Rejected'), icon: XCircle,
+                          activeBorder: 'border-red-400', activeBg: 'bg-red-50', iconColor: 'text-red-500', countColor: 'text-red-600', totalColor: 'text-red-600' },
+                    ].map(({ key, label, icon: Icon, activeBorder, activeBg, iconColor, countColor, totalColor }) => {
                         const s = stats[key as keyof WithdrawalStats];
                         return (
                             <button
@@ -242,16 +246,16 @@ export default function AdminWithdrawalsPage() {
                                 onClick={() => { setStatusFilter(key as StatusFilter); setCurrentPage(1); }}
                                 className={`p-4 rounded-xl border-2 text-start transition-all hover:scale-[1.02] ${
                                     statusFilter === key
-                                        ? `border-${color}-400 bg-${color}-50`
+                                        ? `${activeBorder} ${activeBg}`
                                         : 'border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-200 dark:hover:border-gray-600'
                                 }`}
                             >
                                 <div className="flex items-center justify-between mb-2">
-                                    <Icon className={`h-5 w-5 text-${color}-500`} />
-                                    <span className={`text-2xl font-bold text-${color}-600`}>{s.count}</span>
+                                    <Icon className={`h-5 w-5 ${iconColor}`} />
+                                    <span className={`text-2xl font-bold ${countColor}`}>{s.count}</span>
                                 </div>
                                 <p className="text-xs text-gray-500">{label}</p>
-                                <p className={`text-sm font-semibold text-${color}-600 mt-1`}>
+                                <p className={`text-sm font-semibold ${totalColor} mt-1`}>
                                     {formatAmount(s.total)}
                                 </p>
                             </button>

@@ -42,13 +42,20 @@ class AIController extends Controller
     public function suggest(Request $request)
     {
         $validated = $request->validate([
-            'template_id' => 'nullable|string',
-            'field_name' => 'required|string',
-            'title' => 'nullable|string',
-            'current_values' => 'nullable|array',
-            'field_label' => 'nullable|string',
-            'ai_hint' => 'nullable|string',
+            'template_id'         => 'nullable|string',
+            'field_name'          => 'required|string',
+            'title'               => 'nullable|string',
+            'current_values'      => 'nullable|array',
+            'field_label'         => 'nullable|string',
+            'ai_hint'             => 'nullable|string',
+            'locale'              => 'nullable|string|in:ar,en',
+            // [ANTI-REPEAT] Sent by frontend on re-generate to force different output
+            'previous_suggestion' => 'nullable|string|max:1500',
+            'attempt'             => 'nullable|integer|min:1|max:10',
         ]);
+
+        $locale  = $this->resolveLocale($request, $validated['locale'] ?? null);
+        $attempt = (int) ($validated['attempt'] ?? 1);
 
         $template = null;
         if (!empty($validated['template_id'])) {
@@ -61,16 +68,26 @@ class AIController extends Controller
             $validated['current_values'] ?? [],
             $template,
             $validated['field_label'] ?? null,
-            $validated['ai_hint'] ?? null
+            $validated['ai_hint'] ?? null,
+            $locale,
+            $validated['previous_suggestion'] ?? null,
+            $attempt
         );
 
-        $response = $this->callOpenAI($prompt, false, 'suggest');
+        // [ANTI-REPEAT] Boost temperature on each re-generate attempt (max +0.24)
+        $baseTemp  = $this->resolveFieldTemperature($validated['field_name'], $validated['field_label'] ?? null);
+        $fieldTemp = min(1.0, $baseTemp + ($attempt > 1 ? 0.08 * min($attempt - 1, 3) : 0));
+
+        $systemMsg = $this->buildLocaleSystemMessage($locale, 'suggest');
+        $response  = $this->callOpenAI($prompt, false, 'suggest', $fieldTemp, $systemMsg);
 
         return response()->json([
             'success' => true,
             'data' => [
                 'suggestion' => $response,
                 'field_name' => $validated['field_name'],
+                'locale'     => $locale,
+                'attempt'    => $attempt,
             ],
         ]);
     }
@@ -81,31 +98,37 @@ class AIController extends Controller
     public function fillAll(Request $request)
     {
         $validated = $request->validate([
-            'template_id' => 'nullable|uuid',
-            'title' => 'required|string',
+            'template_id'    => 'nullable|uuid',
+            'title'          => 'required|string',
             'current_values' => 'nullable|array',
+            'locale'         => 'nullable|string|in:ar,en',
         ]);
 
+        $locale   = $this->resolveLocale($request, $validated['locale'] ?? null);
         $template = null;
-        $fields = [];
+        $fields   = [];
 
         if ($validated['template_id']) {
             $template = Template::with('fields')->find($validated['template_id']);
-            $fields = $template?->fields ?? [];
+            $fields   = $template?->fields ?? [];
         }
 
-        $prompt = $this->buildFillAllPrompt(
+        $prompt    = $this->buildFillAllPrompt(
             $validated['title'],
             $fields,
-            $validated['current_values'] ?? []
+            $validated['current_values'] ?? [],
+            $locale
         );
 
-        $response = $this->callOpenAI($prompt, true, 'fill-all');
+        $systemMsg = $this->buildLocaleSystemMessage($locale, 'fill-all');
+        $response  = $this->callOpenAI($prompt, true, 'fill-all', 0.82, $systemMsg);
 
         return response()->json([
             'success' => true,
             'data' => [
-                'values' => $response,
+                'suggestions' => $response,  // [FIX] frontend reads response.data.suggestions
+                'values'      => $response,  // backward-compat alias
+                'locale'      => $locale,
             ],
         ]);
     }
@@ -497,11 +520,84 @@ class AIController extends Controller
      * [QUALITY-07 FIX] Now forwards Auth::id() and $action so ai_request_logs
      * contain real user attribution instead of NULL for every row.
      */
-    private function callOpenAI(string $prompt, bool $json = false, string $action = 'call'): string|array
+    /**
+     * [LOCALE] Detect the user's active language:
+     *  1. Explicit `locale` param from the request payload
+     *  2. HTTP `Accept-Language` header (fr-FR → ignore, en-* → en, ar-* → ar)
+     *  3. `locale` cookie (set by the frontend when the user toggles language)
+     *  4. Fallback: 'ar' (Saudi-first default)
+     */
+    private function resolveLocale(\Illuminate\Http\Request $request, ?string $explicit): string
     {
+        if ($explicit && in_array($explicit, ['ar', 'en'])) {
+            return $explicit;
+        }
+
+        // Check cookie (frontend writes `locale=ar|en`)
+        $cookie = $request->cookie('locale');
+        if ($cookie && in_array($cookie, ['ar', 'en'])) {
+            return $cookie;
+        }
+
+        // Check Accept-Language header
+        $acceptLang = $request->header('Accept-Language', '');
+        if (str_starts_with($acceptLang, 'en')) {
+            return 'en';
+        }
+
+        return 'ar'; // Saudi-first default
+    }
+
+    /**
+     * [LOCALE] Build a locale-aware system message that instructs the LLM
+     * to respond exclusively in the user's active language.
+     *
+     * Using an explicit language directive in the system message is the most
+     * reliable way to make modern LLMs honour the locale — more reliable than
+     * embedding the instruction inside the user prompt.
+     */
+    private function buildLocaleSystemMessage(string $locale, string $task = 'general'): string
+    {
+        if ($locale === 'en') {
+            $taskCtx = match ($task) {
+                'suggest'   => 'You fill in a single educational form field with professional English content.',
+                'fill-all'  => 'You fill all fields of an educational form with coherent, professional English content and return pure JSON.',
+                'chat'      => 'You are a helpful educational assistant for the SERS platform.',
+                default     => 'You are a professional educational content writer.',
+            };
+            return "You are an expert educational content specialist for SERS — a Saudi Arabian teacher platform.\n"
+                 . "{$taskCtx}\n"
+                 . "CRITICAL RULE: You MUST respond ENTIRELY in English. Do NOT include any Arabic text in your response.\n"
+                 . "Your writing style: professional, formal, aligned with Saudi Ministry of Education standards.\n"
+                 . "Do not add greetings or meta-commentary — content only.";
+        }
+
+        // Arabic (default)
+        $taskCtx = match ($task) {
+            'suggest'  => 'مهمتك ملء حقل واحد في نموذج تعليمي بمحتوى عربي احترافي.',
+            'fill-all' => 'مهمتك ملء جميع حقول نموذج تعليمي بمحتوى متناسق واحترافي وإرجاع JSON نقي.',
+            'chat'     => 'أنت مساعد تعليمي لمنصة SERS.',
+            default    => 'أنت متخصص في كتابة المحتوى التعليمي الاحترافي.',
+        };
+        return "أنت متخصص في المحتوى التعليمي لمنصة SERS — السوق التعليمي السعودي للمعلمين.\n"
+             . "{$taskCtx}\n"
+             . "قاعدة حاسمة: يجب أن يكون ردك كاملاً باللغة العربية الفصحى. لا تكتب أي كلمة إنجليزية.\n"
+             . "الأسلوب: عربية فصحى رسمية تناسب الوثائق التعليمية الرسمية في المملكة العربية السعودية.\n"
+             . "لا تضف تحيات أو شروحات — المحتوى مباشرة.";
+    }
+
+    private function callOpenAI(
+        string  $prompt,
+        bool    $json        = false,
+        string  $action      = 'call',
+        float   $temperature = 0.75,
+        ?string $systemMsg   = null
+    ): string|array {
         return $this->aiService->call(
             $prompt,
             $json,
+            systemMessage: $systemMsg ?? 'أنت مساعد تعليمي ذكي متخصص في مساعدة المعلمين والإداريين في المدارس.',
+            temperature: $temperature,
             action: $action,
             userId: (string) Auth::id() ?: null,
         );
@@ -510,133 +606,365 @@ class AIController extends Controller
     /**
      * [DRY-01] Delegate to AIService::chat() — multi-turn conversation.
      * [QUALITY-07 FIX] Now forwards Auth::id() so chat logs are user-attributed.
+     * [AI-PRO] Uses higher temperature (0.85) for varied responses and 2500 max tokens.
      */
     private function callOpenAIChat(array $messages): string
     {
         $result = $this->aiService->chat(
             $messages,
+            temperature: 0.85,
+            maxTokens: 2500,
             action: 'chat',
             userId: (string) Auth::id() ?: null,
         );
         return is_array($result) ? json_encode($result) : $result;
     }
 
-    private function buildSuggestionPrompt(string $fieldName, string $title, array $currentValues, ?Template $template, ?string $fieldLabel = null, ?string $aiHint = null): string
-    {
-        $context = "أنت مساعد تعليمي ذكي متخصص في مساعدة المعلمين والإداريين في المدارس.\n";
-        $context .= "مهمتك: اقتراح محتوى احترافي ومناسب للحقل المطلوب.\n\n";
-        
-        $context .= "=== معلومات القالب ===\n";
-        $context .= "عنوان القالب: {$title}\n";
-        
+    /**
+     * [AI-QUALITY] Build a rich, field-aware suggestion prompt.
+     *
+     * Key improvements over the old version:
+     *  1. Expert persona that changes per field type — the AI "becomes" a different
+     *     specialist for objectives vs activities vs evidence etc.
+     *  2. Entropy seed (microsecond timestamp) injected as a hidden comment so the
+     *     LLM never generates an identical response for the same inputs.
+     *  3. Full current-values context passed — AI can reference sibling fields.
+     *  4. Strict output rules — no greetings, no meta-commentary, content only.
+     *  5. Quality bar — minimum 40 chars, no placeholder text like "اكتب هنا".
+     */
+    private function buildSuggestionPrompt(
+        string    $fieldName,
+        string    $title,
+        array     $currentValues,
+        ?Template $template,
+        ?string   $fieldLabel          = null,
+        ?string   $aiHint              = null,
+        string    $locale              = 'ar',
+        ?string   $previousSuggestion  = null,
+        int       $attempt             = 1
+    ): string {
+        $isEn = ($locale === 'en');
+
+        // ── 1. Identify field domain and get expert persona ───────────────────────
+        $domain  = $this->detectFieldDomain($fieldName, $fieldLabel);
+        $persona = $this->getExpertPersona($domain, $isEn);
+        $example = $this->getDomainExample($domain, $title, $isEn);
+
+        // ── 2. Template context ───────────────────────────────────────────────────
+        $templateCtx = '';
         if ($template) {
-            $context .= "نوع القالب: {$template->name_ar}\n";
-            if ($template->description_ar) {
-                $context .= "وصف القالب: {$template->description_ar}\n";
+            $name = $isEn
+                ? ($template->name_en ?: $template->name_ar)
+                : $template->name_ar;
+            $desc = $isEn
+                ? ($template->description_en ?: $template->description_ar)
+                : $template->description_ar;
+            $templateCtx = $isEn
+                ? "Template type: {$name}" . ($desc ? " — {$desc}" : '')
+                : "نوع القالب: {$name}" . ($desc ? " — {$desc}" : '');
+            if ($template->relationLoaded('section') && $template->section) {
+                $secName = $isEn
+                    ? ($template->section->name_en ?: $template->section->name_ar)
+                    : $template->section->name_ar;
+                $templateCtx .= $isEn ? "\nSection: {$secName}" : "\nالقسم: {$secName}";
             }
         }
-        
-        $context .= "\n=== الحقل المطلوب ===\n";
-        $context .= "اسم الحقل: {$fieldName}\n";
-        if ($fieldLabel) {
-            $context .= "تسمية الحقل: {$fieldLabel}\n";
+
+        // ── 3. Sibling fields context ─────────────────────────────────────────────
+        $siblingCtx = '';
+        $relevant = array_filter($currentValues, fn($v) => !empty($v) && is_string($v));
+        if (!empty($relevant)) {
+            $lines = [];
+            foreach (array_slice($relevant, 0, 6) as $k => $v) {
+                $lines[] = "  • {$k}: " . mb_substr($v, 0, 80);
+            }
+            $siblingCtx = $isEn
+                ? "### Other field values (for coherence):\n" . implode("\n", $lines)
+                : "### البيانات المدخلة في الحقول الأخرى (للتناسق):\n" . implode("\n", $lines);
         }
+
+        // ── 4. Hint ───────────────────────────────────────────────────────────────
+        $hintLine = '';
         if ($aiHint) {
-            $context .= "تلميح: {$aiHint}\n";
+            $hintLine = $isEn ? "Optional guidance: {$aiHint}" : "التوجيه الاختياري: {$aiHint}";
         }
 
-        if (!empty($currentValues)) {
-            $context .= "\n=== القيم المدخلة حالياً ===\n";
-            foreach ($currentValues as $key => $value) {
-                if (!empty($value) && is_string($value)) {
-                    $context .= "- {$key}: {$value}\n";
-                }
-            }
+        // ── 4b. FORBIDDEN block (anti-repeat on re-generate) ─────────────────────
+        // The previous suggestion is shown to the LLM as a block it MUST NOT repeat.
+        // This direct instruction is far more reliable than any hidden entropy trick.
+        $forbiddenBlock = '';
+        if ($previousSuggestion && mb_strlen(trim($previousSuggestion)) > 10) {
+            $prevTrunc = mb_substr(trim($previousSuggestion), 0, 450);
+            $forbiddenBlock = $isEn
+                ? "### ⛔ FORBIDDEN — Do NOT reproduce this\n"
+                  . "The text below was already generated. Write something **completely different** in structure, vocabulary, and approach:\n"
+                  . "```\n{$prevTrunc}\n```\n"
+                : "### ❌ محظور — لا تعيد إنتاج هذا المحتوى\n"
+                  . "النص التالي تمّ توليده مسبقاً. اكتب محتوى **مختلفاً كلياً** في التركيب والمفردات والأسلوب:\n"
+                  . "```\n{$prevTrunc}\n```\n";
         }
 
-        // إضافة تعليمات خاصة حسب نوع الحقل
-        $context .= "\n=== التعليمات ===\n";
-        $context .= $this->getFieldSpecificInstructions($fieldName, $fieldLabel);
-        
-        $context .= "\nاكتب اقتراحاً احترافياً ومناسباً للسياق التعليمي. ";
-        $context .= "يجب أن يكون الاقتراح باللغة العربية الفصحى وبأسلوب تربوي رصين. ";
-        $context .= "أعط الإجابة مباشرة بدون مقدمات.";
+        // ── 5. Anti-repetition engine (angle directive + entropy token) ───────────
 
-        return $context;
+        //
+        // Strategy: unlike a hidden HTML comment (which the LLM ignores), we inject
+        // a *visible* variation token + a randomly-chosen "angle directive" that
+        // changes the approach the model takes. This guarantees a different output
+        // every time the user hits "Generate Again", even with identical inputs.
+        //
+        $entropy = bin2hex(random_bytes(4)); // 8-char hex, e.g. "a3f7b21c"
+
+        $angles = $isEn ? [
+            'Focus on the practical classroom application angle.',
+            'Emphasize the measurable outcomes and success indicators.',
+            'Highlight the professional development dimension.',
+            'Approach this from a differentiated instruction perspective.',
+            'Stress the alignment with the Saudi curriculum framework.',
+            'Emphasize collaborative and cooperative learning aspects.',
+            'Frame this from a leadership and professional excellence angle.',
+            'Focus on evidence-based practices and documentation.',
+        ] : [
+            'ركّز على الجانب التطبيقي والعملي في بيئة الفصل الدراسي.',
+            'ركّز على مؤشرات النجاح وآليات القياس القابلة للملاحظة.',
+            'انطلق من زاوية التطوير المهني ومجتمعات التعلم.',
+            'عالج الموضوع من منظور مراعاة الفروق الفردية واحتياجات الطلاب.',
+            'برِر المضمون من خلال التوافق مع الإطار الوطني للمناهج السعودية.',
+            'اجعل التعلم التعاوني والنشاط محور المحتوى.',
+            'صغ الإجابة بأسلوب التميز والقيادة التربوية.',
+            'استند إلى التوثيق المیداني والشواهد الفعلية.',
+            'ابدأ بسياق التحدي ثم انتقل إلى الحلول والنتائج.',
+            'ركّز على التغذية الراجعة والتحسين المستمر.',
+        ];
+        $angle = $angles[array_rand($angles)];
+
+        // ── 6. Display label ──────────────────────────────────────────────────────
+        $displayLabel = $fieldLabel ?: $fieldName;
+
+        // ── 7. Compose prompt (bilingual) ─────────────────────────────────────────
+        if ($isEn) {
+            return <<<PROMPT
+[VAR:{$entropy}] {$angle}
+{$persona}
+
+### Task Context
+- Record title: "{$title}"
+{$templateCtx}
+
+### Field to Complete
+Field key: `{$fieldName}`
+Display label: **{$displayLabel}**
+{$hintLine}
+
+{$siblingCtx}
+
+{$forbiddenBlock}
+### Quality Example
+{$example}
+
+### Output Rules (strict)
+1. Write the **field content directly** — no preambles, no explanations.
+2. Do NOT start with "Of course", "Sure", "Here is" — start with the content.
+3. Minimum 40 characters. No short placeholders like "Write here".
+4. Style: formal professional English suitable for Saudi Ministry of Education documents.
+5. Do NOT repeat any sentence already present in the field values above.
+6. Apply the angle directive from the first line throughout your response.
+PROMPT;
+        }
+
+        // Arabic prompt
+        return <<<PROMPT
+[تنويع:{$entropy}] {$angle}
+{$persona}
+
+### سياق المهمة
+- اسم السجل التعليمي: «{$title}»
+{$templateCtx}
+
+### الحقل المطلوب ملؤه
+اسم الحقل: `{$fieldName}`
+التسمية الظاهرة للمستخدم: **{$displayLabel}**
+{$hintLine}
+
+{$siblingCtx}
+
+{$forbiddenBlock}
+### مثال على الجودة المطلوبة
+{$example}
+
+### قواعد الإخراج (التزم بها تماماً)
+1. اكتب **محتوى الحقل مباشرة** — بلا مقدمات ولا شروحات.
+2. لا تبدأ بـ «بالطبع» أو «يمكن» أو «اقتراح:» — ابدأ بالمحتوى الفعلي.
+3. الحد الأدنى 40 حرفاً. لا تكتب عينات قصيرة مثل «اكتب هنا» أو «يحدد الطالب».
+4. الأسلوب: عربية فصحى مهنية مناسبة للوثائق الرسمية في التعليم السعودي.
+5. لا تكرر أي جملة موجودة بالفعل في البيانات المدخلة أعلاه.
+6. طبّق توجيه التنويع من السطر الأول على كامل إجابتك.
+PROMPT;
     }
 
     /**
-     * Get field-specific AI instructions based on field name/label.
+     * [AI-QUALITY] Detect the semantic domain of a field from its name/label.
+     * Returns a short domain key used to select persona + example.
      */
-    private function getFieldSpecificInstructions(string $fieldName, ?string $fieldLabel): string
+    private function detectFieldDomain(string $fieldName, ?string $fieldLabel): string
     {
-        $lowerName = mb_strtolower($fieldName);
-        $lowerLabel = $fieldLabel ? mb_strtolower($fieldLabel) : '';
-        
-        // تعليمات خاصة لأنواع الحقول المختلفة
-        $instructions = [];
-        
-        // الأهداف
-        if (str_contains($lowerName, 'objective') || str_contains($lowerLabel, 'هدف') || str_contains($lowerLabel, 'أهداف')) {
-            $instructions[] = "اكتب أهدافاً تعليمية واضحة وقابلة للقياس.";
-            $instructions[] = "استخدم أفعال سلوكية مثل: يحدد، يصف، يحلل، يقارن.";
+        $haystack = mb_strtolower($fieldName . ' ' . ($fieldLabel ?? ''));
+
+        $domains = [
+            'objective'      => ['objective','هدف','أهداف','مخرجات','كفاية','كفاءة'],
+            'activity'       => ['activity','نشاط','أنشطة','تدريب','تطبيق','ممارسة'],
+            'assessment'     => ['assessment','تقييم','تقويم','قياس','اختبار','درجة'],
+            'evidence'       => ['evidence','شاهد','شواهد','إنجاز','إنجازات','توثيق','موثق'],
+            'recommendation' => ['recommendation','توصية','توصيات','مقترح','مقترحات'],
+            'description'    => ['description','وصف','شرح','تفصيل','محتوى','content'],
+            'note'           => ['note','ملاحظة','ملاحظات','تعليق','تعليقات'],
+            'plan'           => ['plan','خطة','خطط','برنامج','منهج','توزيع'],
+            'challenge'      => ['challenge','تحدي','تحديات','عقبة','صعوبة'],
+            'strength'       => ['strength','قوة','نقاط قوة','إيجابيات','مميزات'],
+            'summary'        => ['summary','ملخص','موجز','overview'],
+        ];
+
+        foreach ($domains as $domain => $keywords) {
+            foreach ($keywords as $kw) {
+                if (str_contains($haystack, $kw)) {
+                    return $domain;
+                }
+            }
         }
-        
-        // الأنشطة
-        if (str_contains($lowerName, 'activity') || str_contains($lowerLabel, 'نشاط') || str_contains($lowerLabel, 'أنشطة')) {
-            $instructions[] = "اقترح أنشطة تعليمية متنوعة وتفاعلية.";
-            $instructions[] = "راعِ الفروق الفردية بين الطلاب.";
-        }
-        
-        // الشواهد والإنجازات
-        if (str_contains($lowerName, 'evidence') || str_contains($lowerLabel, 'شاهد') || str_contains($lowerLabel, 'إنجاز')) {
-            $instructions[] = "اكتب شاهداً محدداً وموثقاً على الأداء.";
-            $instructions[] = "اذكر التاريخ والسياق إن أمكن.";
-        }
-        
-        // التقييم
-        if (str_contains($lowerName, 'assessment') || str_contains($lowerLabel, 'تقييم') || str_contains($lowerLabel, 'تقويم')) {
-            $instructions[] = "اقترح طرق تقييم متنوعة ومناسبة.";
-            $instructions[] = "راعِ التقييم التكويني والختامي.";
-        }
-        
-        // التوصيات
-        if (str_contains($lowerName, 'recommendation') || str_contains($lowerLabel, 'توصية') || str_contains($lowerLabel, 'توصيات')) {
-            $instructions[] = "قدم توصيات عملية وقابلة للتنفيذ.";
-            $instructions[] = "اربط التوصيات بالسياق التعليمي.";
-        }
-        
-        // الملاحظات
-        if (str_contains($lowerName, 'note') || str_contains($lowerLabel, 'ملاحظة') || str_contains($lowerLabel, 'ملاحظات')) {
-            $instructions[] = "اكتب ملاحظات موضوعية ومهنية.";
-            $instructions[] = "تجنب التعميمات غير المبررة.";
-        }
-        
-        return !empty($instructions) ? implode("\n", $instructions) . "\n" : "";
+        return 'general';
     }
 
+    /**
+     * [AI-QUALITY] Return an expert persona string per domain.
+     * The persona primes the LLM to respond as a domain specialist.
+     */
+    private function getExpertPersona(string $domain, bool $isEn = false): string
+    {
+        if ($isEn) {
+            return match ($domain) {
+                'objective'      => 'You are an **expert educational psychologist** specializing in writing learning objectives using Bloom\'s revised taxonomy. You use action verbs that are observable and measurable.',
+                'activity'       => 'You are a **professional instructional designer** specializing in classroom and extracurricular activities. You promote active learning and address individual differences among students.',
+                'assessment'     => 'You are a **measurement and evaluation expert** aligned with the Saudi Ministry of Education frameworks. You balance formative and summative assessment strategies.',
+                'evidence'       => 'You are a **professional performance auditor** specializing in documenting teacher performance evidence. You write precisely and objectively, citing context and dates.',
+                'recommendation' => 'You are an **educational consultant** delivering practical, evidence-based recommendations that can be implemented immediately.',
+                'plan'           => 'You are a **curriculum planner** specializing in lesson and unit plans aligned with the Saudi National Curriculum Framework.',
+                'challenge'      => 'You are an **educational analyst** describing field challenges accurately and proposing actionable solutions.',
+                'strength'       => 'You are a **professional performance evaluator** who highlights strengths positively with specific evidence.',
+                'summary'        => 'You are an **educational writer** who summarizes information concisely while preserving full meaning.',
+                default          => 'You are a **professional educational content specialist** for the SERS Saudi platform. You write content suitable for official educational documents.',
+            };
+        }
+
+        return match ($domain) {
+            'objective'      => 'أنت **خبير تربوي** متخصص في صياغة الأهداف التعليمية وفق تصنيف بلوم المحدّث. تستخدم أفعالاً إجرائية قابلة للملاحظة والقياس.',
+            'activity'       => 'أنت **مصمم تعليمي** متخصص في تصميم الأنشطة الصفية واللاصفية. تراعي التعلم النشط والفروق الفردية بين الطلاب.',
+            'assessment'     => 'أنت **متخصص في القياس والتقويم التربوي** وفق مرجعية وزارة التعليم السعودية. تجمع بين التقويم التكويني والختامي.',
+            'evidence'       => 'أنت **مدقق أداء تربوي** متخصص في توثيق شواهد الأداء المهني للمعلمين. تكتب بدقة وموضوعية مع ذكر السياق والتاريخ.',
+            'recommendation' => 'أنت **مستشار تربوي** تقدم توصيات عملية وقابلة للتنفيذ مبنية على الأدلة والبيانات.',
+            'plan'           => 'أنت **مخطط منهجي** متخصص في وضع الخطط التدريسية وفق الإطار الوطني للمناهج في المملكة العربية السعودية.',
+            'challenge'      => 'أنت **محلل تربوي** تصف التحديات الميدانية بدقة وتقترح مسارات للتغلب عليها.',
+            'strength'       => 'أنت **مقيّم أداء مهني** تُبرز نقاط القوة بأسلوب إيجابي ومحدد يستند إلى أدلة واقعية.',
+            'summary'        => 'أنت **كاتب تربوي** تلخّص المعلومات بدقة واختصار مع الحفاظ على المعنى الكامل.',
+            default          => 'أنت **مساعد تعليمي متخصص** لمنصة SERS السعودية. تكتب محتوى احترافياً يناسب الوثائق الرسمية في البيئة التعليمية السعودية.',
+        };
+    }
+
+    private function getDomainExample(string $domain, string $title, bool $isEn = false): string
+    {
+        $titleSnippet = mb_substr($title, 0, 30) ?: ($isEn ? 'the educational record' : 'السجل التعليمي');
+
+        if ($isEn) {
+            return match ($domain) {
+                'objective'      => "Quality example:\n\u00bb The student will analyze the concept of {$titleSnippet} through three real-world examples and identify relationships between its core components with at least 80% accuracy.",
+                'activity'       => "Quality example:\n\u00bb Cooperative activity: Students are divided into groups of four to discuss {$titleSnippet}, then each group's representative presents a two-minute summary.",
+                'assessment'     => "Quality example:\n\u00bb Students are assessed via: (1) a 10-question quiz after the lesson, (2) cooperative activity observation, (3) a homework assignment due in two days.",
+                'evidence'       => "Quality example:\n\u00bb Delivered a model lesson on {$titleSnippet} on 12/08/1446H before the educational supervision committee, receiving an Excellent rating with a recommendation to share the approach.",
+                'recommendation' => "Quality example:\n\u00bb It is recommended to allocate one additional weekly session for {$titleSnippet}, measure the impact over one month, and document results in the monthly follow-up log.",
+                'plan'           => "Quality example:\n\u00bb Week 1: Review core concepts and build readiness for {$titleSnippet}. Week 2: Apply inquiry-based learning. Week 3: Summative assessment and feedback.",
+                default          => "Quality example:\n\u00bb Write clear, specific content related to {$titleSnippet} in a professional style suitable for official educational documents.",
+            };
+        }
+
+        return match ($domain) {
+            'objective'      => "مثال على الجودة:\n\u00bb أن يحلل الطالب مفهوم {$titleSnippet} من خلال ثلاثة أمثلة واقعية، ويستنتج العلاقة بين مكوناته الأساسية بدقة لا تقل عن 80%.",
+            'activity'       => "مثال على الجودة:\n\u00bb نشاط تعاوني: يُقسَّم الطلاب إلى مجموعات رباعية لمناقشة {$titleSnippet}، ثم يقدم مقرر كل مجموعة ملخصاً أمام الفصل في دقيقتين.",
+            'assessment'     => "مثال على الجودة:\n\u00bb يُقيَّم الطلاب من خلال: (1) اختبار قصير 10 أسئلة بعد الدرس، (2) ملاحظة أداء النشاط التعاوني، (3) تكليف منزلي يُسلَّم بعد يومين.",
+            'evidence'       => "مثال على الجودة:\n\u00bb تنفيذ درس نموذجي بتاريخ 1446/08/12هـ في {$titleSnippet} أمام لجنة الإشراف التربوي، وحصل على تقدير ممتاز مع توصية بتعميم الأسلوب.",
+            'recommendation' => "مثال على الجودة:\n\u00bb يُوصى بتخصيص حصة أسبوعية إضافية لـ{$titleSnippet} مع قياس الأثر خلال شهر، وتوثيق النتائج في سجل المتابعة الشهرية.",
+            'plan'           => "مثال على الجودة:\n\u00bb الأسبوع الأول: مراجعة المفاهيم الأساسية وبناء التهيئة لـ{$titleSnippet}. الأسبوع الثاني: تطبيق استراتيجية التعلم بالاستقصاء. الأسبوع الثالث: تقييم ختامي وتغذية راجعة.",
+            default          => "مثال على الجودة:\n\u00bb اكتب محتوى واضحاً ومحدداً يتعلق بـ{$titleSnippet} بأسلوب مهني يناسب الوثائق التعليمية الرسمية.",
+        };
+    }
+
+    /**
+     * [AI-QUALITY] Higher temperature → more diverse responses for creative fields;
+     * lower temperature → consistent precision for structured fields like assessments.
+     */
+    private function resolveFieldTemperature(string $fieldName, ?string $fieldLabel): float
+    {
+        $domain = $this->detectFieldDomain($fieldName, $fieldLabel);
+        return match ($domain) {
+            'objective', 'assessment' => 0.70, // Precision fields
+            'evidence', 'plan'        => 0.75,
+            'activity', 'strength'   => 0.90, // Creative fields
+            'recommendation'         => 0.85,
+            default                  => 0.82,
+        };
+    }
+
+    /**
+     * [AI-QUALITY] Rich fill-all prompt that:
+     *  - Provides the full list of fields with labels (not just names)
+     *  - Tells the AI the exact JSON schema expected
+     *  - Instructs the AI to maintain cross-field coherence
+     *  - Uses entropy to avoid repeated batches
+     */
     private function buildFillAllPrompt(string $title, $fields, array $currentValues): string
     {
-        $context = "أنت تساعد معلماً في ملء نموذج تعليمي.\n";
-        $context .= "عنوان النموذج: {$title}\n";
+        $entropy = substr(microtime(), 2, 6);
 
+        // Build field list with labels for richer context
+        $fieldList = '';
+        $fieldNames = [];
         if (!empty($fields)) {
-            $context .= "الحقول المطلوبة:\n";
             foreach ($fields as $field) {
-                $context .= "- {$field->name}: {$field->label}\n";
+                $label = $field->label_ar ?? $field->label ?? $field->name;
+                $fieldList .= "  - {$field->name} (التسمية: {$label})\n";
+                $fieldNames[] = $field->name;
             }
         }
 
-        if (!empty($currentValues)) {
-            $context .= "القيم الحالية:\n";
-            foreach ($currentValues as $key => $value) {
-                $context .= "- {$key}: {$value}\n";
+        // Existing values (skip empty)
+        $existingLines = '';
+        foreach ($currentValues as $k => $v) {
+            if (!empty($v)) {
+                $existingLines .= "  - {$k}: " . mb_substr((string)$v, 0, 100) . "\n";
             }
         }
 
-        $context .= "\nأكمل جميع الحقول الفارغة بقيم مناسبة. أرجع النتيجة كـ JSON object حيث المفتاح هو اسم الحقل والقيمة هي المحتوى المقترح.";
+        $jsonKeys = !empty($fieldNames)
+            ? '"' . implode('", "', $fieldNames) . '"'
+            : '"field_name"';
 
-        return $context;
+        return <<<PROMPT
+<!--ref:{$entropy}-->
+أنت مساعد تعليمي متخصص لمنصة SERS. مهمتك ملء جميع حقول نموذج تعليمي سعودي باحترافية وتناسق.
+
+## اسم النموذج
+«{$title}»
+
+## الحقول المطلوبة
+{$fieldList}
+## القيم المدخلة مسبقاً (لا تعيد كتابتها — استخدمها للتناسق)
+{$existingLines}
+## تعليمات الإخراج
+- أرجع **JSON فقط** — لا نص خارج الـ JSON إطلاقاً.
+- الهيكل المطلوب: `{{"fieldName": "المحتوى المقترح", ...}}`
+- المفاتيح المطلوبة: {$jsonKeys}
+- لكل حقل: اكتب محتوى أصيلاً واحترافياً (40+ حرف) مناسباً لسياق السجل التعليمي.
+- لا تستخدم عبارات عامة مثل «اكتب هنا» أو «يتم تحديده لاحقاً».
+- حافظ على التناسق بين الحقول — المحتوى يجب أن يكوّن وثيقة متكاملة.
+- الأسلوب: عربية فصحى رسمية مناسبة للوثائق التعليمية السعودية.
+PROMPT;
     }
 
     private function buildAnalysisPrompt(Analysis $analysis): string
@@ -736,6 +1064,9 @@ class AIController extends Controller
 
     private function buildChatMessages(AIConversation $conversation, ?array $templateContext = null, string $locale = 'ar'): array
     {
+        $isEn = ($locale === 'en');
+        $entropy = bin2hex(random_bytes(4)); // Anti-repetition token
+
         // ── 1. Query live marketplace data safely ──────────────────────────────
         $catalogueText = '';
         $totalTemplates = 0;
@@ -748,43 +1079,95 @@ class AIController extends Controller
                         $q->where('is_active', true)
                           ->orderByDesc('sales_count')
                           ->limit(3)
-                          ->select('id', 'name_ar', 'section_id', 'price', 'sales_count', 'slug');
+                          ->select('id', 'name_ar', 'name_en', 'section_id', 'price', 'sales_count', 'slug');
                     }])
-                    ->get(['id', 'name_ar', 'slug', 'description_ar']);
+                    ->get(['id', 'name_ar', 'name_en', 'slug', 'description_ar', 'description_en']);
             });
 
             $totalTemplates = $sectionsData->sum('templates_count');
             $catalogueLines = [];
             foreach ($sectionsData as $section) {
                 $count = $section->templates_count ?? 0;
-                $catalogueLines[] = "• [{$section->name_ar}]({$count} template) — /marketplace?section={$section->slug}";
+                $secName = $isEn ? ($section->name_en ?: $section->name_ar) : $section->name_ar;
+                $catalogueLines[] = "• [{$secName}](/marketplace?section={$section->slug}) — {$count} " . ($isEn ? 'templates' : 'قالب');
                 foreach ($section->templates as $tpl) {
-                    $price  = ($tpl->price > 0) ? "{$tpl->price} SAR" : 'Free';
+                    $tplName = $isEn ? ($tpl->name_en ?: $tpl->name_ar) : $tpl->name_ar;
+                    $price  = ($tpl->price > 0) ? "{$tpl->price} " . ($isEn ? 'SAR' : 'ريال') : ($isEn ? 'Free' : 'مجاني');
                     $sales  = $tpl->sales_count ?? 0;
-                    $catalogueLines[] = "    - {$tpl->name_ar} | {$price} | {$sales} sold | /marketplace/{$tpl->slug}";
+                    $salesLabel = $isEn ? "{$sales} sold" : "{$sales} مبيعة";
+                    $catalogueLines[] = "    - [{$tplName}](/marketplace/{$tpl->slug}) | {$price} | {$salesLabel}";
                 }
             }
             $catalogueText = implode("\n", $catalogueLines);
         } catch (\Throwable $e) {
             Log::warning('AI: failed to load sections catalogue', ['error' => $e->getMessage()]);
-            $catalogueText = 'Store available at /marketplace';
+            $catalogueText = $isEn ? 'Store available at [Marketplace](/marketplace)' : 'المتجر متاح في [متجر القوالب](/marketplace)';
         }
 
-        // ── 2. Educational services map ─────────────────────────────────────────
-        $servicesText = implode("\n", [
-            '• خطط الدروس والتوزيعات (Lesson Plans) — /dashboard/distributions',
-            '• السجلات والتقارير (Records & Plans) — /dashboard/plans',
-            '• شهادات التقدير (Certificates) — /dashboard/certificates',
-            '• سجل المتابعة اليومية (Follow-up Log) — /dashboard/follow-up-log',
-            '• شواهد الأداء (Work Evidence) — /dashboard/work-evidence',
-            '• الإنجازات والتوثيق (Achievements) — /dashboard/achievements',
-            '• الإنتاج المعرفي (Knowledge Production) — /dashboard/knowledge-production',
-            '• بنك الأسئلة (Question Bank) — /dashboard/question-bank',
-            '• الاختبارات (Tests) — /dashboard/tests',
-            '• أوراق العمل (Worksheets) — /dashboard/worksheets',
-        ]);
+        // ── 2. Educational services map (bilingual) ─────────────────────────────
+        $servicesText = $isEn
+            ? implode("\n", [
+                '• [Curriculum Distribution](/dashboard/distributions) — Weekly/semester lesson plans',
+                '• [Plans & Records](/dashboard/plans) — Teaching plans and records',
+                '• [Certificates](/dashboard/certificates) — Appreciation certificates',
+                '• [Follow-up Log](/dashboard/follow-up-log) — Daily student tracking',
+                '• [Work Evidence](/dashboard/work-evidence) — Performance evidence documentation',
+                '• [Achievements](/dashboard/achievements) — Professional achievement portfolio',
+                '• [Knowledge Production](/dashboard/knowledge-production) — Research & publications',
+                '• [Question Bank](/dashboard/question-bank) — Exam question database',
+                '• [Tests](/dashboard/tests) — Test creation and management',
+                '• [Worksheets](/dashboard/worksheets) — Interactive worksheets',
+            ])
+            : implode("\n", [
+                '• [توزيعات المنهج](/dashboard/distributions) — توزيعات أسبوعية وفصلية',
+                '• [الخطط والسجلات](/dashboard/plans) — خطط التدريس والسجلات',
+                '• [الشهادات](/dashboard/certificates) — شهادات التقدير الاحترافية',
+                '• [سجل المتابعة](/dashboard/follow-up-log) — متابعة الطلاب اليومية',
+                '• [شواهد الأداء](/dashboard/work-evidence) — توثيق الأداء الوظيفي',
+                '• [الإنجازات](/dashboard/achievements) — ملف الإنجاز المهني',
+                '• [الإنتاج المعرفي](/dashboard/knowledge-production) — الأبحاث والمقالات',
+                '• [بنك الأسئلة](/dashboard/question-bank) — قاعدة أسئلة الاختبارات',
+                '• [الاختبارات](/dashboard/tests) — إنشاء وإدارة الاختبارات',
+                '• [أوراق العمل](/dashboard/worksheets) — أوراق عمل تفاعلية',
+            ]);
 
-        // ── 3. User context + Role detection ────────────────────────────────────
+        // ── 3. Real platform statistics ──────────────────────────────────────────
+        $platformStats = '';
+        try {
+            $statsData = cache()->remember('ai_platform_stats', 300, function () {
+                $totalUsers = \DB::table('users')->count();
+                $totalOrders = \DB::table('orders')->where('status', 'completed')->count();
+                $totalRevenue = (float) \DB::table('orders')->where('status', 'completed')->sum('total');
+                $newUsersMonth = \DB::table('users')->where('created_at', '>=', now()->startOfMonth())->count();
+                $ordersToday = \DB::table('orders')->whereDate('created_at', today())->count();
+
+                return compact('totalUsers', 'totalOrders', 'totalRevenue', 'newUsersMonth', 'ordersToday');
+            });
+
+            if ($isEn) {
+                $platformStats = "\n\n=== LIVE PLATFORM STATISTICS ===\n"
+                    . "Total users: {$statsData['totalUsers']}\n"
+                    . "Total completed orders: {$statsData['totalOrders']}\n"
+                    . "Total revenue: " . number_format($statsData['totalRevenue'], 0) . " SAR\n"
+                    . "New users this month: {$statsData['newUsersMonth']}\n"
+                    . "Orders today: {$statsData['ordersToday']}\n"
+                    . "Total templates: {$totalTemplates}\n"
+                    . "USE these real numbers when answering questions about the platform.";
+            } else {
+                $platformStats = "\n\n=== إحصائيات المنصة الحقيقية (محدّثة) ===\n"
+                    . "عدد المستخدمين: {$statsData['totalUsers']}\n"
+                    . "الطلبات المكتملة: {$statsData['totalOrders']}\n"
+                    . "إجمالي الإيرادات: " . number_format($statsData['totalRevenue'], 0) . " ريال\n"
+                    . "المستخدمون الجدد هذا الشهر: {$statsData['newUsersMonth']}\n"
+                    . "طلبات اليوم: {$statsData['ordersToday']}\n"
+                    . "عدد القوالب: {$totalTemplates}\n"
+                    . "استخدم هذه الأرقام الحقيقية عند الإجابة عن أسئلة المنصة.";
+            }
+        } catch (\Throwable $e) {
+            Log::warning('AI: failed to load platform stats', ['error' => $e->getMessage()]);
+        }
+
+        // ── 4. User context + Role detection + Behavior ─────────────────────────
         $userContext = '';
         $isAdmin = false;
         $userName = '';
@@ -798,92 +1181,212 @@ class AIController extends Controller
                     ->where('user_id', $user->id)
                     ->count();
 
-                $roleName = $isAdmin ? 'مدير النظام (Admin)' : 'معلم/معلمة (Teacher)';
-                $userContext = "\n\n=== معلومات المستخدم الحالي ===\nالاسم: {$user->name}\nالدور: {$roleName}\nالقوالب المشتراة: {$purchasedCount}";
+                $ordersCount = \DB::table('orders')
+                    ->where('user_id', $user->id)
+                    ->where('status', 'completed')
+                    ->count();
+
+                $lastOrder = \DB::table('orders')
+                    ->where('user_id', $user->id)
+                    ->where('status', 'completed')
+                    ->latest()
+                    ->first();
+
+                $lastOrderInfo = '';
+                if ($lastOrder) {
+                    $lastOrderDate = \Carbon\Carbon::parse($lastOrder->created_at)->diffForHumans();
+                    $lastOrderInfo = $isEn
+                        ? "Last purchase: {$lastOrderDate}"
+                        : "آخر عملية شراء: {$lastOrderDate}";
+                }
+
+                $joinDate = $user->created_at
+                    ? \Carbon\Carbon::parse($user->created_at)->diffForHumans()
+                    : '';
+
+                if ($isEn) {
+                    $roleName = $isAdmin ? 'System Administrator' : 'Teacher';
+                    $userContext = "\n\n=== CURRENT USER PROFILE ===\n"
+                        . "Name: {$user->name}\n"
+                        . "Role: {$roleName}\n"
+                        . "Templates owned: {$purchasedCount}\n"
+                        . "Completed orders: {$ordersCount}\n"
+                        . ($lastOrderInfo ? "{$lastOrderInfo}\n" : '')
+                        . ($joinDate ? "Member since: {$joinDate}\n" : '')
+                        . "Use this info to personalize your responses.";
+                } else {
+                    $roleName = $isAdmin ? 'مدير النظام' : 'معلم/معلمة';
+                    $userContext = "\n\n=== ملف المستخدم الحالي ===\n"
+                        . "الاسم: {$user->name}\n"
+                        . "الدور: {$roleName}\n"
+                        . "القوالب المكتسبة: {$purchasedCount}\n"
+                        . "الطلبات المكتملة: {$ordersCount}\n"
+                        . ($lastOrderInfo ? "{$lastOrderInfo}\n" : '')
+                        . ($joinDate ? "عضو منذ: {$joinDate}\n" : '')
+                        . "استخدم هذه المعلومات لتخصيص ردودك.";
+                }
             }
         } catch (\Throwable) {
             // Non-critical — skip user context if DB query fails
         }
 
-        // ── 4. Role-based route access map ──────────────────────────────────────
-        // This tells the AI exactly which pages the current user can access
-        $userRoutes = implode("\n", [
-            '• الصفحة الرئيسية — /',
-            '• متجر القوالب — /marketplace',
-            '• عن المنصة — /about',
-            '• الخدمات — /services',
-            '• تواصل معنا — /contact',
-            '• لوحتي — /dashboard',
-            '• المساعد الذكي — /dashboard/ai-assistant',
-            '• مكتبتي — /my-library',
-            '• قائمة الرغبات — /wishlist',
-            '• طلباتي — /orders',
-            '• الإعدادات — /settings',
-        ]);
+        // ── 5. Role-based route access map (bilingual) ──────────────────────────
+        $userRoutes = $isEn
+            ? implode("\n", [
+                '• [Home](/) — Main landing page',
+                '• [Template Store](/marketplace) — Browse and buy templates',
+                '• [About](/about) — About the platform',
+                '• [Services](/services) — Educational services',
+                '• [Contact Us](/contact) — Support and feedback',
+                '• [My Dashboard](/dashboard) — Personal workspace',
+                '• [AI Assistant](/dashboard/ai-assistant) — Smart assistant',
+                '• [My Library](/my-library) — Purchased templates',
+                '• [Wishlist](/wishlist) — Saved templates',
+                '• [My Orders](/orders) — Order history',
+                '• [Settings](/settings) — Account settings',
+            ])
+            : implode("\n", [
+                '• [الصفحة الرئيسية](/) — واجهة المنصة',
+                '• [متجر القوالب](/marketplace) — تصفح وشراء القوالب',
+                '• [عن المنصة](/about) — معلومات عن SERS',
+                '• [الخدمات](/services) — الخدمات التعليمية',
+                '• [تواصل معنا](/contact) — الدعم والملاحظات',
+                '• [لوحتي](/dashboard) — مساحة العمل الشخصية',
+                '• [المساعد الذكي](/dashboard/ai-assistant) — المحادثة الذكية',
+                '• [مكتبتي](/my-library) — القوالب المشتراة',
+                '• [قائمة الرغبات](/wishlist) — القوالب المحفوظة',
+                '• [طلباتي](/orders) — سجل الطلبات',
+                '• [الإعدادات](/settings) — إعدادات الحساب',
+            ]);
 
         $adminRoutes = '';
         if ($isAdmin) {
-            $adminRoutes = "\n\n=== صفحات الإدارة (للمدير فقط) ===\n" . implode("\n", [
-                '• لوحة الإدارة — /admin',
-                '• إدارة القوالب — /admin/templates',
-                '• إدارة الطلبات — /admin/orders',
-                '• إدارة المستخدمين — /admin/users',
-                '• التقارير — /admin/reports',
-                '• إدارة الأقسام — /admin/sections',
-                '• إدارة التصنيفات — /admin/categories',
-                '• إدارة الذكاء الاصطناعي — /admin/ai-management',
-                '• إعدادات النظام — /admin/settings',
-            ]);
+            $adminRoutes = $isEn
+                ? "\n\n=== ADMIN PAGES (Admin only) ===\n" . implode("\n", [
+                    '• [Admin Dashboard](/admin) — System overview',
+                    '• [Manage Templates](/admin/templates) — Template CRUD',
+                    '• [Manage Orders](/admin/orders) — Order processing',
+                    '• [Manage Users](/admin/users) — User management',
+                    '• [Reports](/admin/reports) — Analytics and reports',
+                    '• [Manage Sections](/admin/sections) — Store sections',
+                    '• [Manage Categories](/admin/categories) — Categories',
+                    '• [AI Management](/admin/ai-management) — AI settings',
+                    '• [System Settings](/admin/settings) — Platform config',
+                ])
+                : "\n\n=== صفحات الإدارة (للمدير فقط) ===\n" . implode("\n", [
+                    '• [لوحة الإدارة](/admin) — نظرة عامة على النظام',
+                    '• [إدارة القوالب](/admin/templates) — إضافة وتعديل القوالب',
+                    '• [إدارة الطلبات](/admin/orders) — معالجة الطلبات',
+                    '• [إدارة المستخدمين](/admin/users) — إدارة الحسابات',
+                    '• [التقارير](/admin/reports) — التحليلات والتقارير',
+                    '• [إدارة الأقسام](/admin/sections) — أقسام المتجر',
+                    '• [إدارة التصنيفات](/admin/categories) — التصنيفات',
+                    '• [إدارة الذكاء الاصطناعي](/admin/ai-management) — إعدادات AI',
+                    '• [إعدادات النظام](/admin/settings) — إعدادات المنصة',
+                ]);
         }
 
-        // ── 5. Locale-aware response instructions ───────────────────────────────
-        $langInstruction = $locale === 'en'
-            ? "\n\n=== LANGUAGE INSTRUCTION ===\nThe user's interface is in English. You MUST respond entirely in English. Use professional, friendly English."
-            : "\n\n=== تعليمات اللغة ===\nواجهة المستخدم بالعربية. أجب بالعربية الفصحى دائماً بأسلوب ودي ومهني.";
-
-        // ── 6. Anti-admin-leak guard (for non-admin users) ──────────────────────
+        // ── 6. Anti-admin-leak guard ────────────────────────────────────────────
         $routeGuard = $isAdmin
             ? ''
-            : "\n\n⛔ تحذير أمني: هذا المستخدم ليس مديراً. يُمنع منعاً باتاً اقتراح أو إرسال أي رابط يبدأ بـ /admin — حتى لو طلب المستخدم ذلك. إذا سأل عن صفحات إدارية أخبره أنها غير متاحة لحسابه.";
+            : ($isEn
+                ? "\n\n⛔ SECURITY: This user is NOT an admin. NEVER suggest any /admin/* links even if asked."
+                : "\n\n⛔ تحذير أمني: هذا المستخدم ليس مديراً. يُمنع منعاً باتاً اقتراح أي رابط /admin حتى لو طلب.");
 
-        // ── 7. Compose system prompt ────────────────────────────────────────────
-        $systemContent = <<<PROMPT
-أنت مساعد ذكي متخصص لمنصة SERS - سوق السجلات التعليمية الذكية. اسمك "سيرس" وأنت **خبير حقيقي** بمحتوى المنصة.
+        // ── 7. Compose system prompt (bilingual) ────────────────────────────────
+        if ($isEn) {
+            $systemContent = <<<PROMPT
+[SEED:{$entropy}]
+You are "SERS AI" — the intelligent assistant for the SERS platform (Smart Educational Records Store), a Saudi Arabian educational marketplace for teachers.
 
-=== مبادئ الإجابة الأساسية ===
-1. أشر إلى القوالب والصفحات **الحقيقية فقط** من البيانات المتاحة أدناه.
-2. لا تخترع قوالب أو صفحات غير موجودة — استخدم البيانات المُحقنة فقط.
-3. كن مختصراً ومنظماً — لا تتجاوز 8 أسطر في الإجابة العادية.
-4. إذا لم تعرف الإجابة، قل ذلك بصراحة واقترح التواصل مع الدعم.
+=== CORE RULES ===
+1. You MUST respond ENTIRELY in English. No Arabic text at all.
+2. ONLY answer questions related to:
+   - The SERS platform features, pages, templates, and services
+   - Saudi education system (curriculum, teaching, lesson planning)
+   - Educational content creation and professional development
+3. If asked about unrelated topics (cooking, sports, politics, etc.), politely decline:
+   "I'm specialized in SERS platform and Saudi education. How can I help you with your teaching needs?"
+4. Use ONLY real data provided below — never invent templates, pages, or statistics.
+5. When mentioning a page, ALWAYS use markdown link format: [Page Name](/path)
+6. Keep responses concise: max 10 lines for standard answers, up to 15 for detailed analysis.
 
-=== قواعد تنسيق الردود (مهم جداً) ===
-- عند اقتراح صفحة أو قسم، اكتب الرابط بنسق Markdown هكذا: [اسم الصفحة](/المسار)
-  مثال: [متجر القوالب](/marketplace) أو [ملفات الإنجاز](/dashboard/achievements)
-- استخدم **نص** للتأكيد على الكلمات المهمة.
-- استخدم - في بداية السطر للقوائم.
-- استخدم ## للعناوين الفرعية إذا كان الرد طويلاً.
-- لا تكتب روابط كنص عادي أبداً — استخدم دائماً صيغة [النص](الرابط).
+=== RESPONSE FORMATTING (STRICT) ===
+- Use ## for section headings when response has multiple parts
+- Use **bold** for key numbers and important terms
+- Use - for bullet lists (keep each bullet to 1-2 lines)
+- Always write links as [Link Text](/path) — NEVER write raw URLs
+- Add a blank line between sections for readability
+- When presenting statistics, highlight them with **bold**
+- Each response must be UNIQUE — vary your structure, wording, and examples
+
+=== SERS TEMPLATE STORE ({$totalTemplates} templates) ===
+{$catalogueText}
+
+=== EDUCATIONAL SERVICES ===
+{$servicesText}
+
+=== AVAILABLE PAGES ===
+{$userRoutes}{$adminRoutes}{$platformStats}{$userContext}{$routeGuard}
+PROMPT;
+        } else {
+            $systemContent = <<<PROMPT
+[بذرة:{$entropy}]
+أنت "سيرس AI" — المساعد الذكي لمنصة SERS (سوق السجلات التعليمية الذكية)، سوق إلكتروني سعودي يخدم المعلمين والمعلمات.
+
+=== القواعد الأساسية ===
+1. أجب بالعربية الفصحى فقط بأسلوب مهني وودّي.
+2. أجب فقط عن الأسئلة المتعلقة بـ:
+   - منصة SERS: الميزات، الصفحات، القوالب، والخدمات
+   - التعليم السعودي: المناهج، التحضير، التخطيط
+   - إنشاء المحتوى التعليمي والتطوير المهني
+3. إذا سُئلت عن مواضيع غير ذات صلة (طبخ، رياضة، سياسة، إلخ)، ارفض بلطف:
+   "أنا متخصص في منصة SERS والتعليم السعودي. كيف يمكنني مساعدتك في احتياجاتك التعليمية؟"
+4. لا تخترع قوالب أو صفحات — استخدم البيانات الحقيقية أدناه فقط.
+5. عند ذكر صفحة، استخدم دائماً صيغة Markdown: [اسم الصفحة](/المسار)
+6. اجعل الرد مختصراً: حد أقصى 10 أسطر للإجابات العادية، و15 للتحليلات.
+
+=== تنسيق الردود (مهم جداً — التزم تماماً) ===
+- استخدم ## للعناوين عندما يكون الرد متعدد الأقسام
+- استخدم **نص** للأرقام المهمة والمصطلحات الرئيسية
+- استخدم - لقوائم النقاط (كل نقطة سطر أو سطرين فقط)
+- اكتب الروابط دائماً بصيغة [النص](/المسار) — ممنوع كتابة روابط عادية
+- اترك سطراً فارغاً بين الأقسام لسهولة القراءة
+- عند عرض إحصائيات، أبرزها بـ **خط عريض**
+- كل رد يجب أن يكون فريداً — نوّع في الأسلوب والأمثلة والتركيب
 
 === متجر SERS ({$totalTemplates} قالب) ===
 {$catalogueText}
 
-=== الخدمات التعليمية التفاعلية ===
+=== الخدمات التعليمية ===
 {$servicesText}
 
-=== الصفحات المتاحة لهذا المستخدم ===
-{$userRoutes}{$adminRoutes}{$userContext}{$langInstruction}{$routeGuard}
+=== الصفحات المتاحة ===
+{$userRoutes}{$adminRoutes}{$platformStats}{$userContext}{$routeGuard}
 PROMPT;
+        }
 
         // ── 8. Add open template context if any ─────────────────────────────────
         if (!empty($templateContext)) {
-            $systemContent .= "\n\n=== سياق القالب المفتوح حالياً ===\n";
-            if (!empty($templateContext['name_ar'])) {
-                $systemContent .= "اسم القالب: {$templateContext['name_ar']}\n";
+            if ($isEn) {
+                $systemContent .= "\n\n=== CURRENTLY OPEN TEMPLATE ===\n";
+                if (!empty($templateContext['name_ar'])) {
+                    $systemContent .= "Template name: {$templateContext['name_ar']}\n";
+                }
+                if (!empty($templateContext['description_ar'])) {
+                    $systemContent .= "Description: {$templateContext['description_ar']}\n";
+                }
+                $systemContent .= "Focus your answers on this specific template.";
+            } else {
+                $systemContent .= "\n\n=== سياق القالب المفتوح حالياً ===\n";
+                if (!empty($templateContext['name_ar'])) {
+                    $systemContent .= "اسم القالب: {$templateContext['name_ar']}\n";
+                }
+                if (!empty($templateContext['description_ar'])) {
+                    $systemContent .= "وصف: {$templateContext['description_ar']}\n";
+                }
+                $systemContent .= "ركّز إجاباتك على هذا القالب تحديداً.";
             }
-            if (!empty($templateContext['description_ar'])) {
-                $systemContent .= "وصف: {$templateContext['description_ar']}\n";
-            }
-            $systemContent .= "ركّز إجاباتك على هذا القالب تحديداً.";
         }
 
         // ── 9. Assemble message array (last 10 turns only) ──────────────────────
